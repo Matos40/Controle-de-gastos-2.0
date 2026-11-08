@@ -203,7 +203,7 @@ function handleExcelImport(event) {
             if (rawVal <= 0) return;
 
             const sourceId = idKey && row[idKey] ? String(row[idKey]).trim() : '';
-            const itemId = sourceId || 'imp_' + sheetName.replace(/[^a-z0-9]/gi, '_') + '_' + idx + '_' + rawTitle.trim().toLowerCase().replace(/[^a-z0-9]/gi, '_');
+            const itemId = sourceId || 'imp_' + sheetName.replace(/[^a-z0-9]/gi, '_') + '_' + idx + '_' + rawTitle.trim().toLowerCase().replace(/[^a-z0-9]/gi, '_') + '_' + String(rawVal).replace(/[^0-9]/g, '_');
             let dateVal = `${appDb.selectedMonth}-10`;
             if (dateKey && row[dateKey]) {
               const rawD = String(row[dateKey]).trim();
