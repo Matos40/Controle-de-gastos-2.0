@@ -172,6 +172,11 @@ function handleExcelImport(event) {
       }
 
       if (!restored) {
+        // Trabalha numa copia isolada. A base ativa so muda depois de gravar com sucesso.
+        const originalDb = appDb;
+        const workingDb = JSON.parse(JSON.stringify(appDb));
+        appDb = workingDb;
+        try {
         const currentData = getCurrentMonthData();
         let importedExp = 0;
         let importedCard = 0;
@@ -254,9 +259,18 @@ function handleExcelImport(event) {
           });
         });
 
-        saveDatabase();
-        renderAll();
-        showToast(`Importação finalizada: ${importedExp} contas e ${importedCard} cartões adicionados!`, 'success');
+        if (importedExp === 0 && importedCard === 0) {
+          appDb = originalDb;
+          showToast('Nenhum novo lancamento encontrado na planilha.', 'info');
+        } else {
+          saveDatabase();
+          renderAll();
+          showToast(`Importação finalizada: ${importedExp} contas e ${importedCard} cartões adicionados!`, 'success');
+        }
+        } catch (importError) {
+          appDb = originalDb;
+          throw importError;
+        }
       }
     } catch (err) {
       console.error('Erro na importação Excel:', err);
