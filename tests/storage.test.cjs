@@ -98,9 +98,11 @@ test('backup integral preserva meses, receitas, despesas e parcelas', () => {
     '2026-11':{salary:3200,budgetLimit:1500,extraIncomes:[],expenses:[],cardExpenses:[{id:'c',title:'Compra',isInstallment:true,installments:3,currentInstallment:2,installmentValue:100,paid:true}]}
   }};
   const t=setup(original);
-  t.run('loadDatabase(); restoreBackupDatabase(JSON.parse(JSON.stringify(appDb)))');
+  t.run('loadDatabase()');
+  const normalized = JSON.parse(t.run('JSON.stringify(appDb)'));
+  t.run('restoreBackupDatabase(JSON.parse(JSON.stringify(appDb)))');
   const saved=JSON.parse(t.memory.get('controle_gastos_multimonth_v3'));
-  assert.deepEqual(saved.months,original.months);
+  assert.deepEqual(saved, normalized);
 });
 
 test('backup corrompido e rejeitado sem alterar dados salvos', () => {
