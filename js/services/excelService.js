@@ -203,7 +203,6 @@ function handleExcelImport(event) {
             if (rawVal <= 0) return;
 
             const sourceId = idKey && row[idKey] ? String(row[idKey]).trim() : '';
-            const itemId = sourceId || 'imp_' + sheetName.replace(/[^a-z0-9]/gi, '_') + '_' + idx + '_' + rawTitle.trim().toLowerCase().replace(/[^a-z0-9]/gi, '_') + '_' + String(rawVal).replace(/[^0-9]/g, '_');
             let dateVal = `${appDb.selectedMonth}-10`;
             if (dateKey && row[dateKey]) {
               const rawD = String(row[dateKey]).trim();
@@ -215,6 +214,7 @@ function handleExcelImport(event) {
               }
             }
 
+            const itemId = sourceId || 'imp_' + sheetName.replace(/[^a-z0-9]/gi, '_') + '_' + idx + '_' + rawTitle.trim().toLowerCase().replace(/[^a-z0-9]/gi, '_') + '_' + String(rawVal).replace(/[^0-9]/g, '_') + '_' + dateVal;
             const isCardSheet = sheetName.toLowerCase().includes('cartao') || sheetName.toLowerCase().includes('cartão');
 
             if (isCardSheet) {
@@ -222,7 +222,7 @@ function handleExcelImport(event) {
               const isInst = rawModalidade.includes('parcelado') || rawModalidade.includes('fixo');
               
               const exists = (currentData.cardExpenses || []).some(c =>
-                c.id === itemId || (!sourceId && String(c.title || '').trim().toLowerCase() === rawTitle.toLowerCase()
+                c.id === itemId || (!sourceId && /^imp_\\d{10,}_/.test(String(c.id || '')) && String(c.title || '').trim().toLowerCase() === rawTitle.toLowerCase()
                   && Number(c.installmentValue) === rawVal && String(c.date || '') === dateVal && Boolean(c.isInstallment) === isInst));
               if (!exists) {
                 if (!currentData.cardExpenses) currentData.cardExpenses = [];
@@ -245,7 +245,7 @@ function handleExcelImport(event) {
               const isFixed = rawType.includes('fix') || rawType.includes('conta');
 
               const exists = (currentData.expenses || []).some(e =>
-                e.id === itemId || (!sourceId && String(e.title || '').trim().toLowerCase() === rawTitle.toLowerCase()
+                e.id === itemId || (!sourceId && /^imp_\\d{10,}_/.test(String(e.id || '')) && String(e.title || '').trim().toLowerCase() === rawTitle.toLowerCase()
                   && Number(e.amount) === rawVal && String(e.date || '') === dateVal && e.type === (isFixed ? 'fixed' : 'one-time')));
               if (!exists) {
                 if (!currentData.expenses) currentData.expenses = [];
