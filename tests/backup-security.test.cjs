@@ -113,3 +113,17 @@ test('Excel sem lancamentos validos nao altera armazenamento',()=>{
   assert.equal(t.memory.get('controle_gastos_multimonth_v3'),before);
   assert.ok(!t.messages.some(m=>m.type==='success'));
 });
+
+test('Excel preserva lancamentos distintos com mesmo titulo e valores diferentes',()=>{
+  const t=fixture();
+  t.setWorkbook({SheetNames:['Despesas gerais'],Sheets:{
+    'Despesas gerais':{rows:[
+      {'Descrição':'Mercado','Valor':100},
+      {'Descrição':'Mercado','Valor':200}
+    ]}
+  }});
+  t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),2);
+  t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),2);
+});
