@@ -79,3 +79,37 @@ test('cancelar restauracao de Excel valido preserva dados atuais',()=>{
   assert.equal(t.hasConfirmation(),true);
   assert.equal(t.memory.get('controle_gastos_multimonth_v3'),before);
 });
+
+test('importacao convencional Excel reverte alteracoes se gravacao falhar',()=>{
+  const t=fixture(),before=t.memory.get('controle_gastos_multimonth_v3');
+  t.setWorkbook({SheetNames:['Despesas gerais'],Sheets:{
+    'Despesas gerais':{rows:[{'Descrição':'Despesa nova','Valor':250}]}
+  }});
+  t.failWrites();
+  t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
+  assert.equal(t.memory.get('controle_gastos_multimonth_v3'),before);
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),0);
+  assert.ok(t.messages.some(m=>m.type==='error'));
+  assert.ok(!t.messages.some(m=>m.type==='success'));
+});
+
+test('importacao convencional Excel valida dados antes de gravar e preserva base original',()=>{
+  const t=fixture();
+  t.setWorkbook({SheetNames:['Despesas gerais'],Sheets:{
+    'Despesas gerais':{rows:[{'Descrição':'Despesa nova','Valor':250}]}
+  }});
+  t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),1);
+  assert.equal(JSON.parse(t.memory.get('controle_gastos_multimonth_v3')).months['2026-11'].expenses[0].amount,250);
+  assert.ok(t.messages.some(m=>m.type==='success'));
+});
+
+test('Excel sem lancamentos validos nao altera armazenamento',()=>{
+  const t=fixture(),before=t.memory.get('controle_gastos_multimonth_v3');
+  t.setWorkbook({SheetNames:['Despesas gerais'],Sheets:{
+    'Despesas gerais':{rows:[{'Descrição':'','Valor':250}]}
+  }});
+  t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
+  assert.equal(t.memory.get('controle_gastos_multimonth_v3'),before);
+  assert.ok(!t.messages.some(m=>m.type==='success'));
+});
