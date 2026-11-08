@@ -133,6 +133,10 @@ function handleExcelImport(event) {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       let restored = false;
+      const backupSheets = workbook.SheetNames.filter(name => name.toLowerCase().includes('backup'));
+      if (backupSheets.length > 0 && backupSheets.length !== 1) {
+        throw new Error('Arquivo contem multiplas abas de backup. Restauracao cancelada.');
+      }
 
       workbook.SheetNames.forEach(sheetName => {
         const ws = workbook.Sheets[sheetName];
@@ -158,10 +162,14 @@ function handleExcelImport(event) {
               restored = true;
             }
           } catch (errJson) {
-            console.warn('Backup JSON direto falhou, processando por linhas...');
+            throw new Error('Backup integral do Excel invalido. Nenhum dado foi importado: ' + errJson.message);
           }
         }
       });
+
+      if (backupSheets.length > 0 && !restored) {
+        throw new Error('Aba de backup vazia ou invalida. Nenhum dado foi importado.');
+      }
 
       if (!restored) {
         const currentData = getCurrentMonthData();
