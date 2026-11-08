@@ -8,7 +8,7 @@ function setup(initial) {
   const memory = new Map();
   if (initial !== undefined) memory.set('controle_gastos_multimonth_v3', JSON.stringify(initial));
   const context = vm.createContext({
-    console, Date, Math, setTimeout, renderAll: () => {}, showToast: () => {},
+    console, Date, Math, setTimeout, renderAll: () => {}, updateMonthHeader: () => {}, showToast: () => {},
     document: { getElementById: () => null },
     localStorage: {
       getItem: key => memory.get(key) ?? null,
