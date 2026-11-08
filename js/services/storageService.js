@@ -161,7 +161,7 @@
       if (!db || typeof db !== 'object' || Array.isArray(db) ||
           !db.months || typeof db.months !== 'object' || Array.isArray(db.months) ||
           typeof db.selectedMonth !== 'string' ||
-          !/^\\d{4}-(0[1-9]|1[0-2])$/.test(db.selectedMonth) ||
+          !/^\d{4}-(0[1-9]|1[0-2])$/.test(db.selectedMonth) ||
           !Object.prototype.hasOwnProperty.call(db.months, db.selectedMonth)) {
         throw new Error('Backup invalido: estrutura de meses ou mes selecionado ausente.');
       }
@@ -169,7 +169,7 @@
       if (!keys.length) throw new Error('Backup invalido: nenhum mes encontrado.');
       for (const ym of keys) {
         const m = db.months[ym];
-        if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(ym) ||
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym) ||
             !m || typeof m !== 'object' || Array.isArray(m) ||
             !Array.isArray(m.expenses) || !Array.isArray(m.cardExpenses) ||
             (m.extraIncomes !== undefined && !Array.isArray(m.extraIncomes)) ||
