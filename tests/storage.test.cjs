@@ -161,8 +161,9 @@ test('parcela excluida em mes criado automaticamente nao reaparece na sincroniza
 function setupAdvance(initial) {
   const t = setup(initial);
   t.context.window = { addEventListener: () => {} };
-  t.context.showModal = (_title, _message, confirm) => confirm();
   vm.runInContext(fs.readFileSync('js/app.js', 'utf8'), t.context, {filename:'js/app.js'});
+  // Sobrescrever o modal definido no app: confirmar diretamente sem DOM.
+  t.context.showModal = (_title, _message, confirm) => confirm();
   // Funcoes de UI do app nao devem acessar o DOM real durante o teste.
   t.run('showToast = () => {}; renderAll = () => {}; updateMonthHeader = () => {};');
   return t;
