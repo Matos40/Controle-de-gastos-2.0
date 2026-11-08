@@ -36,3 +36,5 @@ jobs:
             test -f "$file" || { echo "::error::Arquivo ausente: $file"; exit 1; }
           done
           node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'))"
+      - name: Testar persistencia e regras financeiras
+        run: node --test tests/*.test.cjs
