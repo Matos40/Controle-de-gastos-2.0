@@ -127,3 +127,27 @@ test('Excel preserva lancamentos distintos com mesmo titulo e valores diferentes
   t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
   assert.equal(t.run('appDb.months["2026-11"].expenses.length'),2);
 });
+
+test('Excel preserva duas linhas identicas e nao duplica ao reimportar',()=>{
+  const t=fixture();
+  t.setWorkbook({SheetNames:['Despesas gerais'],Sheets:{
+    'Despesas gerais':{rows:[
+      {'Descrição':'Cafe','Valor':20},
+      {'Descrição':'Cafe','Valor':20}
+    ]}
+  }});
+  t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),2);
+  t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),2);
+});
+
+test('Excel nao confunde despesa manual com linha importada de mesmo titulo',()=>{
+  const t=fixture();
+  t.run('appDb.months["2026-11"].expenses.push({id:"manual1",title:"Cafe",amount:20,date:"2026-11-10",type:"one-time"});saveDatabase()');
+  t.setWorkbook({SheetNames:['Despesas gerais'],Sheets:{
+    'Despesas gerais':{rows:[{'Descrição':'Cafe','Valor':20}]}
+  }});
+  t.run('handleExcelImport({target:{files:[{}],value:"arquivo"}})');
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),2);
+});
