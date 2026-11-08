@@ -25,7 +25,7 @@ test('primeiro acesso inicia sem despesas, renda ou cartoes ficticios', () => {
   const t = setup();
   t.run('loadDatabase()');
   const db = JSON.parse(t.memory.get('controle_gastos_multimonth_v3'));
-  assert.match(db.selectedMonth, /^\\d{4}-\\d{2}$/);
+  assert.match(db.selectedMonth, /^\d{4}-\d{2}$/);
   assert.equal(db.months[db.selectedMonth].salary, 0);
   assert.equal(db.months[db.selectedMonth].budgetLimit, 0);
   assert.deepEqual(db.months[db.selectedMonth].expenses, []);
