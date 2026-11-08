@@ -133,6 +133,10 @@ function handleExcelImport(event) {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       let restored = false;
+      const backupSheets = workbook.SheetNames.filter(name => name.toLowerCase().includes('backup'));
+      if (backupSheets.length > 0 && backupSheets.length !== 1) {
+        throw new Error('Arquivo contem multiplas abas de backup. Restauracao cancelada.');
+      }
 
       workbook.SheetNames.forEach(sheetName => {
         const ws = workbook.Sheets[sheetName];
@@ -146,21 +150,33 @@ function handleExcelImport(event) {
             rows.forEach(r => { if (r['JSON']) fullJson += r['JSON']; });
             if (fullJson) {
               const parsedDb = JSON.parse(fullJson);
-              if (parsedDb && parsedDb.months) {
-                appDb = parsedDb;
-                saveDatabase();
-                renderAll();
-                restored = true;
-                showToast('Base restaurada integralmente pelo backup do Excel!', 'success');
-              }
+              validateBackupDatabase(parsedDb);
+              showModal('Restaurar backup do Excel?', 'Esta operacao substituira todos os dados financeiros atuais pelos dados do arquivo. Confirme somente se possui um backup seguro.', () => {
+                try {
+                  restoreBackupDatabase(parsedDb);
+                  showToast('Backup do Excel restaurado com sucesso!', 'success');
+                } catch (restoreError) {
+                  showToast('Falha ao restaurar: ' + restoreError.message, 'error');
+                }
+              });
+              restored = true;
             }
           } catch (errJson) {
-            console.warn('Backup JSON direto falhou, processando por linhas...');
+            throw new Error('Backup integral do Excel invalido. Nenhum dado foi importado: ' + errJson.message);
           }
         }
       });
 
+      if (backupSheets.length > 0 && !restored) {
+        throw new Error('Aba de backup vazia ou invalida. Nenhum dado foi importado.');
+      }
+
       if (!restored) {
+        // Trabalha numa copia isolada. A base ativa so muda depois de gravar com sucesso.
+        const originalDb = appDb;
+        const workingDb = JSON.parse(JSON.stringify(appDb));
+        appDb = workingDb;
+        try {
         const currentData = getCurrentMonthData();
         let importedExp = 0;
         let importedCard = 0;
@@ -186,7 +202,7 @@ function handleExcelImport(event) {
             const rawVal = valueKey ? parseCurrencyInput(row[valueKey]) : 0;
             if (rawVal <= 0) return;
 
-            const itemId = idKey && row[idKey] ? String(row[idKey]).trim() : 'imp_' + Date.now() + '_' + idx;
+            const sourceId = idKey && row[idKey] ? String(row[idKey]).trim() : '';
             let dateVal = `${appDb.selectedMonth}-10`;
             if (dateKey && row[dateKey]) {
               const rawD = String(row[dateKey]).trim();
@@ -198,13 +214,16 @@ function handleExcelImport(event) {
               }
             }
 
+            const itemId = sourceId || 'imp_' + sheetName.replace(/[^a-z0-9]/gi, '_') + '_' + idx + '_' + rawTitle.trim().toLowerCase().replace(/[^a-z0-9]/gi, '_') + '_' + String(rawVal).replace(/[^0-9]/g, '_') + '_' + dateVal;
             const isCardSheet = sheetName.toLowerCase().includes('cartao') || sheetName.toLowerCase().includes('cartão');
 
             if (isCardSheet) {
               const rawModalidade = typeKey ? String(row[typeKey]).toLowerCase() : '';
               const isInst = rawModalidade.includes('parcelado') || rawModalidade.includes('fixo');
               
-              const exists = (currentData.cardExpenses || []).some(c => c.id === itemId || c.title.toLowerCase() === rawTitle.toLowerCase());
+              const exists = (currentData.cardExpenses || []).some(c =>
+                c.id === itemId || (!sourceId && /^imp_\\d{10,}_/.test(String(c.id || '')) && String(c.title || '').trim().toLowerCase() === rawTitle.toLowerCase()
+                  && Number(c.installmentValue) === rawVal && String(c.date || '') === dateVal && Boolean(c.isInstallment) === isInst));
               if (!exists) {
                 if (!currentData.cardExpenses) currentData.cardExpenses = [];
                 currentData.cardExpenses.push({
@@ -225,7 +244,9 @@ function handleExcelImport(event) {
               const rawType = typeKey ? String(row[typeKey]).toLowerCase() : '';
               const isFixed = rawType.includes('fix') || rawType.includes('conta');
 
-              const exists = (currentData.expenses || []).some(e => e.id === itemId || e.title.toLowerCase() === rawTitle.toLowerCase());
+              const exists = (currentData.expenses || []).some(e =>
+                e.id === itemId || (!sourceId && /^imp_\\d{10,}_/.test(String(e.id || '')) && String(e.title || '').trim().toLowerCase() === rawTitle.toLowerCase()
+                  && Number(e.amount) === rawVal && String(e.date || '') === dateVal && e.type === (isFixed ? 'fixed' : 'one-time')));
               if (!exists) {
                 if (!currentData.expenses) currentData.expenses = [];
                 currentData.expenses.push({
@@ -243,9 +264,18 @@ function handleExcelImport(event) {
           });
         });
 
-        saveDatabase();
-        renderAll();
-        showToast(`Importação finalizada: ${importedExp} contas e ${importedCard} cartões adicionados!`, 'success');
+        if (importedExp === 0 && importedCard === 0) {
+          appDb = originalDb;
+          showToast('Nenhum novo lancamento encontrado na planilha.', 'info');
+        } else {
+          saveDatabase();
+          renderAll();
+          showToast(`Importação finalizada: ${importedExp} contas e ${importedCard} cartões adicionados!`, 'success');
+        }
+        } catch (importError) {
+          appDb = originalDb;
+          throw importError;
+        }
       }
     } catch (err) {
       console.error('Erro na importação Excel:', err);
@@ -265,4 +295,31 @@ function exportData() {
   a.click();
   a.remove();
   showToast('Backup JSON baixado com sucesso!', 'success');
+}
+function handleJsonImport(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const candidate = validateBackupDatabase(JSON.parse(e.target.result));
+      showModal('Restaurar backup JSON?', 'Todos os dados financeiros atuais serao substituidos pelo conteudo do backup. Esta operacao nao pode ser desfeita sem outro backup.', () => {
+        try {
+          restoreBackupDatabase(candidate);
+          showToast('Backup JSON restaurado com sucesso!', 'success');
+        } catch (err) {
+          showToast('Falha ao restaurar: ' + err.message, 'error');
+        }
+      });
+    } catch (err) {
+      showToast('Arquivo JSON invalido: ' + err.message, 'error');
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.onerror = () => {
+    showToast('Nao foi possivel ler o arquivo JSON.', 'error');
+    event.target.value = '';
+  };
+  reader.readAsText(file);
 }

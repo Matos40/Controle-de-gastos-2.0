@@ -26,10 +26,7 @@
       prevFixed.forEach(pItem => {
         const existingIndex = currentData.expenses.findIndex(e => e.title.trim().toLowerCase() === pItem.title.trim().toLowerCase());
         if (existingIndex !== -1) {
-          if (currentData.expenses[existingIndex].amount !== pItem.amount) {
-            currentData.expenses[existingIndex].amount = pItem.amount;
-            updatedFixedCount++;
-          }
+          // Uma despesa ja existente pode ter sido editada neste mes: preservar seu valor.
         } else {
           currentData.expenses.push({
             id: 'exp_sync_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -57,16 +54,24 @@
           const totalInst = pCard.installments || 1;
 
           if (nextInstallmentNum <= totalInst) {
-            const cardExists = currentData.cardExpenses.some(c => 
-              c.title.trim().toLowerCase() === pCard.title.trim().toLowerCase() && 
-              c.isInstallment && 
-              c.currentInstallment === nextInstallmentNum
-            );
+            const originId = pCard.installmentOriginId || pCard.id;
+            // Parcelas antigas nao possuem identificador de origem.
+            // Nesse caso, evita duplicacao pelo conjunto titulo + parcela + valor.
+            const deletedOrigins = currentData.deletedInstallmentOrigins || [];
+            const deletedKey = String(originId) + ':' + String(nextInstallmentNum);
+            if (deletedOrigins.includes(deletedKey)) return;
+            const cardExists = currentData.cardExpenses.some(c => {
+              if (!c.isInstallment || Number(c.currentInstallment) !== Number(nextInstallmentNum)) return false;
+              if (c.installmentOriginId && originId) return c.installmentOriginId === originId;
+              return String(c.title || '').trim().toLowerCase() === String(pCard.title || '').trim().toLowerCase()
+                && Number(c.installments) === Number(totalInst);
+            });
 
             if (!cardExists) {
               currentData.cardExpenses.push({
                 ...pCard,
                 id: 'card_sync_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                installmentOriginId: originId,
                 category: pCard.category || inferCategoryFromTitle(pCard.title),
                 currentInstallment: nextInstallmentNum,
                 date: `${currentYM}-${todayDayStr}`,
@@ -101,7 +106,7 @@
         const prevYM = getPreviousMonthYM(ym);
         
         const prevData = appDb.months[prevYM] || (monthKeys.length > 0 ? appDb.months[monthKeys[monthKeys.length - 1]] : null);
-        const prevSalary = prevData ? (prevData.salary || 0) : 3500;
+        const prevSalary = prevData ? (prevData.salary || 0) : 0;
         const prevBudget = prevData ? (prevData.budgetLimit || 0) : 0;
         const todayDayStr = String(new Date().getDate()).padStart(2, '0');
 
@@ -128,6 +133,7 @@
                 inheritedCardExpenses.push({
                   ...item,
                   id: 'card_inherited_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).substr(2, 4),
+                  installmentOriginId: item.installmentOriginId || item.id,
                   category: item.category || inferCategoryFromTitle(item.title),
                   currentInstallment: currentInst + 1,
                   date: `${ym}-${todayDayStr}`,
@@ -136,8 +142,6 @@
               }
             }
           });
-        } else {
-          inheritedCardExpenses = getRayCardExpenses();
         }
 
         appDb.months[ym] = {
@@ -146,10 +150,62 @@
           extraIncomes: [],
           expenses: inheritedFixedExpenses,
           cardExpenses: inheritedCardExpenses,
+          deletedInstallmentOrigins: [],
           closed: false,
           closedAt: null
         };
       }
+    }
+
+
+    function validateBackupDatabase(db) {
+      if (!db || typeof db !== 'object' || Array.isArray(db) ||
+          !db.months || typeof db.months !== 'object' || Array.isArray(db.months) ||
+          typeof db.selectedMonth !== 'string' ||
+          !/^\d{4}-(0[1-9]|1[0-2])$/.test(db.selectedMonth) ||
+          !Object.prototype.hasOwnProperty.call(db.months, db.selectedMonth)) {
+        throw new Error('Backup invalido: estrutura de meses ou mes selecionado ausente.');
+      }
+      const keys = Object.keys(db.months);
+      if (!keys.length) throw new Error('Backup invalido: nenhum mes encontrado.');
+      for (const ym of keys) {
+        const m = db.months[ym];
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym) ||
+            !m || typeof m !== 'object' || Array.isArray(m) ||
+            !Array.isArray(m.expenses) || !Array.isArray(m.cardExpenses) ||
+            (m.extraIncomes !== undefined && !Array.isArray(m.extraIncomes)) ||
+            (m.salary !== undefined && (!Number.isFinite(m.salary) || m.salary < 0)) ||
+            (m.budgetLimit !== undefined && (!Number.isFinite(m.budgetLimit) || m.budgetLimit < 0))) {
+          throw new Error('Backup invalido: dados inconsistentes em ' + ym);
+        }
+        for (const item of m.expenses) {
+          if (!item || typeof item.title !== 'string' || !Number.isFinite(item.amount) || item.amount < 0)
+            throw new Error('Backup invalido: despesa inconsistente em ' + ym);
+        }
+        for (const item of m.cardExpenses) {
+          if (!item || typeof item.title !== 'string' || !Number.isFinite(item.installmentValue) ||
+              item.installmentValue < 0 || (item.isInstallment &&
+              (!Number.isInteger(item.installments) || item.installments < 2 ||
+               !Number.isInteger(item.currentInstallment) || item.currentInstallment < 1 ||
+               item.currentInstallment > item.installments)))
+            throw new Error('Backup invalido: parcela inconsistente em ' + ym);
+        }
+      }
+      return db;
+    }
+
+    function restoreBackupDatabase(candidate) {
+      const restored = validateBackupDatabase(candidate);
+      const previous = appDb;
+      appDb = restored;
+      try {
+        saveDatabase();
+      } catch (err) {
+        appDb = previous;
+        throw err;
+      }
+      updateMonthHeader();
+      renderAll();
     }
 
     function loadDatabase() {
@@ -157,7 +213,7 @@
         const saved = localStorage.getItem(STORAGE_DATABASE_KEY);
         if (saved) {
           appDb = JSON.parse(saved);
-          if (!appDb.selectedMonth) appDb.selectedMonth = '2026-10';
+          if (!appDb.selectedMonth) appDb.selectedMonth = getTodayYM();
           Object.keys(appDb.months || {}).forEach(k => {
             const m = appDb.months[k];
             if (!m.extraIncomes) m.extraIncomes = [];
@@ -167,23 +223,16 @@
             m.expenses.forEach(e => { if (!e.category) e.category = inferCategoryFromTitle(e.title); });
             m.cardExpenses.forEach(c => { if (!c.category) c.category = inferCategoryFromTitle(c.title); });
           });
-          if (appDb.months && appDb.months['2026-10'] && (!appDb.months['2026-10'].cardExpenses || appDb.months['2026-10'].cardExpenses.length === 0)) {
-            appDb.months['2026-10'].cardExpenses = getRayCardExpenses();
-            saveDatabase();
-          }
         } else {
-          const ym = '2026-10';
+          const ym = getTodayYM();
           appDb.selectedMonth = ym;
           appDb.months = {
             [ym]: {
-              salary: 3500.00,
-              budgetLimit: 3200.00,
+              salary: 0,
+              budgetLimit: 0,
               extraIncomes: [],
-              expenses: [
-                { id: '1', title: 'Conta de Luz', category: 'moradia', amount: 180.00, type: 'fixed', date: `${ym}-10`, paid: false },
-                { id: '2', title: 'Água e Esgoto', category: 'moradia', amount: 95.50, type: 'fixed', date: `${ym}-12`, paid: false }
-              ],
-              cardExpenses: getRayCardExpenses(),
+              expenses: [],
+              cardExpenses: [],
               closed: false,
               closedAt: null
             }
@@ -202,17 +251,26 @@
     function changeMonth(delta) {
       const [year, month] = appDb.selectedMonth.split('-').map(Number);
       const d = new Date(year, month - 1 + delta, 1);
-      appDb.selectedMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      ensureMonthExists(appDb.selectedMonth);
+      const targetYM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-      const curData = appDb.months[appDb.selectedMonth];
-      if (curData && (!curData.expenses || curData.expenses.length === 0)) {
-        syncFromPreviousMonth(false);
+      const navigate = () => {
+        appDb.selectedMonth = targetYM;
+        ensureMonthExists(targetYM);
+        saveDatabase();
+        updateMonthHeader();
+        renderAll();
+      };
+
+      if (appDb.months[targetYM]) {
+        navigate();
+        return;
       }
 
-      saveDatabase();
-      updateMonthHeader();
-      renderAll();
+      showModal(
+        `Criar ${formatMonthYear(targetYM)}?`,
+        `Este mês ainda não foi cadastrado. Deseja criá-lo agora? As despesas fixas e parcelas pendentes poderão ser herdadas do mês anterior.`,
+        navigate
+      );
     }
 
     function updateMonthHeader() {

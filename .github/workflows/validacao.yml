@@ -1,0 +1,40 @@
+name: Validacao de desenvolvimento
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar sintaxe JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            echo "Verificando: $file"
+            node --check "$file"
+          done < <(find js -type f -name '*.js' -print0)
+          node --check sw.js
+      - name: Verificar arquivos essenciais
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in index.html manifest.json sw.js css/styles.css js/state.js js/app.js; do
+            test -f "$file" || { echo "::error::Arquivo ausente: $file"; exit 1; }
+          done
+          node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'))"
+      - name: Testar persistencia e regras financeiras
+        run: node --test tests/*.test.cjs
