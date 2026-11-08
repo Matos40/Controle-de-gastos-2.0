@@ -139,3 +139,21 @@ test('sincronizacao nao recria parcela excluida com marcador de exclusao', () =>
   t.run('loadDatabase(); syncFromPreviousMonth(true)');
   assert.equal(t.run('appDb.months["2026-11"].cardExpenses.length'),0);
 });
+
+test('mes criado automaticamente preserva origem e sincronizacao nao duplica parcela', () => {
+  const t=setup({selectedMonth:'2026-11',months:{
+    '2026-11':{salary:0,expenses:[],cardExpenses:[{id:'compra1',title:'Notebook',isInstallment:true,installments:3,currentInstallment:1,installmentValue:300}]}
+  }});
+  t.run('loadDatabase(); ensureMonthExists("2026-12"); appDb.selectedMonth="2026-12"; syncFromPreviousMonth(true); syncFromPreviousMonth(true)');
+  assert.equal(t.run('getCurrentMonthData().cardExpenses.length'),1);
+  assert.equal(t.run('getCurrentMonthData().cardExpenses[0].currentInstallment'),2);
+  assert.equal(t.run('getCurrentMonthData().cardExpenses[0].installmentOriginId'),'compra1');
+});
+
+test('parcela excluida em mes criado automaticamente nao reaparece na sincronizacao', () => {
+  const t=setup({selectedMonth:'2026-11',months:{
+    '2026-11':{salary:0,expenses:[],cardExpenses:[{id:'compra1',title:'Notebook',isInstallment:true,installments:3,currentInstallment:1,installmentValue:300}]}
+  }});
+  t.run('loadDatabase(); ensureMonthExists("2026-12"); appDb.selectedMonth="2026-12"; getCurrentMonthData().cardExpenses=[]; getCurrentMonthData().deletedInstallmentOrigins=["compra1:2"]; syncFromPreviousMonth(true)');
+  assert.equal(t.run('getCurrentMonthData().cardExpenses.length'),0);
+});
