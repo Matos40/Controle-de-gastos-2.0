@@ -843,7 +843,16 @@
 
       <!-- Movimentações do mês: entradas extras e investimentos -->
       <div id="incomesListContainer" class="hidden mt-4 pt-4 border-t border-slate-800/80">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <div class="md:hidden flex items-center justify-between gap-2 mb-2">
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-bold text-slate-200">Extras e investimentos</p>
+            <p id="mobileMovementTotals" class="text-[11px] text-slate-400 mt-0.5">Entradas: R$ 0,00 · Investimentos: R$ 0,00</p>
+          </div>
+          <button id="mobileMovementToggle" type="button" aria-expanded="false" aria-controls="mobileMovementDetails" class="shrink-0 flex items-center gap-1.5 rounded-lg border border-teal-500/40 bg-slate-800 px-3 py-2 text-xs font-bold text-teal-200">
+            <span id="mobileMovementToggleLabel">Ver detalhes</span><i id="mobileMovementToggleIcon" class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>
+        <div id="mobileMovementDetails" class="hidden md:grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           <div class="min-w-0 rounded-xl border border-emerald-500/20 bg-slate-950/40 p-3 sm:p-4">
             <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
               <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
