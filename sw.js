@@ -1,7 +1,7 @@
-const CACHE_NAME = 'controle-gastos-shell-v2';
+const CACHE_NAME = 'controle-gastos-shell-v11';
 const APP_SHELL = [
   './', './index.html', './manifest.json', './css/styles.css',
-  './js/state.js', './js/app.js',
+  './js/state.js', './js/app.js', './js/onboarding.js',
   './js/services/storageService.js', './js/services/geminiService.js', './js/services/excelService.js',
   './js/ui/renderSummary.js', './js/ui/renderExpenses.js', './js/ui/renderCards.js',
   './js/ui/renderAnalytics.js', './js/ui/renderHistory.js'
