@@ -1,6 +1,6 @@
-const CACHE_NAME = 'controle-gastos-shell-v11';
+const CACHE_NAME = 'controle-gastos-shell-v12';
 const APP_SHELL = [
-  './', './index.html', './manifest.json', './css/styles.css',
+  './', './index.html', './manifest.json', './favicon.ico', './raytech-icon-192.png', './raytech-icon-512.png', './css/styles.css',
   './js/state.js', './js/app.js', './js/onboarding.js',
   './js/services/storageService.js', './js/services/geminiService.js', './js/services/excelService.js',
   './js/ui/renderSummary.js', './js/ui/renderExpenses.js', './js/ui/renderCards.js',
