@@ -1,4 +1,4 @@
-const CACHE_NAME = 'controle-gastos-shell-v3';
+const CACHE_NAME = 'controle-gastos-shell-v4';
 const APP_SHELL = [
   './', './index.html', './manifest.json', './css/styles.css',
   './js/state.js', './js/app.js', './js/onboarding.js',
