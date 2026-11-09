@@ -17,6 +17,7 @@
   let previousFocus = null;
   let checklist = null;
   const CHECK_KEY = 'controle_gastos_checklist_v1';
+  const ELIGIBLE_KEY = 'controle_gastos_checklist_eligible_v1';
   function saved() { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { return {}; } }
   function store(data) { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (_) {} }
   function build() {
@@ -117,7 +118,9 @@
     const state = saved();
     let checkState = '';
     try { checkState = localStorage.getItem(CHECK_KEY) || ''; } catch (_) {}
-    if (!state.completed || checkState === 'hidden') {
+    let eligible = false;
+    try { eligible = localStorage.getItem(ELIGIBLE_KEY) === 'yes'; } catch (_) {}
+    if (!eligible || !state.completed || checkState === 'hidden') {
       checklist.classList.add('hidden');
       return;
     }
@@ -159,6 +162,9 @@
   }
   document.addEventListener('DOMContentLoaded', () => {
     build();
+    if (!hadDatabaseBeforeStartup) {
+      try { localStorage.setItem(ELIGIBLE_KEY, 'yes'); } catch (_) {}
+    }
     // Bancos preexistentes não recebem tutorial automático; não interferir no bloqueio por PIN.
     if (!hadDatabaseBeforeStartup && !saved().completed && !localStorage.getItem(PIN_KEY)) open(0);
     renderChecklist();
