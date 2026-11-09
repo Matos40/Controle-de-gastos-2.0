@@ -54,7 +54,9 @@
       const action = target.dataset.checkAction;
       if (highlightedElement) highlightedElement.classList.remove('onboarding-target-pulse');
       if (action === 'backup') {
-        if (typeof openHeaderDrawer === 'function') openHeaderDrawer();
+        event.stopPropagation();
+        const drawerElement = document.getElementById('headerToolsDrawer');
+        if (drawerElement?.classList.contains('hidden') && typeof toggleHeaderDrawer === 'function') toggleHeaderDrawer(event);
         const drawer = document.getElementById('headerToolsDrawer');
         const backup = Array.from(drawer?.querySelectorAll('button') || []).find(btn => btn.textContent.includes('Backup JSON'));
         highlightTarget(backup || drawer);
