@@ -34,6 +34,21 @@
       ];
       const investedTotal = investments.reduce((sum, item) => sum + item.investedAmount, 0);
       container.classList.remove('hidden');
+      const mobileTotals = document.getElementById('mobileMovementTotals');
+      if (mobileTotals) mobileTotals.textContent = 'Entradas: +' + formatBRL(totalExtras) + ' · Investimentos: -' + formatBRL(investedTotal);
+      const mobileToggle = document.getElementById('mobileMovementToggle');
+      const mobileDetails = document.getElementById('mobileMovementDetails');
+      if (mobileToggle && mobileDetails && !mobileToggle.dataset.initialized) {
+        mobileToggle.dataset.initialized = 'true';
+        mobileToggle.addEventListener('click', () => {
+          const expanded = mobileToggle.getAttribute('aria-expanded') === 'true';
+          mobileToggle.setAttribute('aria-expanded', String(!expanded));
+          mobileDetails.classList.toggle('hidden', expanded);
+          mobileDetails.classList.toggle('grid', !expanded);
+          document.getElementById('mobileMovementToggleLabel').textContent = expanded ? 'Ver detalhes' : 'Ocultar';
+          document.getElementById('mobileMovementToggleIcon').className = 'fa-solid ' + (expanded ? 'fa-chevron-down' : 'fa-chevron-up');
+        });
+      }
       totalBadge.textContent = 'Total Extra: ' + formatBRL(totalExtras);
       if (investmentsBadge) investmentsBadge.textContent = 'Total: ' + formatBRL(investedTotal);
       incomeEmpty?.classList.toggle('hidden', incomes.length > 0);
