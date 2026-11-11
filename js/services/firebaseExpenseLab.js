@@ -145,7 +145,7 @@ export function initializeExpenseLab(auth, db, onAuthStateChanged) {
     }
     const draftTitle = title.value.trim();
     const draftAmount = amount.value.trim();
-    const validMoney = /^\\d{1,7}(?:[,.]\\d{1,2})?$/.test(draftAmount);
+    const validMoney = /^\d{1,7}(?:[,.]\d{1,2})?$/.test(draftAmount);
     const cents = validMoney ? Math.round(Number(draftAmount.replace(',', '.')) * 100) : NaN;
     if (!draftTitle || draftTitle.length > 60 || !Number.isSafeInteger(cents) || cents <= 0) {
       draftMessage('Preencha descrição e valor fictícios válidos antes de guardar o rascunho.');
