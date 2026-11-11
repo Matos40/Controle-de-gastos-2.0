@@ -50,6 +50,7 @@ export function initializeOfflineQueue(auth, firestore, onAuthStateChanged) {
   const title = document.getElementById('firebaseExpenseLabTitle');
   const amount = document.getElementById('firebaseExpenseLabAmount');
   const panel = document.getElementById('firebaseExpenseQueue');
+  const conflicts = document.getElementById('firebaseExpenseQueueConflicts');
   if (!enqueue || !status || !title || !amount || !panel) return;
   let uid = null, flushing = false, generation = 0;
   const message = text => { status.textContent = text; };
@@ -60,6 +61,26 @@ export function initializeOfflineQueue(auth, firestore, onAuthStateChanged) {
       const items = await operate('readonly', 'list', current);
       if (current !== uid) return;
       const errors = items.filter(x => x.state === 'conflict').length;
+      if (conflicts) {
+        conflicts.replaceChildren();
+        for (const op of items.filter(x => x.state === 'conflict')) {
+          const line = document.createElement('div');
+          const label = document.createElement('span');
+          label.textContent = 'Conflito: ' + (op.kind || 'create') + ' · ' + (op.title || op.targetId || op.id);
+          const discard = document.createElement('button');
+          discard.type = 'button';
+          discard.className = 'ml-2 underline text-rose-300';
+          discard.textContent = 'Descartar operação local';
+          discard.addEventListener('click', async () => {
+            if (uid !== current || !window.confirm('Descartar apenas a operação local? O servidor não será alterado.')) return;
+            try { await remove(op.id); await show(); }
+            catch { message('Falha ao descartar operação.'); }
+          });
+          line.className = 'text-xs text-amber-200';
+          line.append(label, discard);
+          conflicts.append(line);
+        }
+      }
       message(items.length ? `${items.length} operação(ões) local(is) pendente(s)${errors ? `; ${errors} com conflito` : ''}. ${navigator.onLine ? 'Aguardando confirmação do servidor.' : 'Sem internet.'}`
         : 'Fila vazia: nenhuma criação fictícia aguardando envio.');
     } catch { message('IndexedDB indisponível. Não foi possível consultar a fila.'); }
@@ -173,6 +194,7 @@ export function initializeOfflineQueue(auth, firestore, onAuthStateChanged) {
     generation++;
     uid = user?.uid || null;
     panel.classList.toggle('hidden', !uid);
+    if (!uid && conflicts) conflicts.replaceChildren();
     if (!uid) { message('Entre com Google para usar a fila.'); return; }
     void show();
     void flush();
