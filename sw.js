@@ -1,4 +1,4 @@
-const CACHE_NAME = 'controle-gastos-shell-v12';
+const CACHE_NAME = 'controle-gastos-shell-v13';
 const APP_SHELL = [
   './', './index.html', './manifest.json', './favicon.ico', './raytech-icon-192.png', './raytech-icon-512.png', './css/styles.css',
   './js/state.js', './js/app.js', './js/onboarding.js',
