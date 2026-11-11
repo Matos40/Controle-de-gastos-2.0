@@ -1,8 +1,7 @@
 /* Firebase Authentication — homologação. Não lê nem envia dados financeiros. */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
-  setPersistence, browserLocalPersistence
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 
 const firebaseConfig = Object.freeze({
@@ -52,7 +51,6 @@ if (login) login.addEventListener('click', async () => {
   busy = true;
   render(auth.currentUser, 'Abrindo login Google…');
   try {
-    await setPersistence(auth, browserLocalPersistence);
     await signInWithPopup(auth, provider);
     render(auth.currentUser);
   } catch (error) {
