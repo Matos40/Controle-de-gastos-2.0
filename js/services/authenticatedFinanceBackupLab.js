@@ -29,7 +29,10 @@ const clone=x=>JSON.parse(encode(x));
 function keyCheck(key){if(!Buffer.isBuffer(key)||key.length<32)fail('invalid_key');}
 function idCheck(keyId){if(typeof keyId!=='string'||!/^[A-Za-z0-9_-]{1,64}$/.test(keyId))fail('invalid_key_id');}
 function mac(data,key){return crypto.createHmac('sha256',key).update('raytech-finance-auth-backup-v1\0').update(encode(data)).digest('hex');}
+const forbidden=new Set(['apiKey','geminiApiKey','pin','pinHash','STORAGE_GEMINI_KEY','STORAGE_PIN_KEY','gemini_user_api_key','controle_gastos_pin_lock']);
+function scanSensitive(value){if(Array.isArray(value)){value.forEach(scanSensitive);return;}if(!object(value))return;for(const [k,v] of Object.entries(value)){if(forbidden.has(k))fail('sensitive_field');scanSensitive(v);}}
 function validatePayload(payload){
+ scanSensitive(payload);
  if(!object(payload)||Object.keys(payload).sort().join(',')!=='finance,kind')fail('invalid_payload');
  if(payload.kind==='snapshot'){try{validateSnapshot(payload.finance);}catch{fail('invalid_finance');}}
  else if(payload.kind==='v3'){try{verifyV3(payload.finance);}catch{fail('invalid_finance');}}
