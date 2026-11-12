@@ -31,7 +31,7 @@ test('mes existente nao pode ser futuro',()=>error(()=>reconcile(base(),{futureD
 test('marcador embutido invalido rejeitado',()=>{const s=base();s.months['2026-12'].deletedInstallmentOrigins=['bad'];error(()=>reconcile(s),'invalid_markers');});
 test('mes seguinte dezembro vira janeiro',()=>assert.equal(nextMonth('2026-12'),'2027-01'));
 test('mes seguinte novembro vira dezembro',()=>assert.equal(nextMonth('2026-11'),'2026-12'));
-test('plano de origem explicita cria parcela',()=>assert.equal(safePlan(base(),'2026-09').created,1));
+test('plano de origem explicita reconhece parcela existente',()=>assert.equal(safePlan(base(),'2026-09').created,0));
 test('plano de origem explicita preserva id',()=>assert.equal(safePlan(base(),'2026-09').decisions[0].id,'card-2026-09'));
 test('plano detecta parcela existente',()=>assert.equal(safePlan(base(),'2026-09').decisions[0].action,'skip_existing'));
 test('plano legado exige revisao',()=>assert.equal(safePlan(legacy(),'2026-10').decisions[0].action,'manual_review'));
