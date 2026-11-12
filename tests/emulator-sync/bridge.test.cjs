@@ -106,8 +106,17 @@ async function main() {
       assert.equal(denied,true);
     });
     await check('conflito remoto preserva fila local', async () => {
-      queue.create(month,'expense','teste1',data); // tombstone local impede recriacao
-    }).catch(() => {}); // replaced below
+      const conflictStorage = new Map();
+      const conflictQueue = createQueue({
+        getItem: k => conflictStorage.get(k) ?? null,
+        setItem: (k, v) => conflictStorage.set(k, String(v))
+      }, { idFactory: () => 'conflito_1' });
+      conflictQueue.create(month,'expense','teste1',data);
+      const result = await drainOne(conflictQueue, transport);
+      assert.equal(result.status,'pending');
+      assert.equal(conflictQueue.pending().length,1);
+    });
+    console.log('RESULTADO: ' + passed + '/8 TESTES APROVADOS');
   } finally {
     await env.cleanup();
   }
