@@ -32,7 +32,8 @@ for(const [name,dir,file,port,auth,count] of run){
  const env={...process.env,NODE_PATH:dep,
   FIRESTORE_EMULATOR_HOST:'127.0.0.1:'+port,
   GOOGLE_CLOUD_PROJECT:'demo-raytech-regression-'+name,
-  GCLOUD_PROJECT:'demo-raytech-regression-'+name};
+  GCLOUD_PROJECT:'demo-raytech-regression-'+name,
+  NODE_OPTIONS:[process.env.NODE_OPTIONS||'', '--trace-warnings'].filter(Boolean).join(' ')};
  if(auth)env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:'+auth;
  else delete env.FIREBASE_AUTH_EMULATOR_HOST;
  // Evitar credenciais externas no teste; a verificacao de ID token usa emulador.
@@ -40,7 +41,7 @@ for(const [name,dir,file,port,auth,count] of run){
  const project='demo-raytech-regression-'+name;
  const command=process.platform==='win32'?'firebase.cmd':'firebase';
  const args=['emulators:exec','--config',cfg,'--only',auth?'auth,firestore':'firestore',
-  '--project',project,'node --trace-warnings '+path.join(root,dir,file)];
+  '--project',project,'node "'+path.join(root,dir,file)+'"'];
  console.log('\n=== '+name+' ===');
  const r=spawnSync(command,args,{cwd:root,env,encoding:'utf8',maxBuffer:16*1024*1024,
   timeout:180000,windowsHide:true,shell:process.platform==='win32'});
