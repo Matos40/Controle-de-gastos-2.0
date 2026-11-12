@@ -27,9 +27,9 @@ test("sessao revogada nao escreve",()=>{const s=setup();s.revoke(TA);deny(()=>s.
 test("sessao revogada nao backup",()=>{const s=setup();s.revoke(TA);deny(()=>s.backup(TA,A),'session_revoked');});
 test("sessao revogada nao restaura",()=>{const s=setup(),b=s.backup(TA,A);s.revoke(TA);deny(()=>s.restore(TA,A,b,0),'session_revoked');});
 test("revogacao A nao afeta B",()=>{const s=setup();s.revoke(TA);assert.equal(s.read(TB,B).revision,0);});
-test("sessao expirada nao le",()=>{const s=setup(()=>2000);deny(()=>s.read(TA,A),'session_expired');});
-test("sessao expirada nao escreve",()=>{const s=setup(()=>2000);deny(()=>s.write(TA,A,finance(1100),0),'session_expired');});
-test("sessao expirada nao backup",()=>{const s=setup(()=>2000);deny(()=>s.backup(TA,A),'session_expired');});
+test("sessao expirada nao le",()=>{let t=0;const s=setup(()=>t);t=2000;deny(()=>s.read(TA,A),'session_expired');});
+test("sessao expirada nao escreve",()=>{let t=0;const s=setup(()=>t);t=2000;deny(()=>s.write(TA,A,finance(1100),0),'session_expired');});
+test("sessao expirada nao backup",()=>{let t=0;const s=setup(()=>t);t=2000;deny(()=>s.backup(TA,A),'session_expired');});
 test("sessao expirada nao restaura",()=>{let t=0;const s=setup(()=>t),b=s.backup(TA,A);t=2000;deny(()=>s.restore(TA,A,b,0),'session_expired');});
 test("token adulterado",()=>{const s=setup();deny(()=>s.read(A+'x',A),'unauthenticated');});
 test("token B nao se passa por A",()=>{const s=setup();deny(()=>s.backup(TB,A),'forbidden');});
