@@ -37,7 +37,7 @@ async function publish(db,uid,source,base){
   (base.number===0?base.checksum!==null:!/^[a-f0-9]{64}$/.test(base.checksum)))
   throw Error('Base de revisao invalida.');
  const r=refs(db,uid);
- return db.runTransaction(async tx=>{
+ try{return await db.runTransaction(async tx=>{
   const snap=await tx.get(r.head);
   const old=snap.exists?snap.data():null;
   if(old&&(!Number.isSafeInteger(old.number)||old.number<1||
@@ -57,6 +57,18 @@ async function publish(db,uid,source,base){
    parent:actual.checksum||''});
   return {status:'published',number,checksum:envelope.checksum};
  });
+ }catch(error){
+  // Uma corrida pode produzir PERMISSION_DENIED nas regras de incremento
+  // antes de o SDK refazer a transacao. Confirmar divergencia no head
+  // antes de classificar como conflito; nunca mascarar negacao real.
+  if(error?.code!=='permission-denied')throw error;
+  const latest=await r.head.get();
+  const value=latest.exists?latest.data():null;
+  const actual=value?{number:value.number,checksum:value.checksum}:{number:0,checksum:null};
+  if(actual.number!==base.number||actual.checksum!==base.checksum)
+   return {status:'conflict',expected:base,actual};
+  throw error;
+ }
 }
 async function recover(db,uid,preferences){
  const c=await current(db,uid,preferences);
