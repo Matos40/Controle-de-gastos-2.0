@@ -5,6 +5,7 @@ const {createAuthenticatedBackend}=require('./emulatorAuthBackendLab.js');
 const MAX_BODY=128*1024;
 const {validate,HttpInputError}=require('./httpInputValidationLab.js');
 const {createHttpGuards}=require('./httpGuardsLab.js');
+const {parseBearer,SessionPolicyError}=require('./httpSessionSecurityLab.js');
 function assertLab(){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8094'||
     process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9100')
@@ -37,7 +38,8 @@ function createHttpLab(db,auth,options={}){
   if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')
    return reply(415,{error:'unsupported_media_type'});
   const header=req.headers.authorization||'';
-  if(!/^Bearer [^\s]+$/.test(header))return reply(401,{error:'unauthorized'});
+  let token;
+  try{token=parseBearer(header);}catch{return reply(401,{error:'unauthorized'});}
   let bytes=0,chunks=[];
   try{
    for await(const chunk of req){
@@ -49,7 +51,6 @@ function createHttpLab(db,auth,options={}){
    req.setTimeout(0);
    const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));
    validate(action,data);
-   const token=header.slice(7);
    // Limite por credencial apresentada; nao substitui rate limit de borda.
    lease=guards.acquire(token);
    if(!lease.ok)return reply(lease.status,{error:lease.error});
@@ -58,6 +59,7 @@ function createHttpLab(db,auth,options={}){
     action==='submit'?data.operation:undefined);
    reply(200,result);
   }catch(e){
+   if(e instanceof SessionPolicyError)return reply(401,{error:'unauthorized'});
    if(e instanceof SyntaxError)return reply(400,{error:'invalid_json'});
    if(e instanceof HttpInputError)return reply(400,{error:e.code});
    // Apenas codigos tipados do Firebase Auth sao tratados como autenticacao.
