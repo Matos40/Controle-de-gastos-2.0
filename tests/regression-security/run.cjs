@@ -41,7 +41,7 @@ for(const [name,dir,file,port,auth,count] of run){
  delete env.GOOGLE_APPLICATION_CREDENTIALS;
  const project='demo-raytech-regression-'+name;
  const testFile=path.join(root,dir,file);
- console.log('\\n=== '+name+' ===');
+ console.log('\n=== '+name+' ===');
  let r;
  if(process.platform==='win32'){
   // Windows .cmd necessita de um unico argumento de comando para emulators:exec.
@@ -52,7 +52,7 @@ for(const [name,dir,file,port,auth,count] of run){
   const commandLine='call firebase emulators:exec --config '+quote(cfg)+
    ' --only '+(auth?'auth,firestore':'firestore')+
    ' --project '+project+' '+quote(inner);
-  fs.writeFileSync(cmdFile,'@echo off\\r\\n'+commandLine+'\\r\\n','utf8');
+  fs.writeFileSync(cmdFile,'@echo off\r\n'+commandLine+'\r\n','utf8');
   try{
    r=spawnSync('cmd.exe',['/d','/c',cmdFile],{cwd:root,env,encoding:'utf8',
     maxBuffer:16*1024*1024,timeout:180000,windowsHide:true,shell:false});
