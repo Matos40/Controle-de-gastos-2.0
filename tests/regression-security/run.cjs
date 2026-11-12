@@ -3,6 +3,7 @@
 const {spawnSync}=require('node:child_process');
 const fs=require('node:fs');
 const path=require('node:path');
+const os=require('node:os');
 const root=path.resolve(__dirname,'../..');
 const dep=process.env.RAYTECH_SAFE_NODE_MODULES;
 if(!dep||!path.isAbsolute(dep)||!fs.existsSync(path.join(dep,'firebase','package.json'))||
@@ -39,12 +40,29 @@ for(const [name,dir,file,port,auth,count] of run){
  // Evitar credenciais externas no teste; a verificacao de ID token usa emulador.
  delete env.GOOGLE_APPLICATION_CREDENTIALS;
  const project='demo-raytech-regression-'+name;
- const command=process.platform==='win32'?'firebase.cmd':'firebase';
- const args=['emulators:exec','--config',cfg,'--only',auth?'auth,firestore':'firestore',
-  '--project',project,'node "'+path.join(root,dir,file)+'"'];
- console.log('\n=== '+name+' ===');
- const r=spawnSync(command,args,{cwd:root,env,encoding:'utf8',maxBuffer:16*1024*1024,
-  timeout:180000,windowsHide:true,shell:process.platform==='win32'});
+ const testFile=path.join(root,dir,file);
+ console.log('\\n=== '+name+' ===');
+ let r;
+ if(process.platform==='win32'){
+  // Windows .cmd necessita de um unico argumento de comando para emulators:exec.
+  // Um arquivo .cmd temporario evita a redivisao de argumentos por shell:true.
+  const cmdFile=path.join(os.tmpdir(),'raytech-regression-'+process.pid+'-'+name+'.cmd');
+  const quote=s=>'"'+s.replace(/"/g,'""')+'"';
+  const inner='node '+quote(testFile);
+  const commandLine='call firebase emulators:exec --config '+quote(cfg)+
+   ' --only '+(auth?'auth,firestore':'firestore')+
+   ' --project '+project+' '+quote(inner);
+  fs.writeFileSync(cmdFile,'@echo off\\r\\n'+commandLine+'\\r\\n','utf8');
+  try{
+   r=spawnSync('cmd.exe',['/d','/c',cmdFile],{cwd:root,env,encoding:'utf8',
+    maxBuffer:16*1024*1024,timeout:180000,windowsHide:true,shell:false});
+  }finally{try{fs.unlinkSync(cmdFile);}catch{}}
+ }else{
+  r=spawnSync('firebase',['emulators:exec','--config',cfg,'--only',
+   auth?'auth,firestore':'firestore','--project',project,
+   'node '+JSON.stringify(testFile)],{cwd:root,env,encoding:'utf8',
+   maxBuffer:16*1024*1024,timeout:180000,windowsHide:true,shell:false});
+ }
  const output=(r.stdout||'')+'\n'+(r.stderr||'');
  process.stdout.write(output);
  const expected='RESULTADO: '+count+'/'+count+' TESTES APROVADOS';
