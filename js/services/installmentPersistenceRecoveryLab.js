@@ -6,6 +6,15 @@ class PersistenceError extends Error{constructor(code){super(code);this.name='Pe
 const fail=code=>{throw new PersistenceError(code);};
 const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 const clone=x=>JSON.parse(JSON.stringify(x));
+function canonical(x){
+ if(Array.isArray(x))return x.map(canonical);
+ if(x&&typeof x==='object'){
+  const out={};for(const key of Object.keys(x).sort())out[key]=canonical(x[key]);
+  return out;
+ }
+ return x;
+}
+const same=(a,b)=>JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
 const validMonth=x=>/^\d{4}-(0[1-9]|1[0-2])$/.test(x);
 function validate(s){
  if(!s||typeof s!=='object'||Array.isArray(s)||!s.months||typeof s.months!=='object'||
@@ -81,7 +90,7 @@ function open(disk){
     if(keys.some(key=>!(incoming.deletions[month]||[]).includes(key))&&!allowRollback)
      fail('deletion_rollback_requires_approval');
    }
-   if(JSON.stringify(incoming)===JSON.stringify(state))return {changed:false,revision};
+   if(same(incoming,state))return {changed:false,revision};
    return {changed:true,revision:commit(incoming,{failure})};
   }
  };
