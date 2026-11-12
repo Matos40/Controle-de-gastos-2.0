@@ -18,6 +18,13 @@ const suites=[
  ['authenticated-backend','tests/emulator-authenticated-backend','auth.test.cjs',8092,9098,20],
  ['security-audit','tests/emulator-security-audit','audit.test.cjs',8093,9099,22]
 ];
+const projectIds={
+ 'remote-idempotency':'demo-raytech-regression-remote-idempotency',
+ 'durable-offline':'demo-raytech-regression-durable-offline',
+ 'trusted-backend':'demo-raytech-regression-trusted-backend',
+ 'authenticated-backend':'demo-raytech-cg-auth-backend',
+ 'security-audit':'demo-raytech-cg-security'
+};
 const selected=process.argv.slice(2);
 if(selected.some(s=>!suites.some(x=>x[0]===s))){
  console.error('Suite desconhecida. Opcoes: '+suites.map(x=>x[0]).join(', '));process.exit(2);
@@ -30,16 +37,16 @@ for(const [name,dir,file,port,auth,count] of run){
  if(parsed.emulators.firestore.host!=='127.0.0.1'||parsed.emulators.firestore.port!==port||
   (auth&&(parsed.emulators.auth.host!=='127.0.0.1'||parsed.emulators.auth.port!==auth)))
   throw Error('Configuracao insegura: '+name);
+ const project=projectIds[name];
  const env={...process.env,NODE_PATH:dep,
   FIRESTORE_EMULATOR_HOST:'127.0.0.1:'+port,
-  GOOGLE_CLOUD_PROJECT:'demo-raytech-regression-'+name,
-  GCLOUD_PROJECT:'demo-raytech-regression-'+name,
+  GOOGLE_CLOUD_PROJECT:project,
+  GCLOUD_PROJECT:project,
   NODE_OPTIONS:[process.env.NODE_OPTIONS||'', '--trace-warnings'].filter(Boolean).join(' ')};
  if(auth)env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:'+auth;
  else delete env.FIREBASE_AUTH_EMULATOR_HOST;
  // Evitar credenciais externas no teste; a verificacao de ID token usa emulador.
  delete env.GOOGLE_APPLICATION_CREDENTIALS;
- const project='demo-raytech-regression-'+name;
  const testFile=path.join(root,dir,file);
  console.log('\n=== '+name+' ===');
  let r;
