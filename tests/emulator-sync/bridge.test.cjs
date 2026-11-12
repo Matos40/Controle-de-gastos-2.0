@@ -1,7 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
 const { initializeTestEnvironment } = require('@firebase/rules-unit-testing');
-const { doc, runTransaction, getDoc } = require('firebase/firestore');
 const { createQueue } = require('../../js/services/operationQueueLab.js');
 const { drainOne } = require('../../js/services/firestoreSyncLab.js');
 const path = require('node:path');
@@ -32,9 +31,9 @@ async function main() {
     function transportFor(database, uid) {
       return { async send(op) {
         const itemId = [op.month, op.type, op.id].join('_');
-        const item = doc(database, 'users', uid, 'labItems', itemId);
-        const receipt = doc(database, 'users', uid, 'labReceipts', op.operationId);
-        return runTransaction(database, async tx => {
+        const item = database.doc(['users', uid, 'labItems', itemId].join('/'));
+        const receipt = database.doc(['users', uid, 'labReceipts', op.operationId].join('/'));
+        return database.runTransaction(async tx => {
           const existingReceipt = await tx.get(receipt);
           if (existingReceipt.exists()) {
             const r = existingReceipt.data();
@@ -75,7 +74,7 @@ async function main() {
       const result = await drainOne(queue, transport);
       assert.equal(result.status, 'confirmed', result.error);
       assert.equal(queue.pending().length, 0);
-      const receipt = await getDoc(doc(db, 'users','usuarioA','labReceipts',firstId));
+      const receipt = await db.doc([ 'users','usuarioA','labReceipts',firstId].join('/')).get();
       assert.equal(receipt.exists(), true);
     });
     await check('reenvio do mesmo ID nao duplica', async () => {
@@ -88,20 +87,20 @@ async function main() {
     await check('edicao aumenta versao no Firestore', async () => {
       queue.update(month,'expense','teste1',{title:'Despesa ficticia',amountCents:15000},1);
       assert.equal((await drainOne(queue, transport)).status, 'confirmed');
-      const item = await getDoc(doc(db,'users','usuarioA','labItems','2026-11_expense_teste1'));
+      const item = await db.doc(['users','usuarioA','labItems','2026-11_expense_teste1'].join('/')).get();
       assert.equal(item.data().version, 2);
       assert.equal(item.data().data.amountCents, 15000);
     });
     await check('exclusao logica preserva recibo', async () => {
       queue.remove(month,'expense','teste1',2);
       assert.equal((await drainOne(queue, transport)).status, 'confirmed');
-      const item = await getDoc(doc(db,'users','usuarioA','labItems','2026-11_expense_teste1'));
+      const item = await db.doc(['users','usuarioA','labItems','2026-11_expense_teste1'].join('/')).get();
       assert.equal(item.data().deleted,true);
       assert.equal(item.data().data,null);
     });
     await check('outro usuario nao pode ler dados', async () => {
       let denied = false;
-      try { await getDoc(doc(otherDb,'users','usuarioA','labItems','2026-11_expense_teste1')); }
+      try { await otherDb.doc(['users','usuarioA','labItems','2026-11_expense_teste1'].join('/')).get(); }
       catch(e) { denied = e.code === 'permission-denied'; }
       assert.equal(denied,true);
     });
