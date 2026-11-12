@@ -80,7 +80,9 @@
       for (const [field, value] of Object.entries(month)) {
         if (!COLLECTIONS.includes(field)) fields[field] = value;
       }
-      months.push({ ym, fields, presence });
+      const counts = {};
+      for (const type of COLLECTIONS) counts[type] = (month[type] || []).length;
+      months.push({ ym, fields, presence, counts });
       for (const type of COLLECTIONS) {
         (month[type] || []).forEach((item, index) => {
           records.push({ ym, type, id: item.id, index, value: item });
@@ -106,11 +108,14 @@
       if (!entry || !YM.test(entry.ym) || own(db.months, entry.ym) ||
           !entry.fields || typeof entry.fields !== 'object' || Array.isArray(entry.fields) ||
           !entry.presence || typeof entry.presence !== 'object' || Array.isArray(entry.presence) ||
+          !entry.counts || typeof entry.counts !== 'object' || Array.isArray(entry.counts) ||
+          COLLECTIONS.some(type => !Number.isSafeInteger(entry.counts[type]) || entry.counts[type] < 0 ||
+            (!entry.presence[type] && entry.counts[type] !== 0)) ||
           COLLECTIONS.some(type => typeof entry.presence[type] !== 'boolean' || own(entry.fields, type))) {
         fail('Metadados mensais invalidos.');
       }
       db.months[entry.ym] = cloneJson(entry.fields);
-      presence[entry.ym] = entry.presence;
+      presence[entry.ym] = { ...entry.presence, counts: entry.counts };
       for (const type of COLLECTIONS) {
         if (entry.presence[type]) db.months[entry.ym][type] = [];
       }
@@ -131,6 +136,8 @@
     for (const month of Object.values(db.months)) {
       for (const type of COLLECTIONS) {
         if (!own(month, type)) continue;
+        const ym = Object.keys(db.months).find(key => db.months[key] === month);
+        if (month[type].length !== presence[ym].counts[type]) fail('Contagem divergente no envelope.');
         for (let i = 0; i < month[type].length; i++) {
           if (!own(month[type], i)) fail('Indice ausente no envelope.');
         }
