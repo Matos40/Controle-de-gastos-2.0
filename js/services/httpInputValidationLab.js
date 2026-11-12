@@ -43,14 +43,15 @@ function validate(action,data){
  }
  const op=data.operation;
  if(!obj(op)||Object.keys(op).some(k=>!['key','ym','type','id','expected','value'].includes(k))||
-  !key.test(op.key)||!month.test(op.ym)||
+  (typeof op.key!=='string'||!key.test(op.key))||
+  (typeof op.ym!=='string'||!month.test(op.ym))||
   !['salary','expenses','cardExpenses','extraIncomes'].includes(op.type)||
   !own(op,'expected')||!own(op,'value'))fail('invalid_operation');
  if(op.type==='salary'){
   if(own(op,'id')||!Number.isFinite(op.value)||
    (op.expected!==null&&!Number.isFinite(op.expected)))fail('invalid_operation');
  }else{
-  if(!id.test(op.id))fail('invalid_operation');
+  if(typeof op.id!=='string'||!id.test(op.id))fail('invalid_operation');
   for(const value of [op.expected,op.value]){
    if(value!==null&&(!obj(value)||value.id!==op.id))fail('invalid_operation');
   }
