@@ -45,6 +45,8 @@ function createHttpLab(db,auth,options={}){
     if(bytes>MAX_BODY)return reply(413,{error:'payload_too_large'});
     chunks.push(chunk);
    }
+   // Encerrado o recebimento: nao expirar uma transacao financeira em execucao.
+   req.setTimeout(0);
    const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));
    validate(action,data);
    const token=header.slice(7);
