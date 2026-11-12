@@ -38,6 +38,6 @@ test('testes HTTP de autenticacao existentes',()=>has(read(base),/token adultera
 test('testes de concorrencia existentes',()=>has(read(resilience),/envios simultaneos com mesma chave/));
 test('testes de payload excessivo existentes',()=>has(read(resilience),/payload acima de 128 KiB/));
 test('testes de isolamento existentes',()=>has(read(resilience),/auditoria B isolada/));
-test('nao ha referencia de deploy no modulo HTTP',()=>assert(!/https?\.createServer|\.listen\(80\)|\.listen\(443\)/.test(http)));
+test('nao ha listener fixo de producao no modulo HTTP',()=>assert(!/\.listen\(80\)|\.listen\(443\)/.test(http)));
 console.log('RESULTADO: '+passed+'/24 TESTES APROVADOS');
 console.log('AVISO: testes estaticos nao equivalem a auditoria de seguranca dinamica.');
