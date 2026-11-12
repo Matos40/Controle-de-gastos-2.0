@@ -59,7 +59,7 @@ function auditAuthenticatedV3(envelope,reference,{resolveKey,futureDeletions={}}
   if(!month.test(ym)||own(reference.months,ym)||own(expected.deletions,ym))fail('invalid_future_month');
   expected.deletions[ym]=clone(markers);
  }
- requireEvidence(reference,ledger,{originalDeletions:expected.deletions,recoveredDeletions:ledger.deletions});
+ requireEvidence(reference,{selectedMonth:ledger.selectedMonth,months:ledger.months},{originalDeletions:expected.deletions,recoveredDeletions:ledger.deletions});
  return {status:'COMPLETE_SYNTHETIC_V3',inventory:inventory(reference),futureMonths:Object.keys(futureDeletions).sort()};
 }
 function simulateRecovery(initial,envelope,reference,{resolveKey,expectedRevision=0}={}){
