@@ -26,3 +26,6 @@ migracao dos planos V2 anteriores, nem tratamento de offline.
 Correcao do laboratorio: o documento head usa o caminho valido
 `users/{uid}/financeRevisionLab/control/state/head` (seis segmentos).
 A colecao de revisoes continua em `users/{uid}/financeRevisionLab/revisions`.
+
+Segunda correcao de paridade: colecao de revisoes em
+`users/{uid}/financeRevisionLab/control/state/revisions` (sete segmentos).
