@@ -9,6 +9,8 @@ const good={uid:'user-A',iat:now-100,exp:now+3500,auth_time:now-200};
 const invalid=()=>assert.throws(()=>{},SessionPolicyError);
 async function main(){
  await test('Bearer JWT valido',()=>assert.equal(parseBearer('Bearer abc.def.ghi'),'abc.def.ghi'));
+ await test('JWT sem assinatura permitido apenas no emulador',()=>assert.equal(parseBearer('Bearer abc.def.',{allowUnsignedEmulator:true}),'abc.def.'));
+ await test('JWT sem assinatura rejeitado por padrao',()=>assert.throws(()=>parseBearer('Bearer abc.def.'),SessionPolicyError));
  await test('Bearer ausente',()=>assert.throws(()=>parseBearer(''),SessionPolicyError));
  await test('Bearer lowercase rejeitado',()=>assert.throws(()=>parseBearer('bearer abc.def.ghi'),SessionPolicyError));
  await test('Bearer com espacos rejeitado',()=>assert.throws(()=>parseBearer('Bearer abc.def.ghi '),SessionPolicyError));
@@ -40,6 +42,6 @@ async function main(){
   const v=createSessionVerifier({verifyIdToken:async(t,r)=>{args.push(r);return good;}},{checkRevoked:true,nowSeconds:()=>now});
   await v('jwt');assert.deepEqual(args,[true]);
  });
- console.log('RESULTADO: '+n+'/21 TESTES APROVADOS');
+ console.log('RESULTADO: '+n+'/23 TESTES APROVADOS');
 }
 main().catch(e=>{console.error('FALHA:',e);process.exitCode=1;});
