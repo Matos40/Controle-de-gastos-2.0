@@ -49,7 +49,9 @@
       if (!op || typeof op !== 'object' || typeof op.operationId !== 'string' ||
           !ID.test(op.operationId) || seen.has(op.operationId) ||
           !['create', 'update', 'delete'].includes(op.kind) ||
-          !Number.isSafeInteger(op.version) || op.version < 1) {
+          !Number.isSafeInteger(op.version) || op.version < 1 ||
+          (op.payload !== undefined &&
+            (op.kind === 'delete' ? op.payload !== null : !validData(op.payload)))) {
         throw new Error('Operacao pendente invalida.');
       }
       checkIdentity(op.month, op.type, op.id);
@@ -107,7 +109,10 @@
         deleted: kind === 'delete',
         data: kind === 'delete' ? null : copy(data)
       };
-      next.pending.push({ operationId, kind, month, type, id, version });
+      next.pending.push({
+        operationId, kind, month, type, id, version,
+        payload: kind === 'delete' ? null : copy(data)
+      });
       persist(next);
       return operationId;
     }
@@ -127,6 +132,15 @@
         return record ? copy(record) : null;
       },
       pending() { return copy(state.pending); },
+      /* Entradas antigas sem payload exigem reconciliacao antes do envio. */
+      readyToSend() {
+        const first = state.pending[0];
+        if (!first) return null;
+        if (!Object.prototype.hasOwnProperty.call(first, 'payload')) {
+          throw new Error('Operacao antiga sem payload: reconciliacao necessaria.');
+        }
+        return copy(first);
+      },
       acknowledge(operationId) {
         if (typeof operationId !== 'string' || !ID.test(operationId)) {
           throw new Error('ID de operacao invalido.');
