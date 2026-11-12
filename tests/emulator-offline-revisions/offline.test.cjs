@@ -94,7 +94,7 @@ async function main(){
   await check('operacao sem precondicao e rejeitada',async()=>assert.throws(()=>
    queue.enqueue(state,{key:'bad',ym:'2026-11',type:'salary',value:9000}),/Precondicao/));
   await check('origem financeira intacta',async()=>assert.equal(initial.months['2026-11'].salary,5000));
-  console.log('RESULTADO: '+passed+'/15 TESTES APROVADOS');
+  console.log('RESULTADO: '+passed+'/16 TESTES APROVADOS');
  }finally{await env.cleanup();}
 }
 main().catch(e=>{console.error('FALHA:',e);process.exitCode=1;});
