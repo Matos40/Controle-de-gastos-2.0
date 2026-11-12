@@ -32,7 +32,7 @@ test('receita extra sem titulo e preservada',()=>{
   const v=roundtrip(...samples[2]);assert.equal(v.data.amountCents,42045);
 });
 test('categorias, flags e campos extras sobrevivem',()=>{
-  for(const [type,record] of samples) assert.deepStrictEqual(roundtrip(type,record).record,record);
+  for(const [type,record] of samples) assert.deepStrictEqual(roundtrip(type,record).data.financeRecord,record);
 });
 test('o adaptador nao altera o objeto original',()=>{
   const r=structuredClone(samples[0][1]);const v=toQueue('2026-11','expenses',r);
