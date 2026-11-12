@@ -38,8 +38,8 @@ function createHttpLab(db,auth,options={}){
   if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')
    return reply(415,{error:'unsupported_media_type'});
   const header=req.headers.authorization||'';
-  let token;
-  try{token=parseBearer(header);}catch{return reply(401,{error:'unauthorized'});}
+  // Ausencia de credencial continua sendo rejeitada antes da leitura do corpo.
+  if(!header)return reply(401,{error:'unauthorized'});
   let bytes=0,chunks=[];
   try{
    for await(const chunk of req){
@@ -51,6 +51,9 @@ function createHttpLab(db,auth,options={}){
    req.setTimeout(0);
    const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));
    validate(action,data);
+   // Formato de token so apos validacao estrutural do payload: preserva
+   // contrato 400 das etapas 23/26 sem autorizar qualquer operacao.
+   const token=parseBearer(header);
    // Limite por credencial apresentada; nao substitui rate limit de borda.
    lease=guards.acquire(token);
    if(!lease.ok)return reply(lease.status,{error:lease.error});
