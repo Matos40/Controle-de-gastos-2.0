@@ -115,7 +115,105 @@ async function main() {
       assert.equal(result.status,'pending');
       assert.equal(conflictQueue.pending().length,1);
     });
-    console.log('RESULTADO: ' + passed + '/8 TESTES APROVADOS');
+
+    await check('confirmacao perdida apos commit conserva fila', async () => {
+      const memory = new Map();
+      const store = {
+        getItem: k => memory.get(k) ?? null,
+        setItem: (k, v) => memory.set(k, String(v))
+      };
+      let n = 0;
+      const factory = () => createQueue(store, { idFactory: () => 'reconnect_' + (++n) });
+      let local = factory();
+      const id = local.create(month, 'expense', 'reconnect1', data);
+      const uncertain = await drainOne(local, {
+        send: async op => {
+          await transport.send(op);
+          throw new Error('Conexao interrompida apos commit');
+        }
+      });
+      assert.equal(uncertain.status, 'pending');
+      assert.equal(local.pending().length, 1);
+      const remoteReceipt = await db.doc(['users','usuarioA','labReceipts',id].join('/')).get();
+      assert.equal(remoteReceipt.exists, true);
+      local = factory();
+      assert.equal(local.pending().length, 1);
+      const retry = await drainOne(local, transport);
+      assert.equal(retry.status, 'confirmed', retry.error);
+      assert.equal(local.pending().length, 0);
+      const item = await db.doc(['users','usuarioA','labItems','2026-11_expense_reconnect1'].join('/')).get();
+      assert.equal(item.data().version, 1);
+    });
+    await check('duas filas simultaneas: somente uma criacao vence', async () => {
+      function independentQueue(prefix) {
+        const memory = new Map();
+        const store = {
+          getItem: k => memory.get(k) ?? null,
+          setItem: (k, v) => memory.set(k, String(v))
+        };
+        const q = createQueue(store, { idFactory: () => prefix + '_1' });
+        q.create(month, 'expense', 'race1', data);
+        return q;
+      }
+      const pc = independentQueue('pc');
+      const mobile = independentQueue('mobile');
+      const outcomes = await Promise.all([
+        drainOne(pc, transport),
+        drainOne(mobile, transport)
+      ]);
+      assert.deepEqual(outcomes.map(x => x.status).sort(), ['confirmed', 'pending']);
+      assert.equal(pc.pending().length + mobile.pending().length, 1);
+      const remote = await db.doc(['users','usuarioA','labItems','2026-11_expense_race1'].join('/')).get();
+      assert.equal(remote.data().version, 1);
+    });
+    await check('fila offline de tres operacoes preserva ordem apos reinicio', async () => {
+      const memory = new Map();
+      const store = {
+        getItem: k => memory.get(k) ?? null,
+        setItem: (k, v) => memory.set(k, String(v))
+      };
+      let n = 0;
+      const factory = () => createQueue(store, { idFactory: () => 'offline_' + (++n) });
+      let local = factory();
+      local.create(month, 'expense', 'offline1', data);
+      local.update(month, 'expense', 'offline1',
+        { title: 'Despesa ficticia', amountCents: 12000 }, 1);
+      local.remove(month, 'expense', 'offline1', 2);
+      local = factory();
+      assert.deepEqual(local.pending().map(op => op.version), [1, 2, 3]);
+      for (let i = 0; i < 3; i++) {
+        const outcome = await drainOne(local, transport);
+        assert.equal(outcome.status, 'confirmed', outcome.error);
+      }
+      assert.equal(local.pending().length, 0);
+      const remote = await db.doc(['users','usuarioA','labItems','2026-11_expense_offline1'].join('/')).get();
+      assert.equal(remote.data().version, 3);
+      assert.equal(remote.data().deleted, true);
+    });
+    await check('recibo divergente bloqueia confirmacao', async () => {
+      const memory = new Map();
+      const store = {
+        getItem: k => memory.get(k) ?? null,
+        setItem: (k, v) => memory.set(k, String(v))
+      };
+      const local = createQueue(store, { idFactory: () => 'reconnect_1' });
+      local.create(month, 'expense', 'outro_registro', data);
+      const outcome = await drainOne(local, transport);
+      assert.equal(outcome.status, 'pending');
+      assert.equal(local.pending().length, 1);
+      const remote = await db.doc(['users','usuarioA','labItems','2026-11_expense_outro_registro'].join('/')).get();
+      assert.equal(remote.exists, false);
+    });
+    await check('fila vazia nao envia nenhuma operacao', async () => {
+      const memory = new Map();
+      const local = createQueue({
+        getItem: k => memory.get(k) ?? null,
+        setItem: (k, v) => memory.set(k, String(v))
+      });
+      const result = await drainOne(local, { send: async () => { throw new Error('Nao deveria enviar'); } });
+      assert.equal(result.status, 'empty');
+    });
+    console.log('RESULTADO: ' + passed + '/13 TESTES APROVADOS');
   } finally {
     await env.cleanup();
   }
