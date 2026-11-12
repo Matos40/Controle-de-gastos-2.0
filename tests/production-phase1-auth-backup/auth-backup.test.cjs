@@ -42,7 +42,7 @@ test('tag malformada rejeita',()=>{const e=make();e.tag='bad';rejects(()=>verify
 test('id chave adulterado rejeita',()=>{const e=make();e.keyId='other';rejects(()=>verify(e,{resolveKey:()=>key}),'authentication_failed');});
 test('tipo payload alterado rejeita',()=>{const e=make();e.payload.kind='v3';rejects(()=>verify(e,{resolveKey:resolver}),'authentication_failed');});
 test('snapshot incompleto rejeita',()=>{const s=snap();delete s.months['2026-10'].salary;rejects(()=>create(s,{key}),'invalid_finance');});
-test('payload com chave extra rejeita',()=>{const s=snap();s.apiKey='secret';const e=create(s,{key});assert.ok(e.payload.finance.apiKey);});
+test('payload com chave extra rejeita',()=>{const s=snap();s.apiKey='secret';rejects(()=>create(s,{key}),'sensitive_field');});
 test('legado sem consentimento rejeita',()=>rejects(()=>legacy(createBackup(snap())),'legacy_requires_consent'));
 test('legado consentido marcado nao confiavel',()=>assert.equal(legacy(createBackup(snap()),{explicitConsent:true}).trust,'UNAUTHENTICATED_LEGACY'));
 test('legado nao pode restaurar diretamente',()=>assert.equal(legacy(createBackup(snap()),{explicitConsent:true}).mayRestore,false));
