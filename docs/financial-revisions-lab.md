@@ -29,3 +29,5 @@ A colecao de revisoes continua em `users/{uid}/financeRevisionLab/revisions`.
 
 Segunda correcao de paridade: colecao de revisoes em
 `users/{uid}/financeRevisionLab/control/state/revisions` (sete segmentos).
+
+Caminho definitivo da colecao: `users/{uid}/financeRevisionLab/control/revisions` (cinco segmentos). O caminho intermediario com `control/state/revisions` nao deve ser usado.
