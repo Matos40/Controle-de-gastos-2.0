@@ -6,6 +6,7 @@ const MAX_BODY=128*1024;
 const {validate,HttpInputError}=require('./httpInputValidationLab.js');
 const {createHttpGuards}=require('./httpGuardsLab.js');
 const {parseBearer,SessionPolicyError}=require('./httpSessionSecurityLab.js');
+const {createHttpTelemetryLab}=require('./httpTelemetryLab.js');
 function assertLab(){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8094'||
     process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9100')
@@ -15,16 +16,26 @@ function createHttpLab(db,auth,options={}){
  assertLab();
  const backend=createAuthenticatedBackend(db,auth);
  const guards=options.guards||createHttpGuards();
+ const telemetry=options.telemetry||createHttpTelemetryLab();
  const routes={'/v1/initialize':'initialize','/v1/submit':'submit','/v1/audit':'audit'};
  const server=http.createServer(async(req,res)=>{
   let lease=null;
   let timedOut=false;
+  const started=Date.now();
+  let reported=false;
+  const report=status=>{
+   if(reported)return;
+   reported=true;
+   try{telemetry.record({action:routes[req.url]||'unknown',status,
+    durationMs:Date.now()-started});}catch{/* Observabilidade nunca interrompe HTTP. */}
+  };
   req.setTimeout(10000,()=>{
    timedOut=true;
    if(!res.headersSent&&!res.writableEnded){
     res.writeHead(408,{'Content-Type':'application/json; charset=utf-8',
      'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
     res.end(JSON.stringify({error:'request_timeout'}));
+    report(408);
    }
   });
   const reply=(status,body)=>{
@@ -32,6 +43,7 @@ function createHttpLab(db,auth,options={}){
    res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',
     'X-Content-Type-Options':'nosniff'});
    res.end(JSON.stringify(body));
+   report(status);
   };
   const action=routes[req.url];
   if(req.method!=='POST'||!action)return reply(404,{error:'not_found'});
