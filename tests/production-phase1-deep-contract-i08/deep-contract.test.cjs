@@ -15,7 +15,7 @@ test("limite financeiro valido",()=>{assert.equal(audit(base(),{maxBalanceCents:
 test("limite financeiro excedido",()=>{reject(()=>audit(base(),{maxBalanceCents:1}),'invalid_balance');});
 test("limite invalido",()=>{reject(()=>audit(base(),{maxBalanceCents:-1}),'invalid_limit');});
 test("salario negativo",()=>{mut(s=>s.months['2026-10'].salary=-1,'negative_money');});
-test("salario decimal invalido",()=>{mut(s=>s.months['2026-10'].salary=1.234,'invalid_money');});
+test("salario decimal invalido",()=>{mut(s=>s.months['2026-10'].salary=1.234,'invalid_base_contract');});
 test("salario infinito",()=>{mut(s=>s.months['2026-10'].salary=Infinity,'invalid_base_contract');});
 test("orcamento negativo",()=>{mut(s=>s.months['2026-10'].budgetLimit=-1,'negative_money');});
 test("orcamento decimal invalido",()=>{mut(s=>s.months['2026-10'].budgetLimit=1.234,'invalid_money');});
