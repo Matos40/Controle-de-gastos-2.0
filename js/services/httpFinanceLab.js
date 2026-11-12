@@ -53,7 +53,7 @@ function createHttpLab(db,auth,options={}){
    validate(action,data);
    // Formato de token so apos validacao estrutural do payload: preserva
    // contrato 400 das etapas 23/26 sem autorizar qualquer operacao.
-   const token=parseBearer(header);
+   const token=parseBearer(header,{allowUnsignedEmulator:true});
    // Limite por credencial apresentada; nao substitui rate limit de borda.
    lease=guards.acquire(token);
    if(!lease.ok)return reply(lease.status,{error:lease.error});
