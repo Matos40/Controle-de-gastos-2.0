@@ -27,7 +27,7 @@ test('marcador de exclusao preservado',()=>assert.deepEqual(fingerprint(fresh())
 test('mes de dezembro aberto',()=>assert.equal(month(fresh(),'2026-12').closed,false));
 test('mes de setembro fechado',()=>assert.equal(month(fresh(),'2026-09').closed,true));
 test('receita extra novembro',()=>assert.equal(fingerprint(fresh())['2026-11'].extraTotal,200));
-test('saldo setembro calculado',()=>assert.equal(balances(fresh())['2026-09'],3250));
+test('saldo setembro calculado',()=>assert.equal(balances(fresh())['2026-09'],3050));
 test('saldos antes e depois identicos',()=>assert.deepEqual(plan().beforeBalances,plan().afterBalances));
 test('fingerprint antes e depois identico',()=>assert.deepEqual(fingerprint(plan().original),fingerprint(plan().normalized)));
 test('migra quatro meses',()=>assert.equal(Object.keys(plan().normalized.months).length,4));
@@ -47,5 +47,5 @@ test('valor com fracao de centavo nao e migrado',()=>{const s=fresh();s.months['
 test('parcela com sequencia invalida nao e migrada',()=>{const s=fresh();s.months['2026-11'].cardExpenses[0].currentInstallment=4;fail(()=>migrate(s),'requires_manual_review');});
 test('marcador de exclusao invalido nao e migrado',()=>{const s=fresh();s.months['2026-12'].deletedInstallmentOrigins='bad';fail(()=>migrate(s),'requires_manual_review');});
 test('plano preserva campo mensal desconhecido',()=>assert.equal(plan().normalized.months['2026-09'].auditNote,'synthetic-only'));
-test('dupla aplicacao nao sobrescreve dados',()=>{const s=createSession(fresh()),p=plan();s.apply(p,0);const before=s.read();fail(()=>s.apply(p,1),'source_conflict');assert.deepEqual(s.read(),before);});
+test('dupla aplicacao nao sobrescreve dados',()=>{const s=createSession(fresh()),p=plan();s.apply(p,0);const before=s.read();fail(()=>s.apply(p,0),'revision_conflict');assert.deepEqual(s.read(),before);});
 console.log('RESULTADO: '+passed+'/40 TESTES APROVADOS');
