@@ -16,7 +16,8 @@ function finalValue(plan){
   status:'audited'};
 }
 async function state(plan,db,uid){
- const [s,marker]=await Promise.all([inspect(plan,db,uid),finalRef(db,uid,plan).get()]);
+ const target=finalRef(db,uid,plan);
+ const [s,marker]=await Promise.all([inspect(plan,db,uid),target.get()]);
  if(s.conflicts.length) return {status:'conflict',...s,finalized:marker.exists};
  if(marker.exists){
   assert.deepStrictEqual(marker.data(),finalValue(plan),'Marcador final divergente.');
