@@ -45,3 +45,4 @@ jobs:
           node tests/production-phase1-deep-contract-i08/deep-contract.test.cjs
           node tests/production-phase1-durable-rollback-i09/durable-rollback.test.cjs
           node tests/production-phase1-recovery-integrity-i10/recovery-integrity.test.cjs
+          node tests/production-phase1-cross-module-i12/cross-module.test.cjs
