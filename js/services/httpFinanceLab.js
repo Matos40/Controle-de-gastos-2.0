@@ -3,6 +3,7 @@
 const http=require('node:http');
 const {createAuthenticatedBackend}=require('./emulatorAuthBackendLab.js');
 const MAX_BODY=128*1024;
+const {validate,HttpInputError}=require('./httpInputValidationLab.js');
 function assertLab(){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8094'||
     process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9100')
@@ -33,13 +34,7 @@ function createHttpLab(db,auth){
     chunks.push(chunk);
    }
    const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-   if(!data||typeof data!=='object'||Array.isArray(data))return reply(400,{error:'invalid_json'});
-   if(action==='initialize'&&(!data.snapshot||typeof data.snapshot!=='object'))
-    return reply(400,{error:'invalid_snapshot'});
-   if(action==='submit'&&(!data.operation||typeof data.operation!=='object'))
-    return reply(400,{error:'invalid_operation'});
-   if(action==='audit'&&Object.keys(data).length!==0)
-    return reply(400,{error:'unexpected_fields'});
+   validate(action,data);
    const token=header.slice(7);
    // Autenticacao SEMPRE antes de qualquer operacao financeira.
    const result=await backend[action](token,action==='initialize'?data.snapshot:
@@ -47,8 +42,12 @@ function createHttpLab(db,auth){
    reply(200,result);
   }catch(e){
    if(e instanceof SyntaxError)return reply(400,{error:'invalid_json'});
-   // Erros internos, tokens e detalhes do Firestore nunca sao devolvidos.
-   if(/token|autorizad|auth\//i.test(String(e.message)))return reply(401,{error:'unauthorized'});
+   if(e instanceof HttpInputError)return reply(400,{error:e.code});
+   // Apenas codigos tipados do Firebase Auth sao tratados como autenticacao.
+   if(typeof e?.code==='string'&&e.code.startsWith('auth/'))
+    return reply(401,{error:'unauthorized'});
+   if(e?.message==='ID token ausente.'||e?.message==='Token sem UID.'||
+      e?.message==='Nao autorizado.')return reply(401,{error:'unauthorized'});
    reply(422,{error:'operation_rejected'});
   }
  });
