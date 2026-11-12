@@ -35,10 +35,15 @@ function boot(storage,initial,{slot='raytech_i05_lab'}={}){
  }
  function commit(next,expectedRevision){
   if(expectedRevision!==revision)fail('revision_conflict');
-  const clean=valid(next);
-  for(const [ym,keys] of Object.entries(state.deletions)){
-   if(keys.some(k=>!(clean.deletions[ym]||[]).includes(k)))fail('deletion_loss_requires_review');
+  // Detecta perda de tombstones antes da validacao cruzada V3,
+  // que tambem rejeitaria a alteracao, mas com erro menos especifico.
+  if(next&&next.deletions&&typeof next.deletions==='object'&&!Array.isArray(next.deletions)){
+   for(const [ym,keys] of Object.entries(state.deletions)){
+    if(keys.some(k=>!Array.isArray(next.deletions[ym])||!next.deletions[ym].includes(k)))
+     fail('deletion_loss_requires_review');
+   }
   }
+  const clean=valid(next);
   if(isDeepStrictEqual(state,clean))return {changed:false,revision};
   const record=JSON.stringify({ledger:clean,revision:revision+1});
   try{storage.setItem(staging,record);storage.setItem(active,record);}
