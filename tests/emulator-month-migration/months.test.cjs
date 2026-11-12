@@ -96,6 +96,17 @@ async function main() {
       await assert.rejects(ref(a, 'usuarioA', entry).update({ salary: 999 }),
         e => e.code === 'permission-denied');
     });
+    await check('versao de esquema diferente de 1 e rejeitada', async () => {
+      const entry = entries(plan).find(x => x.kind === 'month');
+      const freshRef = a.doc('users/usuarioA/monthMigrationMonths/2026-12');
+      await assert.rejects(freshRef.set({ ...entry.value, ym: '2026-12', version: 2 }),
+        e => e.code === 'permission-denied');
+    });
+    await check('exclusao de metadados e bloqueada', async () => {
+      const entry = entries(plan).find(x => x.kind === 'month');
+      await assert.rejects(ref(a, 'usuarioA', entry).delete(),
+        e => e.code === 'permission-denied');
+    });
     await check('conflito de salario bloqueia nova migracao', async () => {
       const changed = structuredClone(source);
       changed.months['2026-10'].salary = 999;
@@ -133,7 +144,7 @@ async function main() {
       const revised = normalizeSnapshot(changed, 'month-demo');
       await assert.rejects(audit(revised, a, 'usuarioA'));
     });
-    console.log('RESULTADO: ' + passed + '/16 TESTES APROVADOS');
+    console.log('RESULTADO: ' + passed + '/18 TESTES APROVADOS');
   } finally { await env.cleanup(); }
 }
 main().catch(err => { console.error('FALHA:', err); process.exitCode = 1; });
