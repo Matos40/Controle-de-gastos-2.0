@@ -14,7 +14,7 @@ function refFor(db, uid, record) {
 function stored(record) {
   return {
     key: recordKey(record), ym: record.ym, type: record.type,
-    recordId: record.id, value: record.value
+    recordId: docId(recordKey(record)), sourceId: record.id, value: record.value
   };
 }
 async function inspect(plan, db, uid) {
