@@ -38,3 +38,10 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'))"
       - name: Testar persistencia e regras financeiras
         run: node --test tests/*.test.cjs
+      - name: Testar regressao financeira I08 I09 I10
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/production-phase1-deep-contract-i08/deep-contract.test.cjs
+          node tests/production-phase1-durable-rollback-i09/durable-rollback.test.cjs
+          node tests/production-phase1-recovery-integrity-i10/recovery-integrity.test.cjs
