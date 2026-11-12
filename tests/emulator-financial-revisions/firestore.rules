@@ -8,7 +8,7 @@ service cloud.firestore {
     && request.resource.data.number is int
     && request.resource.data.checksum is string
     && request.resource.data.parent is string;}
-  match /users/{uid}/financeRevisionLab/state/head {
+  match /users/{uid}/financeRevisionLab/control/state/head {
    allow get: if owner(uid);
    allow list,delete: if false;
    allow create: if owner(uid) && headFields()
