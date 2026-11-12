@@ -8,7 +8,7 @@
   sem sincronizacao e sem alteracao do aplicativo em producao.
 
 ## O que e testado
-30 testes dinamicos: dois usuarios criados no Auth Emulator, validacao
+31 testes dinamicos: dois usuarios criados no Auth Emulator, validacao
 de tokens no Firebase Admin, estados e revisoes independentes, bloqueio
 de leitura/escrita/exclusao/consultas por clientes A, B e anonimo,
 operacoes via backend autenticado, idempotencia independente,
@@ -33,7 +33,7 @@ set GOOGLE_CLOUD_PROJECT=demo-raytech-cg-auth-backend
 set GCLOUD_PROJECT=demo-raytech-cg-auth-backend
 firebase emulators:exec --config tests\emulator-authenticated-backend\firebase.json --only auth,firestore --project demo-raytech-cg-auth-backend "node tests\production-phase1-isolation\isolation.test.cjs"
 ```
-Resultado esperado: 30/30 testes aprovados e Firebase CLI
+Resultado esperado: 31/31 testes aprovados e Firebase CLI
 `Script exited successfully (code 0)`.
 
 ## Proximas pendencias da Fase 1
