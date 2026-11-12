@@ -75,4 +75,42 @@ test('dados invalidos nao alteram estado', () => {
 test('PIN, Gemini e banco legado nunca acessados', () => {
   assert.deepEqual([...values.keys()], [LAB_KEY]);
 });
-console.log('RESULTADO: ' + passed + '/14 TESTES APROVADOS');
+test('cada operacao preserva o valor historico', () => {
+  const isolated = new Map();
+  const store = {
+    getItem: k => isolated.has(k) ? isolated.get(k) : null,
+    setItem: (k, v) => isolated.set(k, String(v))
+  };
+  let n = 0;
+  let q = createQueue(store, { idFactory: () => 'historico_' + (++n) });
+  const original = { title: 'Conta de teste', amountCents: 10000 };
+  q.create(month, 'expense', 'historico', original);
+  original.amountCents = 99999;
+  q.update(month, 'expense', 'historico', { title: 'Conta de teste', amountCents: 15000 }, 1);
+  q.remove(month, 'expense', 'historico', 2);
+  q = createQueue(store, { idFactory: () => 'historico_' + (++n) });
+  assert.deepEqual(q.pending().map(op => op.payload?.amountCents ?? null), [10000, 15000, null]);
+  assert.equal(q.readyToSend().version, 1);
+});
+test('operacao antiga sem historico nao e enviada', () => {
+  const isolated = new Map();
+  const store = {
+    getItem: k => isolated.has(k) ? isolated.get(k) : null,
+    setItem: (k, v) => isolated.set(k, String(v))
+  };
+  store.setItem(LAB_KEY, JSON.stringify({
+    schema: 1,
+    records: { '2026-11/expense/antigo': {
+      month, type: 'expense', id: 'antigo', version: 2, deleted: false,
+      data: { title: 'Valor atual', amountCents: 15000 }
+    }},
+    pending: [
+      { operationId: 'old_1', kind: 'create', month, type: 'expense', id: 'antigo', version: 1 },
+      { operationId: 'old_2', kind: 'update', month, type: 'expense', id: 'antigo', version: 2 }
+    ]
+  }));
+  const q = createQueue(store);
+  assert.throws(() => q.readyToSend(), /reconciliacao necessaria/);
+  assert.equal(q.pending().length, 2);
+});
+console.log('RESULTADO: ' + passed + '/16 TESTES APROVADOS');
