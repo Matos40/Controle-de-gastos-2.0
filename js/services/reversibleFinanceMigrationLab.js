@@ -45,7 +45,7 @@ function migrate(source){
  try{assertSnapshot(source);}catch{fail('invalid_legacy_snapshot');}
  const raw=encode(source),snapshot=JSON.parse(raw);
  const inspection=inspectLegacy(snapshot);
- if(inspection.issues.some(x=>!['missing_salary','missing_extra_incomes','contract_rejected','legacy_installment_without_origin'].includes(x.code)))
+ if(inspection.issues.some(x=>!['missing_salary','missing_extra_incomes','contract_rejected','legacy_installment_without_origin'].includes(x.code)&&!(x.code==='missing_or_invalid_collection'&&/\.extraIncomes$/.test(x.path)&&!Object.prototype.hasOwnProperty.call(snapshot.months[x.path.split('.')[1]],'extraIncomes'))))
   fail('requires_manual_review');
  const normalized=clone(snapshot);
  for(const m of Object.values(normalized.months)){
