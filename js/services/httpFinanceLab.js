@@ -4,18 +4,30 @@ const http=require('node:http');
 const {createAuthenticatedBackend}=require('./emulatorAuthBackendLab.js');
 const MAX_BODY=128*1024;
 const {validate,HttpInputError}=require('./httpInputValidationLab.js');
+const {createHttpGuards}=require('./httpGuardsLab.js');
 function assertLab(){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8094'||
     process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9100')
   throw Error('Etapa 23 exige Firestore 127.0.0.1:8094 e Auth 127.0.0.1:9100');
 }
-function createHttpLab(db,auth){
+function createHttpLab(db,auth,options={}){
  assertLab();
  const backend=createAuthenticatedBackend(db,auth);
+ const guards=options.guards||createHttpGuards();
  const routes={'/v1/initialize':'initialize','/v1/submit':'submit','/v1/audit':'audit'};
- return http.createServer(async(req,res)=>{
+ const server=http.createServer(async(req,res)=>{
+  let lease=null;
+  let timedOut=false;
+  req.setTimeout(10000,()=>{
+   timedOut=true;
+   if(!res.headersSent&&!res.writableEnded){
+    res.writeHead(408,{'Content-Type':'application/json; charset=utf-8',
+     'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+    res.end(JSON.stringify({error:'request_timeout'}));
+   }
+  });
   const reply=(status,body)=>{
-   if(res.writableEnded)return;
+   if(res.writableEnded||timedOut||res.destroyed)return;
    res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',
     'X-Content-Type-Options':'nosniff'});
    res.end(JSON.stringify(body));
@@ -36,6 +48,9 @@ function createHttpLab(db,auth){
    const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));
    validate(action,data);
    const token=header.slice(7);
+   // Limite por credencial apresentada; nao substitui rate limit de borda.
+   lease=guards.acquire(token);
+   if(!lease.ok)return reply(lease.status,{error:lease.error});
    // Autenticacao SEMPRE antes de qualquer operacao financeira.
    const result=await backend[action](token,action==='initialize'?data.snapshot:
     action==='submit'?data.operation:undefined);
@@ -49,7 +64,14 @@ function createHttpLab(db,auth){
    if(e?.message==='ID token ausente.'||e?.message==='Token sem UID.'||
       e?.message==='Nao autorizado.')return reply(401,{error:'unauthorized'});
    reply(422,{error:'operation_rejected'});
+  }finally{
+   if(lease?.ok)lease.release();
   }
  });
+ // Timeouts de recebimento. Nao cancelar transacoes financeiras em andamento:
+ // resposta antecipada poderia ocultar commit bem-sucedido.
+ server.headersTimeout=10000;
+ server.requestTimeout=15000;
+ return server;
 }
 module.exports={createHttpLab,assertLab};
