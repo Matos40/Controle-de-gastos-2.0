@@ -5,9 +5,11 @@ service cloud.firestore {
     match /users/{uid}/migrationLab/{recordId} {
       allow get, list: if owner(uid);
       allow create: if owner(uid)
-        && request.resource.data.keys().hasOnly(['key','ym','type','recordId','value'])
+        && request.resource.data.keys().hasOnly(['key','ym','type','recordId','sourceId','value'])
         && request.resource.data.keys().hasAll(['key','ym','type','recordId','value'])
         && request.resource.data.recordId == recordId
+        && request.resource.data.sourceId is string
+        && request.resource.data.sourceId.size() > 0
         && request.resource.data.key is string
         && request.resource.data.ym is string
         && request.resource.data.type in ['expenses','cardExpenses','extraIncomes']
