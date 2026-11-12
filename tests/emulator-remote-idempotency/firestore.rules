@@ -35,6 +35,15 @@ service cloud.firestore {
     && request.resource.data.shared.months is map;
    allow update,delete: if false;
   }
-  match /users/{uid}/financeRevisionLab/control/receipts/{key} {\n   allow get,list: if owner(uid);\n   allow create: if owner(uid) && request.resource.data.keys().hasOnly(['version','key','operationHash','number','checksum'])\n    && request.resource.data.keys().hasAll(['version','key','operationHash','number','checksum'])\n    && request.resource.data.version == 1 && request.resource.data.key == key\n    && request.resource.data.operationHash is string\n    && request.resource.data.number is int && request.resource.data.checksum is string;\n   allow update,delete: if false;\n  }\n  match /{document=**}{allow read,write: if false;}
+  match /users/{uid}/financeRevisionLab/control/receipts/{key} {
+   allow get,list: if owner(uid);
+   allow create: if owner(uid) && request.resource.data.keys().hasOnly(['version','key','operationHash','number','checksum'])
+    && request.resource.data.keys().hasAll(['version','key','operationHash','number','checksum'])
+    && request.resource.data.version == 1 && request.resource.data.key == key
+    && request.resource.data.operationHash is string
+    && request.resource.data.number is int && request.resource.data.checksum is string;
+   allow update,delete: if false;
+  }
+  match /{document=**}{allow read,write: if false;}
  }
 }
