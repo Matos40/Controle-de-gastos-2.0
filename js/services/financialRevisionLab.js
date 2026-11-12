@@ -7,7 +7,7 @@ const {makeV2,checkV2,importVersioned}=require('./versionedBoundaryBridgeLab.js'
 const UID=/^[a-zA-Z0-9_-]{1,100}$/;
 function user(uid){if(typeof uid!=='string'||!UID.test(uid))throw Error('UID invalido.');}
 function refs(db,uid){user(uid);const root='users/'+uid+'/financeRevisionLab';return {
- head:db.doc(root+'/control/state/head'),revisions:db.collection(root+'/revisions')};}
+ head:db.doc(root+'/control/state/head'),revisions:db.collection(root+'/control/state/revisions')};}
 function prepare(source){const envelope=source&&source.version===2?source:makeV2(source);
  checkV2(envelope);return envelope;}
 function record(envelope,number,parent){
