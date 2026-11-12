@@ -22,3 +22,7 @@ contornar o adaptador. Antes de producao, backend confiavel deve
 validar o schema e a cadeia e publicar head/revisao de modo atomico.
 Nao ha conciliacao automatica de conflitos, sincronizacao real,
 migracao dos planos V2 anteriores, nem tratamento de offline.
+
+Correcao do laboratorio: o documento head usa o caminho valido
+`users/{uid}/financeRevisionLab/control/state/head` (seis segmentos).
+A colecao de revisoes continua em `users/{uid}/financeRevisionLab/revisions`.
