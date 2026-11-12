@@ -3,9 +3,11 @@
 class SessionPolicyError extends Error{
  constructor(){super('unauthorized');this.name='SessionPolicyError';}
 }
-function parseBearer(header){
+function parseBearer(header,{allowUnsignedEmulator=false}={}){
  if(typeof header!=='string'||header.length>8192||
-  !/^Bearer [A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$/.test(header))
+  !(allowUnsignedEmulator?
+    /^Bearer [A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*$/.test(header):
+    /^Bearer [A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$/.test(header)))
   throw new SessionPolicyError();
  return header.slice(7);
 }
