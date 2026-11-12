@@ -35,7 +35,7 @@ async function main() {
         const receipt = database.doc(['users', uid, 'labReceipts', op.operationId].join('/'));
         return database.runTransaction(async tx => {
           const existingReceipt = await tx.get(receipt);
-          if (existingReceipt.exists()) {
+          if (existingReceipt.exists) {
             const r = existingReceipt.data();
             if (r.targetId !== itemId || r.version !== op.version || r.kind !== op.kind) {
               throw new Error('Recibo divergente.');
@@ -43,7 +43,7 @@ async function main() {
             return { confirmed: true, operationId: op.operationId };
           }
           const existingItem = await tx.get(item);
-          const previous = existingItem.exists() ? existingItem.data() : null;
+          const previous = existingItem.exists ? existingItem.data() : null;
           if (op.kind === 'create' ? previous !== null :
               previous === null || previous.deleted || previous.version !== op.version - 1) {
             throw new Error('Conflito remoto.');
@@ -75,7 +75,7 @@ async function main() {
       assert.equal(result.status, 'confirmed', result.error);
       assert.equal(queue.pending().length, 0);
       const receipt = await db.doc([ 'users','usuarioA','labReceipts',firstId].join('/')).get();
-      assert.equal(receipt.exists(), true);
+      assert.equal(receipt.exists, true);
     });
     await check('reenvio do mesmo ID nao duplica', async () => {
       const result = await transport.send({
