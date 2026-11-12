@@ -4,6 +4,7 @@
  * O destino e um adaptador em memoria injetado pelo teste.
  */
 const crypto = require('node:crypto');
+const assert = require('node:assert/strict');
 const { encode, decode } = require('./financeConverterLab.js');
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -53,9 +54,7 @@ function normalizeSnapshot(source, namespace = 'raytech-lab') {
     }
   }
   const envelope = encode(working);
-  if (JSON.stringify(decode(envelope)) !== JSON.stringify(working)) {
-    throw new Error('Reconstrucao inconsistente.');
-  }
+  assert.deepStrictEqual(decode(envelope), working, 'Reconstrucao inconsistente.');
   return { snapshot: working, envelope, assigned, checksum: digest(envelope) };
 }
 function report(plan) {
