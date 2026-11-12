@@ -94,7 +94,7 @@ async function main() {
     });
     await check('conflito remoto bloqueia migracao do plano modificado', async () => {
       const changed = structuredClone(source);
-      changed.months['2026-10'].expenses[0].amount = 999;
+      changed.months['2026-11'].expenses[0].amount = 999;
       const alteredPlan = normalizeSnapshot(changed, 'migration-demo');
       const result = await step(alteredPlan, a, 'usuarioA', 10);
       assert.equal(result.status, 'conflict');
@@ -117,11 +117,14 @@ async function main() {
       assert.equal(succeeded.reduce((n, x) => n + x.value.written, 0) <= 1, true);
     });
     await check('falha de rede simulada nao altera dados ja gravados', async () => {
-      const before = await inspect(plan, a, 'usuarioA');
+      const fresh = normalizeSnapshot({ selectedMonth: '2026-12',
+        months: { '2026-12': { expenses: [{ id: 'offline_1', title: 'Teste', amount: 10 }],
+          cardExpenses: [], extraIncomes: [] } } });
+      const before = await inspect(fresh, a, 'usuarioA');
       const offline = { runTransaction: async () => { throw new Error('Sem rede'); },
         doc: (...args) => a.doc(...args) };
-      await assert.rejects(step(plan, offline, 'usuarioA', 1), /Sem rede|/);
-      assert.deepEqual(await inspect(plan, a, 'usuarioA'), before);
+      await assert.rejects(step(fresh, offline, 'usuarioA', 1), /Sem rede/);
+      assert.deepEqual(await inspect(fresh, a, 'usuarioA'), before);
     });
     console.log('RESULTADO: ' + passed + '/15 TESTES APROVADOS');
   } finally { await env.cleanup(); }
