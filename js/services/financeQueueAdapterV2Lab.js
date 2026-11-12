@@ -5,7 +5,6 @@
  */
 const crypto=require('node:crypto');
 const assert=require('node:assert/strict');
-const {assertSnapshot}=require('./financeConverterLab.js');
 const TYPES=Object.freeze({expenses:'expense',cardExpenses:'cardExpense',extraIncomes:'extraIncome'});
 const BACK=Object.freeze({expense:'expenses',cardExpense:'cardExpenses',extraIncome:'extraIncomes'});
 const YM=/^\d{4}-(0[1-9]|1[0-2])$/;
@@ -87,10 +86,17 @@ function enqueue(queue,ym,collection,record){
   return queue.create(v.month,v.type,v.id,v.data);
 }
 function auditSnapshot(snapshot){
-  assertSnapshot(snapshot);
+  if(!snapshot||typeof snapshot!=='object'||Array.isArray(snapshot)||
+    !snapshot.months||typeof snapshot.months!=='object'||Array.isArray(snapshot.months)||
+    !YM.test(snapshot.selectedMonth)||!Object.hasOwn(snapshot.months,snapshot.selectedMonth))
+    throw Error('Estrutura mensal invalida para auditoria.');
   const results=[],errors=[];
   for(const [ym,month] of Object.entries(snapshot.months)){
+    if(!YM.test(ym)||!month||typeof month!=='object'||Array.isArray(month))
+      throw Error('Mes invalido para auditoria: '+ym);
     for(const collection of Object.keys(TYPES)){
+      if(month[collection]!==undefined&&!Array.isArray(month[collection]))
+        throw Error('Colecao invalida para auditoria: '+ym+'/'+collection);
       for(const [index,record] of (month[collection]||[]).entries()){
         try{
           const q=toQueue(ym,collection,record);
