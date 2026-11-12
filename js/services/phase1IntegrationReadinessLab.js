@@ -7,6 +7,7 @@ const {plan}=require('./installmentDeletionPolicyLab.js');
 const {memoryDisk,open}=require('./installmentPersistenceRecoveryLab.js');
 const {createBackup,verifyBackup}=require('./backupRecoveryLab.js');
 const clone=x=>JSON.parse(JSON.stringify(x));
+const {isDeepStrictEqual}=require('node:util');
 const own=(x,k)=>Object.prototype.hasOwnProperty.call(x,k);
 function check(fn){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.code||e.message};}}
 const RISKS=Object.freeze([
@@ -24,9 +25,9 @@ const RISKS=Object.freeze([
 function audit(snapshot=syntheticHistory()){
  const input=clone(snapshot);
  const contract=check(()=>validateSnapshot(input));
- const migration=check(()=>{const p=migrate(input);verify(p);const s=createSession(input);s.apply(p,0);const after=s.read();s.rollback(p,1);return {sameOriginal:JSON.stringify(s.read())===JSON.stringify(input),sameBalances:JSON.stringify(balances(input))===JSON.stringify(balances(after)),sameFingerprint:JSON.stringify(fingerprint(input))===JSON.stringify(fingerprint(after))};});
+ const migration=check(()=>{const p=migrate(input);verify(p);const s=createSession(input);s.apply(p,0);const after=s.read();s.rollback(p,1);return {sameOriginal:isDeepStrictEqual(s.read(),input),sameBalances:isDeepStrictEqual(balances(input),balances(after)),sameFingerprint:isDeepStrictEqual(fingerprint(input),fingerprint(after))};});
  const roundTrip=check(()=>auditRoundTrip(input).months);
- const backup=check(()=>{const recovered=verifyBackup(createBackup(input));return JSON.stringify(fingerprint(recovered))===JSON.stringify(fingerprint(input));});
+ const backup=check(()=>{const recovered=verifyBackup(createBackup(input));return isDeepStrictEqual(fingerprint(recovered),fingerprint(input));});
  const sanitized=check(()=>sanitizeSyncPayload(input));
  const sample={selectedMonth:'2026-10',months:{'2026-10':{cardExpenses:[{id:'c',title:'Notebook',isInstallment:true,installmentOriginId:'orig',currentInstallment:1,installments:3,installmentValue:100}]}},deletions:{}};
  const deletion=check(()=>{
