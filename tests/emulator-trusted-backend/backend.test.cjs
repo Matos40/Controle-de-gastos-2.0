@@ -2,7 +2,8 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const admin=require('firebase-admin');
+const {initializeApp}=require('firebase-admin/app');
+const {getFirestore}=require('firebase-admin/firestore');
 const {initializeTestEnvironment}=require('@firebase/rules-unit-testing');
 const {verifyFactory,paths}=require('../../js/services/trustedFinanceBackendLab.js');
 const rules=fs.readFileSync(path.join(__dirname,'firestore.rules'),'utf8');
@@ -15,8 +16,8 @@ const op=(key,id,expected,value)=>({key,ym:'2026-11',type:'expenses',id,expected
 async function main(){
  const env=await initializeTestEnvironment({projectId:'demo-raytech-cg-trusted',
   firestore:{host:'127.0.0.1',port:8091,rules}});
- const app=admin.initializeApp({projectId:'demo-raytech-cg-trusted'},'trusted-lab');
- const db=app.firestore();
+ const app=initializeApp({projectId:'demo-raytech-cg-trusted'},'trusted-lab');
+ const db=getFirestore(app);
  const service=verifyFactory(db,async token=>{
   if(token==='tokenA')return {uid:'usuarioA'};
   if(token==='tokenB')return {uid:'usuarioB'};
