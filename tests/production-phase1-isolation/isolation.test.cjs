@@ -83,7 +83,7 @@ async function main(){
    assert.equal((await pb.receipts.doc('isola').get()).exists,true);
   });
   await test('nenhum recibo forjado B',async()=>assert.equal((await pb.receipts.doc('forged').get()).exists,false));
-  console.log('RESULTADO: '+count+'/30 TESTES APROVADOS');
+  console.log('RESULTADO: '+count+'/31 TESTES APROVADOS');
  }finally{await deleteApp(app);await env.cleanup();}
 }
 main().catch(e=>{console.error('FALHA:',e);process.exitCode=1;});
