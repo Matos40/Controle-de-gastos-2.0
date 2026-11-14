@@ -38,6 +38,46 @@
   if(checked.digest!==archive.digest)throw Error('ARCHIVE_CHECKSUM_MISMATCH');
   return clone(archive.items);
  }
+ function createIndexedDbDriver(indexedDB,name){
+  if(!indexedDB||typeof indexedDB.open!=='function')throw Error('INDEXEDDB_UNAVAILABLE');
+  let dbPromise;
+  function open(){
+   if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{
+    const req=indexedDB.open(name||'raytech-receipt-archive-preview-isolated',1);
+    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('archiveState'))
+     req.result.createObjectStore('archiveState');};
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||Error('ARCHIVE_IDB_OPEN_FAILED'));
+    req.onblocked=()=>reject(Error('ARCHIVE_IDB_BLOCKED'));
+   }).catch(err=>{dbPromise=null;throw err;});
+   return dbPromise;
+  }
+  async function transact(fn){
+   const db=await open();
+   return new Promise((resolve,reject)=>{
+    const tx=db.transaction('archiveState','readwrite');
+    const store=tx.objectStore('archiveState');
+    let response,settled=false;
+    tx.oncomplete=()=>{if(!settled){settled=true;resolve(clone(response));}};
+    tx.onabort=()=>{if(!settled){settled=true;reject(tx.error||Error('ARCHIVE_IDB_ABORTED'));}};
+    const req=store.get('current');
+    req.onerror=()=>{try{tx.abort();}catch(_){}};
+    req.onsuccess=()=>{
+     try{
+      const result=fn(req.result==null?null:clone(req.result));
+      if(result&&typeof result.then==='function')throw Error('ASYNC_ARCHIVE_TRANSACTION');
+      response=result.response;
+      if(result.write!==undefined)store.put(clone(result.write),'current');
+     }catch(err){
+      if(!settled){settled=true;reject(err);}
+      try{tx.abort();}catch(_){}
+     }
+    };
+   });
+  }
+  function close(){if(dbPromise)dbPromise.then(db=>db.close()).catch(()=>{});dbPromise=null;}
+  return Object.freeze({transact,close});
+ }
  function create(driver){
   if(!driver||typeof driver.transact!=='function')throw Error('DRIVER_REQUIRED');
   async function read(){
@@ -110,5 +150,5 @@
   }
   return Object.freeze({initialize,read,append,archiveActive,exportBackup,verifyBackup});
  }
- return Object.freeze({create,createMemoryDriver,makeArchive,verifyArchive});
+ return Object.freeze({create,createMemoryDriver,createIndexedDbDriver,makeArchive,verifyArchive});
 });
