@@ -21,7 +21,7 @@ async function browserTest(fn) {
 test('Chromium IndexedDB persiste apos fechar e reabrir conexao',async()=>{
  const result=await browserTest(async()=>{
   const S=FinancialRepositoryV11Storage,A=FinancialRepositoryV11Async;
-  const name='idb-reopen-'+crypto.randomUUID();
+  const name='idb-reopen-'+String(Date.now())+'-'+Math.random().toString(36).slice(2);
   const initial={selectedMonth:'2026-11',months:{'2026-11':{salary:100,expenses:[],cardExpenses:[]}}};
   const driver=S.createIndexedDbDriver(indexedDB,name),store=S.createStore(driver);
   await store.initialize(initial);
@@ -42,7 +42,7 @@ test('Chromium IndexedDB persiste apos fechar e reabrir conexao',async()=>{
 test('Chromium IndexedDB serializa duas conexoes concorrentes',async()=>{
  const result=await browserTest(async()=>{
   const S=FinancialRepositoryV11Storage,A=FinancialRepositoryV11Async;
-  const name='idb-race-'+crypto.randomUUID();
+  const name='idb-race-'+String(Date.now())+'-'+Math.random().toString(36).slice(2);
   const initial={selectedMonth:'2026-11',months:{'2026-11':{salary:0,expenses:[],cardExpenses:[]}}};
   const d1=S.createIndexedDbDriver(indexedDB,name),d2=S.createIndexedDbDriver(indexedDB,name);
   const s1=S.createStore(d1),s2=S.createStore(d2);
@@ -62,7 +62,7 @@ test('Chromium IndexedDB serializa duas conexoes concorrentes',async()=>{
 test('Chromium IndexedDB aborta transacao sem gravacao parcial',async()=>{
  const result=await browserTest(async()=>{
   const S=FinancialRepositoryV11Storage;
-  const name='idb-abort-'+crypto.randomUUID(),d=S.createIndexedDbDriver(indexedDB,name);
+  const name='idb-abort-'+String(Date.now())+'-'+Math.random().toString(36).slice(2),d=S.createIndexedDbDriver(indexedDB,name);
   const initial={selectedMonth:'2026-11',months:{'2026-11':{salary:20,expenses:[],cardExpenses:[]}}};
   const store=S.createStore(d);await store.initialize(initial);
   let rejected=false;
@@ -81,7 +81,7 @@ test('Chromium IndexedDB aborta transacao sem gravacao parcial',async()=>{
 test('Chromium IndexedDB conserva estrutura e campos de backup legado',async()=>{
  const result=await browserTest(async()=>{
   const S=FinancialRepositoryV11Storage,A=FinancialRepositoryV11Async;
-  const name='idb-legacy-'+crypto.randomUUID(),d=S.createIndexedDbDriver(indexedDB,name);
+  const name='idb-legacy-'+String(Date.now())+'-'+Math.random().toString(36).slice(2),d=S.createIndexedDbDriver(indexedDB,name);
   const legacy={selectedMonth:'2026-11',months:{
    '2026-10':{salary:2000,budgetLimit:1500,expenses:[],cardExpenses:[],extraIncomes:[]},
    '2026-11':{salary:3000,budgetLimit:2000,expenses:[
