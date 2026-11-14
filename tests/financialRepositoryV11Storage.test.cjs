@@ -153,3 +153,26 @@ test('recibos duplicados sao rejeitados sem alterar envelope',async()=>{
  assert.equal((await store.commit(commit('new',1,2))).status,'rejected');
  assert.equal(driver.inspect().receipts.length,2);
 });
+
+test('recibo compacto malformado com selo recalculado e rejeitado',async()=>{
+ const I=require('../js/services/financialRepositoryV11Integrity.js');
+ const driver=createMemoryDriver(),store=createStore(driver);
+ await store.initialize(db());
+ await store.commit(commit('valid',42));
+ const tampered=driver.inspect();
+ tampered.receipts[0].databaseDigest='not-a-sha256';
+ const receiptSeal=await I.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},receipts:tampered.receipts});
+ tampered.seal.receiptsDigest=receiptSeal.digest;
+ const isolated=createStore(createMemoryDriver(tampered));
+ await assert.rejects(()=>isolated.read(),/INVALID_RECEIPT/);
+ assert.equal((await isolated.commit(commit('new',99,1))).code,'INTEGRITY_FAILURE');
+});
+test('recibo com revisao futura e rejeitado mesmo com checksum valido',async()=>{
+ const I=require('../js/services/financialRepositoryV11Integrity.js');
+ const driver=createMemoryDriver(),store=createStore(driver);await store.initialize(db());
+ await store.commit(commit('valid',42));
+ const tampered=driver.inspect();tampered.receipts[0].nextRevision=900;
+ const receiptSeal=await I.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},receipts:tampered.receipts});
+ tampered.seal.receiptsDigest=receiptSeal.digest;
+ await assert.rejects(()=>createStore(createMemoryDriver(tampered)).read(),/INVALID_RECEIPT/);
+});
