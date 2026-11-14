@@ -3,6 +3,7 @@
 const C=require('./financialRepositoryV11ValidatorPhase1Contracts.cjs');
 const I=require('../../js/services/financialRepositoryV11Integrity.js');
 const L=require('./financialRepositoryV11ValidatorPhase2Json.cjs');
+const D=require('./financialRepositoryV11SyntheticJsonDuplicateKeys.cjs');
 const knownEnvelope=new Set(['schemaVersion','algorithm','digest','database']);
 const fail=code=>C.report({format:'json',profile:'json-sealed-v1',checks:[{code,severity:'BLOCKED',passed:false}]});
 function inspect(root){
@@ -25,6 +26,7 @@ async function validateSyntheticSealedJson(text){
  if(Buffer.byteLength(text,'utf8')>L.MAX_BYTES)return fail('SIZE_LIMIT');
  let envelope;
  try{envelope=JSON.parse(text);}catch{return fail('JSON_PARSE_FAILED');}
+ try{if(D.hasDuplicateKeys(text))return fail('DUPLICATE_JSON_KEY');}catch{return fail('JSON_PARSE_FAILED');}
  const issue=inspect(envelope);
  if(issue)return fail(issue);
  if(!envelope||typeof envelope!=='object'||Array.isArray(envelope))return fail('INVALID_ENVELOPE');
