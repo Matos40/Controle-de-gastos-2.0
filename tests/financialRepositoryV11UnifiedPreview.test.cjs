@@ -72,3 +72,14 @@ test('duas instancias concorrentes nao perdem atualizacoes',async()=>{
  assert.equal(results.filter(x=>x.status==='committed').length,1);
  assert.equal((await a.read()).revision,1);
 });
+
+test('backup rejeita recibo com digest adulterado mesmo com selo externo recalculado',async()=>{
+ const I=require('../js/services/financialRepositoryV11Integrity.js');
+ const store=U.create(A.createMemoryDriver());await store.initialize(db(0));
+ await store.commit(req('first',0,100));await store.archiveActive();
+ const backup=await store.exportBackup();
+ backup.envelope.archives[0].items[0].databaseDigest='f'.repeat(64);
+ const wrapper={selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}}};
+ backup.digest=(await I.seal({...wrapper,value:backup.envelope})).digest;
+ await assert.rejects(()=>store.verifyBackup(backup),/UNIFIED_CHECKSUM_MISMATCH/);
+});
