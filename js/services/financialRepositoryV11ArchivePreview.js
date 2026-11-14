@@ -8,7 +8,7 @@
  'use strict';
  const clone=x=>JSON.parse(JSON.stringify(x));
  const canonical=x=>I.canonical(x);
- const validId=x=>typeof x==='string'&&x.trim().length>0;
+ const validId=x=>typeof x==='string'&&x.trim().length>0&&x!=='__proto__'&&x!=='constructor'&&x!=='prototype';
  function createMemoryDriver(initial){
   let state=initial==null?null:clone(initial),tail=Promise.resolve();
   function transact(fn){
@@ -118,7 +118,7 @@
     if(canonical(latest)!==fingerprint)return {response:{status:'conflict'}};
     const next=clone(latest);
     next.active.push(clone(receipt));
-    next.index[receipt.operationId]=true;
+    Object.defineProperty(next.index,receipt.operationId,{value:true,enumerable:true,writable:true,configurable:true});
     return {write:next,response:{status:'appended'}};
    });
   }
