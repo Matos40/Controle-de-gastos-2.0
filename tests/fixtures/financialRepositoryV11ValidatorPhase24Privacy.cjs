@@ -34,7 +34,7 @@ async function inspectSyntheticPrivacy(text){
    }
   }else if(typeof value==='string'){
    if(secretValue.test(value))secret=true;
-   else if(personalValue.test(value))personal=true;
+   else if(personalValue.test(value)||(path==='title'&&/^[A-ZÀ-Ý][a-zà-ÿ]+ [A-ZÀ-Ý][a-zà-ÿ]+$/u.test(value)))personal=true;
   }
  }
  return C.report({format:'json',profile:actualProfile,checks:[
