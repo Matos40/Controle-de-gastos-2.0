@@ -66,7 +66,7 @@ test('recuperacao de resultado incerto usa recibo persistido',async()=>{
   let first=true;
   const flaky={transact: async callback=>{
     const result=await underlying.transact(callback);
-    if(first){first=false;throw Error('ack lost');}
+    if(first && result && result.status==='committed'){first=false;throw Error('ack lost');}
     return result;
   }};
   const store=createStore(flaky);
