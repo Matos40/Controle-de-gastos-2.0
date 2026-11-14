@@ -111,3 +111,52 @@ test('conflito nao altera snapshot, recibos ou indice',async()=>{
  assert.equal(conflict.status,'conflict');
  assert.deepEqual(driver.inspect(),before);
 });
+
+test('QuotaExceededError simulado preserva envelope integral e permite nova tentativa',async()=>{
+ const base=A.createMemoryDriver(),initial=U.create(base);await initial.initialize(db(0));
+ let quota=true;
+ const driver={transact:fn=>base.transact(current=>{
+  const result=fn(current);
+  if(quota&&result&&result.write&&result.response?.status==='committed'){
+   quota=false;const err=Error('Storage quota exceeded');err.name='QuotaExceededError';throw err;
+  }
+  return result;
+ })};
+ const store=U.create(driver);
+ await assert.rejects(()=>store.commit(req('quota',0,100)),e=>e.name==='QuotaExceededError');
+ assert.equal((await initial.read()).revision,0);
+ assert.deepEqual(Object.keys((await initial.read()).index),[]);
+ assert.equal((await store.commit(req('quota',0,100))).status,'committed');
+ assert.equal((await initial.read()).revision,1);
+});
+test('falha durante arquivamento preserva recibos e permite recuperar',async()=>{
+ const base=A.createMemoryDriver(),store=U.create(base);await store.initialize(db(0));
+ await store.commit(req('one',0,100));
+ const before=base.inspect();
+ const faulty=U.create({transact:fn=>base.transact(current=>{
+  const result=fn(current);
+  if(result?.response?.status==='archived')throw Error('SIMULATED_ARCHIVE_FAILURE');
+  return result;
+ })});
+ await assert.rejects(()=>faulty.archiveActive(),/SIMULATED_ARCHIVE_FAILURE/);
+ assert.deepEqual(base.inspect(),before);
+ assert.equal((await store.archiveActive()).status,'archived');
+ assert.equal((await store.commit(req('one',0,100))).replay,true);
+});
+test('cadeia de revisoes rejeita lacuna mesmo com digest de envelope recalculado',async()=>{
+ const I=require('../js/services/financialRepositoryV11Integrity.js');
+ const driver=A.createMemoryDriver(),store=U.create(driver);
+ await store.initialize(db(0));await store.commit(req('one',0,100));await store.commit(req('two',1,200));
+ const damaged=driver.inspect();
+ damaged.active[0].nextRevision=3;
+ damaged.index.one.nextRevision=3;
+ const {digest:ignored,...body}=damaged;
+ damaged.digest=(await I.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},value:body})).digest;
+ await assert.rejects(()=>U.create(A.createMemoryDriver(damaged)).read(),/REVISION_CHAIN_MISMATCH/);
+});
+test('backup legado nao e importado silenciosamente como envelope unificado',async()=>{
+ const store=U.create(A.createMemoryDriver());await store.initialize(db(0));
+ const legacy={selectedMonth:'2026-11',months:{'2026-11':{salary:300,expenses:[],cardExpenses:[]}}};
+ await assert.rejects(()=>store.verifyBackup(legacy),/INVALID_UNIFIED_BACKUP/);
+ assert.equal((await store.read()).revision,0);
+});
