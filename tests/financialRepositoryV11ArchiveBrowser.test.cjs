@@ -72,3 +72,38 @@ test('backup IndexedDB preserva arquivo e rejeita adulteracao',async()=>{
  });
  assert.deepEqual(result,{archives:1,active:1,rejected:true});
 });
+
+test('IndexedDB reabre apos backup verificado sem perder idempotencia',async()=>{
+ const result=await run(async()=>{
+  const A=FinancialRepositoryV11ArchivePreview,name='archive-recover-'+crypto.randomUUID();
+  const d=A.createIndexedDbDriver(indexedDB,name),s=A.create(d);
+  await s.initialize();
+  await s.append({operationId:'old',expectedRevision:0,nextRevision:1,databaseDigest:'a'.repeat(64)});
+  await s.archiveActive();
+  const backup=await s.exportBackup();
+  const verified=await s.verifyBackup(backup);
+  d.close();
+  const recoveredName='archive-recovered-'+crypto.randomUUID();
+  const rd=A.createIndexedDbDriver(indexedDB,recoveredName);
+  await rd.transact(current=>({write:verified,response:true}));
+  const restored=A.create(rd);
+  const replay=await restored.append({operationId:'old',expectedRevision:0,nextRevision:1});
+  const state=await restored.read();rd.close();
+  return {duplicate:replay.code,archives:state.archives.length,index:Object.keys(state.index)};
+ });
+ assert.deepEqual(result,{duplicate:'OPERATION_ID_REUSED',archives:1,index:['old']});
+});
+test('IndexedDB impede arquivamento concorrente com append sem perder recibos',async()=>{
+ const result=await run(async()=>{
+  const A=FinancialRepositoryV11ArchivePreview,name='archive-mixed-'+crypto.randomUUID();
+  const d1=A.createIndexedDbDriver(indexedDB,name),d2=A.createIndexedDbDriver(indexedDB,name);
+  const a=A.create(d1),b=A.create(d2);
+  await a.initialize();await a.append({operationId:'first'});
+  const results=await Promise.all([a.archiveActive(),b.append({operationId:'second'})]);
+  const saved=await a.read();d1.close();d2.close();
+  return {statuses:results.map(x=>x.status).sort(),ids:Object.keys(saved.index),total:saved.active.length+saved.archives.reduce((n,x)=>n+x.count,0)};
+ });
+ assert.deepEqual(result.statuses,['archived','conflict']);
+ assert.deepEqual(result.ids,['first']);
+ assert.equal(result.total,1);
+});
