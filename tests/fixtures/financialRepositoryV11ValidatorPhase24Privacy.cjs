@@ -16,7 +16,7 @@ async function inspectSyntheticPrivacy(text){
  if(Buffer.byteLength(text,'utf8')>L.MAX_BYTES)return failure(profile,'SIZE_LIMIT');
  let data;
  try{data=JSON.parse(text);}catch{return failure(profile,'JSON_PARSE_FAILED');}
- try{if(D.hasDuplicateKeys(text))return failure(profile,'DUPLICATE_JSON_KEY');}catch{return failure(profile,'JSON_PARSE_FAILED');}
+ try{if(D.hasDuplicateKeys(text))return failure(profile,'DUPLICATE_JSON_KEY');}catch(error){return failure(profile,error.message==='DEPTH_LIMIT'?'DEPTH_LIMIT':'JSON_PARSE_FAILED');}
  const sealed=!!data&&typeof data==='object'&&!Array.isArray(data)&&
   (Object.hasOwn(data,'schemaVersion')||Object.hasOwn(data,'digest')||Object.hasOwn(data,'database'));
  const actualProfile=sealed?'json-sealed-v1':'json-legacy';
