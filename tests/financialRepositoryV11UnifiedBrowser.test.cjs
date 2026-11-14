@@ -81,3 +81,27 @@ test('backup integral restaura snapshot e recibos arquivados em outro IndexedDB'
  });
  assert.deepEqual(result,{revision:2,salary:200,archived:1,active:1,replay:true});
 });
+
+test('IndexedDB aborta gravacao unificada apos put e preserva estado',async()=>{
+ const result=await run(async()=>{
+  const A=FinancialRepositoryV11ArchivePreview,U=FinancialRepositoryV11UnifiedPreview;
+  const name='unified-after-put-abort-'+crypto.randomUUID();
+  const db=n=>({selectedMonth:'2026-11',months:{'2026-11':{salary:n,expenses:[],cardExpenses:[]}}});
+  const d=A.createIndexedDbDriver(indexedDB,name),s=U.create(d);
+  await s.initialize(db(0));
+  const before=await s.read();
+  const connection=await new Promise((resolve,reject)=>{
+   const req=indexedDB.open(name,1);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+  const aborted=await new Promise(resolve=>{
+   const tx=connection.transaction('archiveState','readwrite');
+   tx.objectStore('archiveState').put({...before,revision:99},'current');
+   tx.onabort=()=>resolve(true);tx.oncomplete=()=>resolve(false);
+   tx.abort();
+  });
+  connection.close();
+  const saved=await s.read();d.close();
+  return {aborted,revision:saved.revision,salary:saved.database.months['2026-11'].salary};
+ });
+ assert.deepEqual(result,{aborted:true,revision:0,salary:0});
+});
