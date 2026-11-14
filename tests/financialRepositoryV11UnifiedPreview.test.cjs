@@ -83,3 +83,31 @@ test('backup rejeita recibo com digest adulterado mesmo com selo externo recalcu
  backup.digest=(await I.seal({...wrapper,value:backup.envelope})).digest;
  await assert.rejects(()=>store.verifyBackup(backup),/UNIFIED_CHECKSUM_MISMATCH/);
 });
+
+test('corrupcao persistida bloqueia leitura e commit sem modificar dados',async()=>{
+ const driver=A.createMemoryDriver(),store=U.create(driver);
+ await store.initialize(db(0));await store.commit(req('first',0,100));
+ const broken=driver.inspect();broken.index.first.signature='tampered';
+ const damaged=A.createMemoryDriver(broken),guarded=U.create(damaged);
+ await assert.rejects(()=>guarded.read(),/UNIFIED_CHECKSUM_MISMATCH/);
+ await assert.rejects(()=>guarded.commit(req('second',1,200)),/UNIFIED_CHECKSUM_MISMATCH/);
+ assert.deepEqual(damaged.inspect(),broken);
+});
+test('backup truncado e backup de outra revisao sao rejeitados',async()=>{
+ const store=U.create(A.createMemoryDriver());await store.initialize(db(0));
+ await store.commit(req('first',0,100));await store.archiveActive();
+ const backup=await store.exportBackup();
+ const missing=JSON.parse(JSON.stringify(backup));missing.envelope.archives=[];
+ await assert.rejects(()=>store.verifyBackup(missing),/INVALID_UNIFIED_BACKUP/);
+ const wrong=JSON.parse(JSON.stringify(backup));wrong.envelope.revision=0;
+ await assert.rejects(()=>store.verifyBackup(wrong),/INVALID_UNIFIED_BACKUP/);
+ assert.equal((await store.read()).revision,1);
+});
+test('conflito nao altera snapshot, recibos ou indice',async()=>{
+ const driver=A.createMemoryDriver(),store=U.create(driver);await store.initialize(db(0));
+ await store.commit(req('first',0,100));
+ const before=driver.inspect();
+ const conflict=await store.commit(req('second',0,200));
+ assert.equal(conflict.status,'conflict');
+ assert.deepEqual(driver.inspect(),before);
+});
