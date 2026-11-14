@@ -26,7 +26,7 @@ function validateSyntheticJson(text){
  if(Buffer.byteLength(text,'utf8')>MAX_BYTES)return fail('SIZE_LIMIT');
  let data;
  try{data=JSON.parse(text);}catch{return fail('JSON_PARSE_FAILED');}
- try{if(D.hasDuplicateKeys(text))return fail('DUPLICATE_JSON_KEY');}catch{return fail('JSON_PARSE_FAILED');}
+ try{if(D.hasDuplicateKeys(text))return fail('DUPLICATE_JSON_KEY');}catch(error){return fail(error.message==='DEPTH_LIMIT'?'DEPTH_LIMIT':'JSON_PARSE_FAILED');}
  const issue=inspectTree(data);
  if(issue)return fail(issue);
  if(!data||typeof data!=='object'||Array.isArray(data))return fail('INVALID_ROOT');
