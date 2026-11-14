@@ -7,6 +7,7 @@
   'use strict';
   const clone = value => JSON.parse(JSON.stringify(value));
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const MAX_RECEIPTS = 10000;
   function validateEnvelope(e) {
     if (!e || !Number.isSafeInteger(e.revision) || e.revision < 0 ||
         !e.database || typeof e.database !== 'object' || !Array.isArray(e.receipts))
@@ -82,6 +83,8 @@
       const snapshot = await driver.transact(current => ({response: current === null ? null : clone(validateEnvelope(current))}));
       if (snapshot === null) return null;
       if (!snapshot.seal) throw Error('UNSEALED_ENVELOPE');
+      if (snapshot.receipts.length > MAX_RECEIPTS) throw Error('RECEIPT_CAPACITY_EXCEEDED');
+      if (new Set(snapshot.receipts.map(x=>x.operationId)).size !== snapshot.receipts.length) throw Error('DUPLICATE_RECEIPTS');
       const verified = await Integrity.verify(snapshot.seal);
       if (Integrity.canonical(verified) !== Integrity.canonical(snapshot.database)) throw Error('DATABASE_MISMATCH');
       if (snapshot.seal.revision !== undefined && snapshot.seal.revision !== snapshot.revision) throw Error('REVISION_MISMATCH');
@@ -119,15 +122,18 @@
         if (prior) return prior.expectedRevision===request.expectedRevision &&
           prior.nextRevision===request.nextRevision &&
           prior.signature===(request.signature||null) &&
-          Integrity.canonical(prior.database)===Integrity.canonical(request.database)
+          (prior.database ? Integrity.canonical(prior.database)===Integrity.canonical(request.database) :
+           prior.databaseDigest===(await Integrity.seal(request.database)).digest)
           ? {status:'committed',revision:prior.nextRevision,replay:true}
           : {status:'rejected',code:'OPERATION_ID_REUSED'};
         if (current.revision!==request.expectedRevision)
           return {status:'conflict',code:'REVISION_MISMATCH',revision:current.revision};
+        if(current.receipts.length>=MAX_RECEIPTS) return {status:'rejected',code:'RECEIPT_CAPACITY_EXCEEDED'};
+        const databaseDigest=(await Integrity.seal(request.database)).digest;
         const next={revision:request.nextRevision,database:clone(request.database),
           receipts:current.receipts.concat([{operationId:request.operationId,
           expectedRevision:request.expectedRevision,nextRevision:request.nextRevision,
-          signature:request.signature||null,database:clone(request.database)}])};
+          signature:request.signature||null,databaseDigest}])};
         next.seal=await prepareSeal(next.database,next.revision,next.receipts);
         const fingerprint=Integrity.canonical(current);
         return await driver.transact(latest=>{
@@ -138,7 +144,8 @@
       } catch (error) {
         if (['UNSEALED_ENVELOPE','DATABASE_MISMATCH','REVISION_MISMATCH',
           'RECEIPTS_MISMATCH','UNSEALED_RECEIPTS','CHECKSUM_MISMATCH',
-          'INVALID_DATABASE','INVALID_MONTH_DATA','INVALID_SEAL'].includes(error.message))
+          'INVALID_DATABASE','INVALID_MONTH_DATA','INVALID_SEAL',
+          'RECEIPT_CAPACITY_EXCEEDED','DUPLICATE_RECEIPTS'].includes(error.message))
           return {status:'rejected',code:'INTEGRITY_FAILURE'};
         return {status:'unknown',code:'COMMIT_UNCONFIRMED'};
       }
