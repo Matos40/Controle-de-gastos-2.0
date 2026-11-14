@@ -45,3 +45,14 @@ Status: desenho tecnico isolado no PR #7. Nenhuma alteracao na interface, localS
 - Definir politica duravel de recibos e limites de armazenamento.
 - Decidir estrategia de migracao com consentimento e separacao de selectedMonth por dispositivo.
 - Aprovar projeto Firebase, custos, dominio autorizado e politica de privacidade.
+
+## Portoes adicionais de seguranca (revisao)
+- Nao confiar em UID, revision, checksum ou actorId fornecidos pelo cliente sem validacao em backend ou regras.
+- Proibir update/delete de operations/{operationId}; usar create-only e validar propriedade do UID. Para garantias financeiras, preferir backend transacional que confira idempotencia e estado.
+- Uma transacao Firestore requer conexao; nao depender de transacoes offline para confirmar commits. Enfileirar localmente e reconciliar quando online.
+- Definir limite de documento (Firestore 1 MiB), particionamento de snapshots, tamanho de lote e quota antes de migrar.
+- Regras devem validar tipos, campos permitidos e imutabilidade; usar Emulator Suite para ataques de acesso cruzado, falsificacao de revisao e replay.
+- Login/logout e troca de conta devem limpar cache sensivel em memoria, cancelar listeners e separar filas locais por UID; nunca enviar dados de uma conta para outra.
+- A verificacao SHA-256 e integridade acidental, nao autenticacao criptografica. TLS, Security Rules e controle de acesso continuam obrigatorios.
+- Nao guardar token OAuth manualmente no Firestore; usar SDK oficial e persistencia de sessao apropriada.
+- Testar indisponibilidade, quota, revogacao de acesso, multiplas abas, clock skew e conflitos com operacoes excluidas.
