@@ -119,3 +119,56 @@ test('parcela com numero invalido e rejeitada', () => {
   assert.equal(repo.execute(command('bad','UPSERT_CARD_EXPENSE',{month:'2026-11',item})).code,'INVALID_INSTALLMENT');
   assert.equal(repo.read().revision,0);
 });
+
+test('criar mes herda somente fixas e parcela pendente', () => {
+  const db=initial();
+  db.months['2026-11'].expenses=[
+    {id:'fixed1',title:'Internet',type:'fixed',amount:100},
+    {id:'once',title:'Cafe',type:'one-time',amount:20}
+  ];
+  db.months['2026-11'].cardExpenses=[
+    {id:'origin',title:'Notebook',isInstallment:true,installments:3,currentInstallment:1,installmentValue:50}
+  ];
+  const repo=Repository.create(db);
+  assert.equal(repo.execute(command('create','CREATE_MONTH',{month:'2026-12'})).status,'committed');
+  const m=repo.read().database.months['2026-12'];
+  assert.equal(m.expenses.length,1);
+  assert.equal(m.expenses[0].title,'Internet');
+  assert.equal(m.cardExpenses.length,1);
+  assert.equal(m.cardExpenses[0].currentInstallment,2);
+  assert.equal(repo.read().database.selectedMonth,'2026-11');
+});
+test('sincronizacao repetida preserva edicao e nao duplica', () => {
+  const db=initial();
+  db.months['2026-11'].expenses=[{id:'f1',title:'Luz',type:'fixed',amount:100}];
+  db.months['2026-12']={salary:4500,expenses:[{id:'f2',title:'Luz',type:'fixed',amount:180}],cardExpenses:[],extraIncomes:[]};
+  const repo=Repository.create(db);
+  assert.equal(repo.execute(command('sync1','SYNC_PREVIOUS_MONTH',{month:'2026-12'})).status,'committed');
+  assert.equal(repo.execute(command('sync2','SYNC_PREVIOUS_MONTH',{month:'2026-12'},1)).status,'committed');
+  const m=repo.read().database.months['2026-12'];
+  assert.equal(m.expenses.length,1);
+  assert.equal(m.expenses[0].amount,180);
+  assert.equal(m.salary,4500);
+});
+test('parcela excluida nao reaparece na sincronizacao', () => {
+  const db=initial();
+  db.months['2026-11'].cardExpenses=[{id:'p1',title:'Notebook',isInstallment:true,installments:3,currentInstallment:1,installmentValue:50}];
+  db.months['2026-12']={salary:0,expenses:[],cardExpenses:[],deletedInstallmentOrigins:['p1:2']};
+  const repo=Repository.create(db);
+  assert.equal(repo.execute(command('sync','SYNC_PREVIOUS_MONTH',{month:'2026-12'})).status,'committed');
+  assert.equal(repo.read().database.months['2026-12'].cardExpenses.length,0);
+});
+test('criacao de mes anterior nao herda valores do futuro', () => {
+  const db=initial();
+  const repo=Repository.create(db);
+  assert.equal(repo.execute(command('create','CREATE_MONTH',{month:'2026-10'})).status,'committed');
+  assert.equal(repo.read().database.months['2026-10'].salary,0);
+  assert.equal(repo.read().database.months['2026-10'].expenses.length,0);
+});
+test('avanco exige origem imediatamente anterior', () => {
+  const repo=Repository.create(initial());
+  assert.equal(repo.execute(command('bad','ADVANCE_MONTH',{month:'2026-12',fromMonth:'2026-10'})).code,'SOURCE_MONTH_NOT_FOUND');
+  assert.equal(repo.read().revision,0);
+  assert.equal(repo.execute(command('ok','ADVANCE_MONTH',{month:'2026-12',fromMonth:'2026-11'})).status,'committed');
+  assert.equal(repo.read().database.selectedMonth,'2026-11');
+});
