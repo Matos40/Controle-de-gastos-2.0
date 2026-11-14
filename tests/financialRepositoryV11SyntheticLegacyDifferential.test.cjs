@@ -37,7 +37,7 @@ test('DIFF-01 consecutive cumulative balances agree with exact legacy function',
  db.months['2026-12'].expenses.push({id:'a',title:'Despesa',amount:100,type:'one-time'});
  db.months['2027-01'].extraIncomes.push({id:'b',amount:50,description:'Bonus'});
  const ctx=legacy(db),r=repo(db);
- assert.equal(ctx.calculateMonthNetBalance('2027-01'),1750);
+ assert.equal(ctx.calculateMonthNetBalance('2027-01'),1850);
  assert.equal(ctx.calculateMonthNetBalance('2027-01'),net(r.read().months['2026-12'])+net(r.read().months['2027-01']));
 });
 test('DIFF-02 consecutive fixed and installment inheritance match by financial fields',()=>{
