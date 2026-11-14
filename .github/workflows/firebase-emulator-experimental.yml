@@ -38,3 +38,12 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run real browser IndexedDB integration
         run: npm run test:browser
+      - name: Build isolated physical staging bundle
+        run: npm run build:staging
+      - name: Retain staging bundle without deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: raytech-staging-isolated
+          path: experimental/firebase/dist-staging/
+          if-no-files-found: error
+          retention-days: 7

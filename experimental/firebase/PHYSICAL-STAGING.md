@@ -12,3 +12,6 @@ Para cada PC (Chrome/Edge), Android (Chrome) e iOS (Safari): registrar versão d
 7. Verificar que a página no caminho de produção ou origem diferente não permite login.
 ## Bloqueios
 Verificar no console o plano Spark, autorização Google e domínio antes de teste. Não conceder permissões Firestore nem ativar Functions. Sincronização financeira real exige backend confiável, validação de token, autorização, recibos, limites, revisão e testes de segurança; nenhum transporte direto pelo cliente será aceito. Nenhum dado real, PIN, chave Gemini ou backup deve ser usado.
+
+## Build isolado (sem publicação)
+Executar npm install e npm run build:staging em experimental/firebase. A saída dist-staging contém apenas staging.html e assets relativos. O CI verifica a estrutura e guarda o pacote como artefato privado da execução, sem publicar Pages. Suporte alvo: Chrome/Edge 111+, Safari 16.4+. O guardião continua bloqueando o login fora do caminho autorizado. A entrega física depende de autorização posterior de publicação e verificação do console Firebase.
