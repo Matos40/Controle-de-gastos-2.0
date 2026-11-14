@@ -29,7 +29,7 @@ async function inspectSyntheticPrivacy(text){
    for(const [key,child] of Object.entries(value)){
     if(secretKey.test(key))secret=true;
     else if(personalKey.test(key)||key==='name')personal=true;
-    else if(!known.has(key)&&!/^\d{4}-\d{2}$/.test(key))unknown=true;
+    else if(!Array.isArray(value)&&!known.has(key)&&!/^\d{4}-\d{2}$/.test(key))unknown=true;
     stack.push({value:child,path:key});
    }
   }else if(typeof value==='string'){
