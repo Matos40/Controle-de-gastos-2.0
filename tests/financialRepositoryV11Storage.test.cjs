@@ -78,3 +78,13 @@ test('recuperacao de resultado incerto usa recibo persistido',async()=>{
   assert.equal((await stable.read()).revision,1);
   assert.equal((await stable.read()).database.months['2026-11'].salary,320);
 });
+
+test('falha de leitura nao promove sucesso nem altera estado',async()=>{
+ const base=createMemoryDriver();
+ const store=createStore(base);
+ await store.initialize(db());
+ const broken=createStore({transact:()=>{throw Error('READ_FAILED')}});
+ await assert.rejects(()=>broken.read(),/READ_FAILED/);
+ assert.equal((await broken.commit(commit('x',20))).status,'unknown');
+ assert.equal((await store.read()).revision,0);
+});
