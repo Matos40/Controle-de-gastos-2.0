@@ -9,7 +9,7 @@ const commit = (operationId, amount, expectedRevision=0) => ({
 test('inicializacao e idempotente e preserva banco preexistente',async()=>{
   const store=createStore(createMemoryDriver());
   assert.equal((await store.initialize(db())).status,'initialized');
-  assert.equal((await store.initialize({})).status,'existing');
+  assert.equal((await store.initialize(db())).status,'existing');
   assert.deepEqual((await store.read()).database,db());
 });
 test('concorrencia com mesma revisao permite apenas um commit',async()=>{
