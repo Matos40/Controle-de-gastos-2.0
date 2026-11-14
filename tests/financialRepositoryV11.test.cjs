@@ -61,3 +61,15 @@ test('substituicao integral requer implementacao transacional', () => {
   assert.equal(repo.execute(command('r','REPLACE_FINANCIAL_DATABASE',{database:initial()})).code,'REPLACEMENT_REQUIRES_TRANSACTIONAL_ADAPTER');
   assert.equal(repo.read().revision,0);
 });
+
+test('validacao aceita mes real e rejeita mes malformado', () => {
+  assert.equal(Repository.validateDatabase(initial()),true);
+  const bad = initial();
+  bad.selectedMonth = '2026-13';
+  assert.throws(()=>Repository.validateDatabase(bad),/INVALID_DATABASE/);
+});
+test('excecao do adaptador produz estado desconhecido sem falso sucesso', () => {
+  const repo = Repository.create(initial(),{adapter:{atomic:true,commit:()=>{throw Error('falha de rede');}}});
+  assert.equal(repo.execute(command('uncertain','SET_SALARY',{month:'2026-11',amountCents:9999})).status,'unknown');
+  assert.equal(repo.read().revision,0);
+});
