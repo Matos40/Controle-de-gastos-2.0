@@ -85,6 +85,68 @@
             month.extraIncomes.splice(index, 1);
             break;
           }
+          case 'UPSERT_EXPENSE':
+          case 'UPSERT_CARD_EXPENSE': {
+            if (!month || !p.item || typeof p.item !== 'object' || Array.isArray(p.item) ||
+                typeof p.item.id !== 'string' || !p.item.id.trim() ||
+                typeof p.item.title !== 'string' || !p.item.title.trim())
+              return fail('INVALID_PAYLOAD');
+            const card = cmd.commandType === 'UPSERT_CARD_EXPENSE';
+            const amount = cents(p.item.amountCents);
+            const items = card ? month.cardExpenses : month.expenses;
+            const index = items.findIndex(x => x.id === p.item.id);
+            const existing = index >= 0 ? items[index] : {};
+            const { amountCents, ...fields } = p.item;
+            const item = { ...existing, ...fields };
+            if (card) {
+              item.installmentValue = amount;
+              if (item.isInstallment &&
+                  (!Number.isSafeInteger(item.installments) || item.installments < 2 ||
+                   !Number.isSafeInteger(item.currentInstallment) || item.currentInstallment < 1 ||
+                   item.currentInstallment > item.installments))
+                return fail('INVALID_INSTALLMENT');
+            } else {
+              item.amount = amount;
+              if (!['fixed', 'one-time'].includes(item.type)) return fail('INVALID_EXPENSE_TYPE');
+            }
+            delete item.amountCents;
+            if (index < 0) items.push(item);
+            else items[index] = item;
+            break;
+          }
+          case 'DELETE_EXPENSE':
+          case 'DELETE_CARD_EXPENSE': {
+            if (!month || typeof p.id !== 'string' || p.scope !== 'current')
+              return fail('INVALID_SCOPE');
+            const card = cmd.commandType === 'DELETE_CARD_EXPENSE';
+            const items = card ? month.cardExpenses : month.expenses;
+            const index = items.findIndex(x => x.id === p.id);
+            if (index < 0) return fail('ITEM_NOT_FOUND');
+            if (card && items[index].isInstallment) {
+              const item = items[index];
+              const key = String(item.installmentOriginId || item.id) + ':' + String(item.currentInstallment || 1);
+              if (!Array.isArray(month.deletedInstallmentOrigins)) month.deletedInstallmentOrigins = [];
+              if (!month.deletedInstallmentOrigins.includes(key)) month.deletedInstallmentOrigins.push(key);
+            }
+            items.splice(index, 1);
+            break;
+          }
+          case 'CLEAR_EXPENSES':
+          case 'CLEAR_CARD_EXPENSES': {
+            if (!month || p.scope !== 'current') return fail('INVALID_SCOPE');
+            if (cmd.commandType === 'CLEAR_EXPENSES') {
+              month.expenses = [];
+            } else {
+              if (!Array.isArray(month.deletedInstallmentOrigins)) month.deletedInstallmentOrigins = [];
+              for (const item of month.cardExpenses) {
+                if (!item.isInstallment) continue;
+                const key = String(item.installmentOriginId || item.id) + ':' + String(item.currentInstallment || 1);
+                if (!month.deletedInstallmentOrigins.includes(key)) month.deletedInstallmentOrigins.push(key);
+              }
+              month.cardExpenses = [];
+            }
+            break;
+          }
           case 'REPLACE_FINANCIAL_DATABASE':
             return fail('REPLACEMENT_REQUIRES_TRANSACTIONAL_ADAPTER');
           default:
