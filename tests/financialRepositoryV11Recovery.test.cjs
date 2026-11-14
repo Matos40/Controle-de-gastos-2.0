@@ -30,3 +30,30 @@ test('primario integro nao e substituido por backup antigo',async()=>{
  assert.equal(result.candidate,null);
  assert.equal(result.automaticWrites,0);
 });
+
+test('plano de migracao e somente leitura e reversivel sem alterar origem',async()=>{
+ const source=db();source.months['2026-10']={salary:1200,expenses:[],cardExpenses:[],deletedInstallmentOrigins:['x:2']};
+ const before=I.canonical(source);
+ const plan=await I.planMigration(source);
+ assert.equal(plan.mode,'DRY_RUN_ONLY');assert.equal(plan.activated,false);
+ assert.equal(plan.legacyKey,'controle_gastos_multimonth_v3');
+ assert.deepEqual(plan.months,['2026-10','2026-11']);
+ assert.equal(I.canonical(source),before);
+ assert.deepEqual(await I.verify(plan.sealed),source);
+ plan.sealed.database.months['2026-11'].salary=0;
+ assert.equal(I.canonical(source),before);
+ await assert.rejects(()=>I.verify(plan.sealed),/CHECKSUM_MISMATCH/);
+});
+test('backup financeiro com parcelas e exclusoes permanece intacto na recuperacao',async()=>{
+ const source=db();
+ source.months['2026-11'].cardExpenses=[{id:'p',title:'Parcelada',installmentValue:70,
+  isInstallment:true,installments:6,currentInstallment:3}];
+ source.months['2026-11'].deletedInstallmentOrigins=['p:4','p:5'];
+ const primary=await I.seal(source),backup=await I.seal(source);
+ primary.database.months['2026-11'].deletedInstallmentOrigins.pop();
+ const result=await R.inspect(primary,backup);
+ assert.equal(result.status,'RECOVERY_AVAILABLE');
+ assert.equal(result.requiresUserApproval,true);
+ assert.deepEqual(result.candidate,source);
+ assert.equal(result.automaticWrites,0);
+});
