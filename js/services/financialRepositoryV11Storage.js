@@ -103,7 +103,8 @@
           const prior = current.receipts.find(x => x.operationId === request.operationId);
           if (prior) {
             return { response: prior.expectedRevision === request.expectedRevision &&
-                prior.nextRevision === request.nextRevision && same(prior.database, request.database)
+                prior.nextRevision === request.nextRevision && same(prior.database, request.database) &&
+                prior.signature === (request.signature || null)
                 ? { status: 'committed', revision: prior.nextRevision, replay: true }
                 : { status: 'rejected', code: 'OPERATION_ID_REUSED' } };
           }
@@ -114,7 +115,7 @@
           next.database = clone(request.database);
           next.receipts.push({ operationId: request.operationId,
             expectedRevision: request.expectedRevision, nextRevision: request.nextRevision,
-            database: clone(request.database) });
+            signature: request.signature || null, database: clone(request.database) });
           return { write: next, response: { status: 'committed', revision: next.revision } };
         });
       } catch (_) {
