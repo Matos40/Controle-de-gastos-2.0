@@ -67,3 +67,53 @@ test('rollback descarta somente banco isolado e preserva backup original',async(
  });
  assert.deepEqual(result,{removed:true,empty:true,sourceIntact:true});
 });
+
+test('migracao interrompida antes da inicializacao deixa IndexedDB vazio',async()=>{
+ const result=await run(async()=>{
+  const I=FinancialRepositoryV11Integrity,P=FinancialRepositoryV11LegacyPlan;
+  const U=FinancialRepositoryV11UnifiedPreview,A=FinancialRepositoryV11ArchivePreview;
+  const source={selectedMonth:'2026-11',months:{'2026-11':{salary:900,expenses:[],cardExpenses:[]}}};
+  const original=JSON.stringify(source),name='legacy-interrupted-'+crypto.randomUUID();
+  const report=await P.inspect(source),base=A.createIndexedDbDriver(indexedDB,name);
+  const failing=U.create({transact:async fn=>base.transact(current=>{
+   const result=fn(current);
+   if(result&&result.write)throw Error('SIMULATED_MIGRATION_FAILURE');
+   return result;
+  })});
+  let failed=false;
+  try{await failing.initialize(report.verifiedDatabase);}catch(e){failed=e.message==='SIMULATED_MIGRATION_FAILURE';}
+  base.close();
+  const reopened=A.createIndexedDbDriver(indexedDB,name),state=await U.create(reopened).read();
+  reopened.close();
+  return {failed,empty:state===null,sourcePreserved:JSON.stringify(source)===original,
+   digestPreserved:(await I.seal(source)).digest===report.sourceDigest};
+ });
+ assert.deepEqual(result,{failed:true,empty:true,sourcePreserved:true,digestPreserved:true});
+});
+test('rollback apos operacao no banco isolado nao altera backup legado',async()=>{
+ const result=await run(async()=>{
+  const I=FinancialRepositoryV11Integrity,U=FinancialRepositoryV11UnifiedPreview;
+  const A=FinancialRepositoryV11ArchivePreview;
+  const source={selectedMonth:'2026-11',months:{'2026-11':{salary:100,expenses:[],cardExpenses:[]}}};
+  const backup=await I.seal(source),before=JSON.stringify(backup);
+  const name='legacy-rollback-after-commit-'+crypto.randomUUID();
+  const driver=A.createIndexedDbDriver(indexedDB,name),store=U.create(driver);
+  await store.initialize(source);
+  const changed={selectedMonth:'2026-11',months:{'2026-11':{salary:200,expenses:[],cardExpenses:[]}}};
+  const committed=await store.commit({operationId:'test-change',expectedRevision:0,nextRevision:1,
+   signature:'test-only',database:changed});
+  driver.close();
+  const removed=await new Promise((resolve,reject)=>{
+   const req=indexedDB.deleteDatabase(name);
+   req.onsuccess=()=>resolve(true);req.onerror=()=>reject(req.error);
+   req.onblocked=()=>reject(Error('ROLLBACK_BLOCKED'));
+  });
+  const reopened=A.createIndexedDbDriver(indexedDB,name),state=await U.create(reopened).read();
+  reopened.close();
+  return {committed:committed.status,removed,empty:state===null,
+   sourcePreserved:JSON.stringify(backup)===before,
+   sourceDigest:(await I.seal(source)).digest===backup.digest};
+ });
+ assert.deepEqual(result,{committed:'committed',removed:true,empty:true,
+  sourcePreserved:true,sourceDigest:true});
+});
