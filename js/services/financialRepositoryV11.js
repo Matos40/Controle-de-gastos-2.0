@@ -147,6 +147,66 @@
             }
             break;
           }
+          case 'CREATE_MONTH':
+          case 'ADVANCE_MONTH':
+          case 'SYNC_PREVIOUS_MONTH': {
+            const target = p.month;
+            if (!MONTH.test(target)) return fail('INVALID_MONTH');
+            const previousYM = (ym) => {
+              const [year, monthNum] = ym.split('-').map(Number);
+              return monthNum === 1 ? String(year - 1).padStart(4, '0') + '-12'
+                : String(year).padStart(4, '0') + '-' + String(monthNum - 1).padStart(2, '0');
+            };
+            const prevYM = previousYM(target);
+            const prev = next.months[prevYM];
+            if (cmd.commandType === 'ADVANCE_MONTH' && (!prev || p.fromMonth !== prevYM))
+              return fail('SOURCE_MONTH_NOT_FOUND');
+            if (cmd.commandType === 'SYNC_PREVIOUS_MONTH' && !next.months[target])
+              return fail('MONTH_NOT_FOUND');
+            if (cmd.commandType === 'CREATE_MONTH' && next.months[target])
+              return fail('MONTH_ALREADY_EXISTS');
+            if (cmd.commandType === 'SYNC_PREVIOUS_MONTH' && !prev)
+              return fail('SOURCE_MONTH_NOT_FOUND');
+            const created = !next.months[target];
+            if (created) {
+              next.months[target] = { salary: prev ? Number(prev.salary) || 0 : 0,
+                budgetLimit: prev ? Number(prev.budgetLimit) || 0 : 0,
+                extraIncomes: [], expenses: [], cardExpenses: [],
+                deletedInstallmentOrigins: [], closed: false, closedAt: null };
+            }
+            const dest = next.months[target];
+            if (!Array.isArray(dest.deletedInstallmentOrigins)) dest.deletedInstallmentOrigins = [];
+            if (prev) {
+              if (created && prev.salary > 0) dest.salary = prev.salary;
+              for (const item of prev.expenses || []) {
+                if (item.type !== 'fixed') continue;
+                const key = String(item.title || '').trim().toLowerCase();
+                if (dest.expenses.some(x => x.type === 'fixed' &&
+                    String(x.title || '').trim().toLowerCase() === key)) continue;
+                const id = 'fixed:' + target + ':' + String(item.id || key);
+                if (dest.expenses.some(x => x.id === id)) continue;
+                dest.expenses.push({ ...item, id, paid: false,
+                  date: target + '-01' });
+              }
+              for (const item of prev.cardExpenses || []) {
+                if (!item.isInstallment) continue;
+                const nextNumber = Number(item.currentInstallment) + 1;
+                if (!Number.isSafeInteger(nextNumber) || nextNumber > Number(item.installments)) continue;
+                const origin = String(item.installmentOriginId || item.id);
+                const deletedKey = origin + ':' + nextNumber;
+                if (dest.deletedInstallmentOrigins.includes(deletedKey)) continue;
+                if (dest.cardExpenses.some(x => x.isInstallment &&
+                    Number(x.currentInstallment) === nextNumber &&
+                    String(x.installmentOriginId || x.id) === origin)) continue;
+                dest.cardExpenses.push({ ...item,
+                  id: 'installment:' + target + ':' + origin + ':' + nextNumber,
+                  installmentOriginId: origin, currentInstallment: nextNumber,
+                  date: target + '-01', paid: false });
+              }
+            }
+            // A selecao de mes e local ao dispositivo; nao e alterada por comandos de dados.
+            break;
+          }
           case 'REPLACE_FINANCIAL_DATABASE':
             return fail('REPLACEMENT_REQUIRES_TRANSACTIONAL_ADAPTER');
           default:
