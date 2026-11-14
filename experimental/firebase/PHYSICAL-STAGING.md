@@ -15,3 +15,6 @@ Verificar no console o plano Spark, autorização Google e domínio antes de tes
 
 ## Build isolado (sem publicação)
 Executar npm install e npm run build:staging em experimental/firebase. A saída dist-staging contém apenas staging.html e assets relativos. O CI verifica a estrutura e guarda o pacote como artefato privado da execução, sem publicar Pages. Suporte alvo: Chrome/Edge 111+, Safari 16.4+. O guardião continua bloqueando o login fora do caminho autorizado. A entrega física depende de autorização posterior de publicação e verificação do console Firebase.
+
+## ESP-HML-001 v1.1 (aprovada; sem disponibilização)
+Origem exclusiva: https://raytech-cg-homologacao.firebaseapp.com/staging.html, sem query/hash. A origem antiga e web.app são rejeitadas. A baseline comprovada é 369 + 17 + 8 + 5 = 399; 32 novos cenários previstos. A aprovação técnica depende de CI, manifesto e SHA-256. Nenhum teste físico ou alteração Firebase foi autorizado nesta fase. Ver docs/ESP-HML-001-v1.1.md.

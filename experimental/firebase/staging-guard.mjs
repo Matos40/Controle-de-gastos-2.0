@@ -1,7 +1,10 @@
 // Authentication-only physical-device laboratory. No financial transport.
 export const project='raytech-cg-homologacao';
+export const stagingOrigin='https://raytech-cg-homologacao.firebaseapp.com';
+export const stagingPath='/staging.html';
+export function loginAllowed({allowed=false,busy=false,signed=false,consent=false,key='' }={}){return allowed===true&&!busy&&!signed&&consent===true&&typeof key==='string'&&!!key.trim();}
 export function guardLocation(location){
- if(location?.origin!=='https://matos40.github.io'||location.pathname!=='/Controle-de-gastos-homologacao/experimental/firebase/staging.html'||location.search||location.hash)throw Error('STAGING_LOCATION_REJECTED');
+ if(location?.origin!==stagingOrigin||location.pathname!==stagingPath||location.search||location.hash)throw Error('STAGING_LOCATION_REJECTED');
 }
 export function createSessionGuard(){
  let uid=null,epoch=0;

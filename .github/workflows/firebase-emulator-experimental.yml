@@ -19,6 +19,9 @@ jobs:
         working-directory: experimental/firebase
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -45,5 +48,26 @@ jobs:
         with:
           name: raytech-staging-isolated
           path: experimental/firebase/dist-staging/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Package HML isolated ZIP and SHA-256
+        run: npm run package:hml
+      - name: Run exactly 32 HML scenarios
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:hml | tee hml-output/hml-tests.tap
+          npm run report:hml
+          cd hml-output
+          sha256sum -c raytech-cg-hml-001-v1.1.zip.sha256
+      - name: Retain HML ZIP, checksum and test evidence without publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: raytech-cg-hml-001-v1.1
+          path: |
+            experimental/firebase/hml-output/raytech-cg-hml-001-v1.1.zip
+            experimental/firebase/hml-output/raytech-cg-hml-001-v1.1.zip.sha256
+            experimental/firebase/hml-output/validation-report.json
+            experimental/firebase/hml-output/hml-tests.tap
           if-no-files-found: error
           retention-days: 7

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {guardLocation,createSessionGuard,blockedTransport} from './staging-guard.mjs';
-const location={origin:'https://matos40.github.io',pathname:'/Controle-de-gastos-homologacao/experimental/firebase/staging.html',search:'',hash:''};
+const location={origin:'https://raytech-cg-homologacao.firebaseapp.com',pathname:'/staging.html',search:'',hash:''};
 test('ST01 exact staging location permitted',()=>assert.doesNotThrow(()=>guardLocation(location)));
 test('ST02 production path rejected',()=>assert.throws(()=>guardLocation({...location,pathname:'/Controle-de-gastos-2.0/experimental/firebase/staging.html'})));
 test('ST03 foreign origin rejected',()=>assert.throws(()=>guardLocation({...location,origin:'https://example.org'})));
