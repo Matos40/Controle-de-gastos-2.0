@@ -1,0 +1,14 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const P=require('./fixtures/financialRepositoryV11ValidatorPhase24Privacy.cjs');
+const base=()=>({selectedMonth:'2026-11',months:{'2026-11':{salary:3000,expenses:[],cardExpenses:[]}}});
+const run=async x=>(await P.inspectSyntheticPrivacy(typeof x==='string'?x:JSON.stringify(x))).decision;
+test('FP-01 texto benigno com palavra token nao e credencial',async()=>{const x=base();x.months['2026-11'].description='token de estacionamento';assert.equal(await run(x),'PASS')});
+test('FP-02 titulo benigno permanece PASS',async()=>{const x=base();x.months['2026-11'].expenses.push({title:'Compra de mercado',amount:10});assert.equal(await run(x),'PASS')});
+test('FP-03 identificador semelhante mas curto nao bloqueia',async()=>{const x=base();x.months['2026-11'].description='ghp_example';assert.equal(await run(x),'PASS')});
+test('FP-04 campo name mesmo ficticio exige REVIEW',async()=>{const x=base();x.months['2026-11'].name='Pessoa Ficticia';assert.equal(await run(x),'REVIEW')});
+test('FP-05 chave duplicada em objeto aninhado bloqueia',async()=>{const s=JSON.stringify(base()).replace('"salary":3000','"salary":3000,"salary":3001');assert.equal(await run(s),'BLOCKED')});
+test('FP-06 chave duplicada com escape Unicode bloqueia',async()=>{const s=JSON.stringify(base()).replace('"salary":3000','"salary":3000,"sal\\u0061ry":3001');assert.equal(await run(s),'BLOCKED')});
+test('FP-07 mesmo nome de chave em objetos distintos permitido',async()=>{const x=base();x.months['2026-10']={salary:1,expenses:[],cardExpenses:[]};assert.equal(await run(x),'PASS')});
+test('FP-08 JSON com string contendo caracteres de sintaxe permitido',async()=>{const x=base();x.months['2026-11'].description='texto: \\"name\\": falso';assert.equal(await run(x),'PASS')});

@@ -1,0 +1,31 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const I=require('../js/services/financialRepositoryV11Integrity.js');
+const V=require('./fixtures/financialRepositoryV11ValidatorPhase23Sealed.cjs');
+const database=()=>({selectedMonth:'2026-11',months:{'2026-11':{salary:3000,expenses:[],cardExpenses:[]}}});
+const seal=()=>I.seal(database());
+async function check(value,expected,code){
+ const report=await V.validateSyntheticSealedJson(typeof value==='string'?value:JSON.stringify(value));
+ assert.equal(report.decision,expected);
+ assert.equal(report.profile,'json-sealed-v1');
+ assert.equal(report.reviewedByHuman,false);
+ if(code)assert.equal(report.checks[0].code,code);
+ assert.ok(!JSON.stringify(report).includes('3000'));
+ assert.ok(!JSON.stringify(report).includes('2026-11'));
+ return report;
+}
+test('SEAL-01 envelope sintetico integro',async()=>{await check(await seal(),'PASS')});
+test('SEAL-02 alteracao financeira apos selagem bloqueada',async()=>{const x=await seal();x.database.months['2026-11'].salary=3001;await check(x,'BLOCKED','DIGEST_MISMATCH')});
+test('SEAL-03 digest malformado bloqueado',async()=>{const x=await seal();x.digest='bad';await check(x,'BLOCKED','INVALID_SEAL')});
+test('SEAL-04 algoritmo desconhecido bloqueado',async()=>{const x=await seal();x.algorithm='SHA-1';await check(x,'BLOCKED','INVALID_SEAL')});
+test('SEAL-05 versao desconhecida bloqueada',async()=>{const x=await seal();x.schemaVersion=2;await check(x,'BLOCKED','INVALID_SEAL')});
+test('SEAL-06 estrutura financeira invalida bloqueada',async()=>{const x=await seal();x.database.selectedMonth='2026-10';await check(x,'BLOCKED','LEGACY_SCHEMA_INVALID')});
+test('SEAL-07 campo obrigatorio ausente bloqueado',async()=>{const x=await seal();delete x.digest;await check(x,'BLOCKED','INVALID_SEAL')});
+test('SEAL-08 profundidade excessiva bloqueada',async()=>{const x=await seal();let p=x;for(let i=0;i<35;i++){p.synthetic={};p=p.synthetic}await check(x,'BLOCKED','DEPTH_LIMIT')});
+test('SEAL-09 campo desconhecido no envelope exige revisao',async()=>{const x=await seal();x.syntheticUnknown=true;await check(x,'REVIEW')});
+test('SEAL-10 entrada preservada e relatorio sem dados',async()=>{const x=await seal();const original=JSON.stringify(x);const r=await check(original,'PASS');assert.equal(JSON.stringify(x),original);assert.equal(Object.isFrozen(r),true)});
+test('SEAL-11 JSON truncado bloqueado',async()=>{await check('{','BLOCKED','JSON_PARSE_FAILED')});
+test('SEAL-12 limite de bytes bloqueado',async()=>{await check(' '.repeat(128*1024+1),'BLOCKED','SIZE_LIMIT')});
+test('SEAL-13 chave perigosa bloqueada',async()=>{const x=await seal();const s=JSON.stringify(x).replace(/}$/,',"__proto__":{}}');await check(s,'BLOCKED','DANGEROUS_KEY')});
+test('SEAL-14 digest valido nao autentica origem',async()=>{const x=await I.seal(database());const y=await I.seal({...database(),months:{'2026-11':{salary:42,expenses:[],cardExpenses:[]}}});await check(x,'PASS');await check(y,'PASS')});

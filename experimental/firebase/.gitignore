@@ -1,0 +1,11 @@
+node_modules/
+.emulator-functions/
+.firebase/
+*-debug.log
+firebase-debug.*.log
+dist/
+
+playwright-report/
+test-results/
+
+dist-staging/

@@ -1,0 +1,12 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {guardLocation,createSessionGuard,blockedTransport} from './staging-guard.mjs';
+const location={origin:'https://raytech-cg-homologacao.firebaseapp.com',pathname:'/staging.html',search:'',hash:''};
+test('ST01 exact staging location permitted',()=>assert.doesNotThrow(()=>guardLocation(location)));
+test('ST02 production path rejected',()=>assert.throws(()=>guardLocation({...location,pathname:'/Controle-de-gastos-2.0/experimental/firebase/staging.html'})));
+test('ST03 foreign origin rejected',()=>assert.throws(()=>guardLocation({...location,origin:'https://example.org'})));
+test('ST04 query and fragment rejected',()=>{assert.throws(()=>guardLocation({...location,search:'?enable=true'}));assert.throws(()=>guardLocation({...location,hash:'#enable'}));});
+test('ST05 logout and same UID relogin invalidate ticket',()=>{const g=createSessionGuard();g.change('a');const t=g.capture();assert.ok(g.active(t));g.change(null);assert.ok(!g.active(t));g.change('a');assert.ok(!g.active(t));});
+test('ST06 other UID cannot reuse ticket',()=>{const g=createSessionGuard();g.change('a');const t=g.capture();g.change('b');assert.ok(!g.active(t));assert.ok(g.active(g.capture()));});
+test('ST07 no session denies operation',()=>assert.throws(()=>createSessionGuard().capture()));
+test('ST08 transport fail closed even when online',async()=>{for(const action of ['Command','Receipt','Read','Initialize'])assert.deepEqual(await blockedTransport(action),{status:'unknown',code:'TRUSTED_BACKEND_UNAVAILABLE'});});

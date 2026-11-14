@@ -1,0 +1,16 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createSessionGuard,loginAllowed,stagingOrigin} from './staging-guard.mjs';
+import {createStagingAuth} from './staging-auth.mjs';
+const config={projectId:'raytech-cg-homologacao',authDomain:'raytech-cg-homologacao.firebaseapp.com',appId:'1:195471491370:web:b7e5a0a5a218d16f7a9e53',apiKey:'synthetic-only'};
+function mock({fail=false}={}){const events=[];const state={currentUser:null};const memory=Symbol('memory');const sdk={inMemoryPersistence:memory,initializeApp(c){events.push(['init',c]);return {};},deleteApp:async()=>events.push(['delete']),getAuth:()=>state,setPersistence:async(a,p)=>events.push(['persistence',p]),GoogleAuthProvider:class{setCustomParameters(p){events.push(['provider',p]);}},async signInWithPopup(){events.push(['login']);if(fail)throw Error('cancelled');state.currentUser={uid:'a'};return {user:state.currentUser};},async signOut(){state.currentUser=null;events.push(['logout']);}};return {sdk,events,memory};}
+const setup=(m,c=config,enabled=true)=>createStagingAuth({config:c,enabled,origin:stagingOrigin,sdk:m.sdk});
+test('T09 login inicialmente desativado',()=>{assert.match(readFileSync(new URL('./staging.html',import.meta.url),'utf8'),/id="login" disabled/);assert.equal(loginAllowed(),false);});
+test('T10 consentimento obrigatório e revogável',async()=>{const m=mock();assert.equal(loginAllowed({allowed:true,key:'synthetic',consent:true}),true);assert.equal(loginAllowed({allowed:true,key:'synthetic',consent:false}),false);await assert.rejects(setup(m,config,false),/STAGING_DISABLED/);assert.deepEqual(m.events,[]);});
+test('T11 configuração incompleta',async()=>{const m=mock();await assert.rejects(setup(m,{...config,apiKey:' '}),/STAGING_CONFIG_REJECTED/);assert.deepEqual(m.events,[]);});
+test('T12 configuração válida não persiste chave no aplicativo',async()=>{const m=mock();const a=await setup(m);assert.equal(m.events[0][1].apiKey,config.apiKey);assert.equal(a.current(),null);const source=['staging-auth.mjs','staging-lab.mjs'].map(n=>readFileSync(new URL(n,import.meta.url),'utf8')).join('\n');assert.doesNotMatch(source,/localStorage|sessionStorage|document\.cookie/);assert.match(source,/\$\('key'\)\.value='';auth=await createStagingAuth/);await a.close();});
+test('T13 autenticação usa persistência em memória',async()=>{const m=mock();const a=await setup(m);assert.deepEqual(m.events[1],['persistence',m.memory]);assert.deepEqual(await a.signIn(),{uid:'a'});assert.equal(a.current(),'a');await a.close();assert.equal(a.current(),null);});
+test('T14 cancelamento mantém sessão desconectada',async()=>{const m=mock({fail:true});const a=await setup(m);await assert.rejects(a.signIn(),/cancelled/);assert.equal(a.current(),null);await a.close();});
+test('T15 logout invalida ticket assíncrono',async()=>{const g=createSessionGuard();g.change('a');const t=g.capture();let finish;const p=new Promise(r=>finish=r).then(()=>g.active(t));g.change(null);finish();assert.equal(await p,false);});
+test('T16 relogin mesmo UID não reativa ticket',()=>{const g=createSessionGuard();g.change('a');const t=g.capture();g.change(null);g.change('a');assert.equal(g.active(t),false);assert.equal(g.active(g.capture()),true);});
