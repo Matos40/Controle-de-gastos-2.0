@@ -85,6 +85,15 @@
       if (!snapshot.seal) throw Error('UNSEALED_ENVELOPE');
       if (snapshot.receipts.length > MAX_RECEIPTS) throw Error('RECEIPT_CAPACITY_EXCEEDED');
       if (new Set(snapshot.receipts.map(x=>x.operationId)).size !== snapshot.receipts.length) throw Error('DUPLICATE_RECEIPTS');
+      for (const receipt of snapshot.receipts) {
+        if (!receipt || typeof receipt.operationId !== 'string' || !receipt.operationId.trim() ||
+            !Number.isSafeInteger(receipt.expectedRevision) || receipt.expectedRevision < 0 ||
+            receipt.nextRevision !== receipt.expectedRevision + 1 ||
+            receipt.nextRevision > snapshot.revision ||
+            (receipt.database === undefined &&
+             (typeof receipt.databaseDigest !== 'string' || !/^[a-f0-9]{64}$/.test(receipt.databaseDigest))))
+          throw Error('INVALID_RECEIPT');
+      }
       const verified = await Integrity.verify(snapshot.seal);
       if (Integrity.canonical(verified) !== Integrity.canonical(snapshot.database)) throw Error('DATABASE_MISMATCH');
       if (snapshot.seal.revision !== undefined && snapshot.seal.revision !== snapshot.revision) throw Error('REVISION_MISMATCH');
@@ -145,7 +154,7 @@
         if (['UNSEALED_ENVELOPE','DATABASE_MISMATCH','REVISION_MISMATCH',
           'RECEIPTS_MISMATCH','UNSEALED_RECEIPTS','CHECKSUM_MISMATCH',
           'INVALID_DATABASE','INVALID_MONTH_DATA','INVALID_SEAL',
-          'RECEIPT_CAPACITY_EXCEEDED','DUPLICATE_RECEIPTS'].includes(error.message))
+          'RECEIPT_CAPACITY_EXCEEDED','DUPLICATE_RECEIPTS','INVALID_RECEIPT'].includes(error.message))
           return {status:'rejected',code:'INTEGRITY_FAILURE'};
         return {status:'unknown',code:'COMMIT_UNCONFIRMED'};
       }
