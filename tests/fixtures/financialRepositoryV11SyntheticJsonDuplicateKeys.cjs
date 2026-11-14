@@ -11,7 +11,8 @@ function hasDuplicateKeys(text){
   }
   throw Error('INVALID_JSON');
  }
- function value(){
+ function value(depth=0){
+  if(depth>32)throw Error('DEPTH_LIMIT');
   ws();const c=text[i];
   if(c==='"'){str();return false}
   if(c==='{'){
@@ -21,7 +22,7 @@ function hasDuplicateKeys(text){
     ws();if(text[i]!=='"')throw Error('INVALID_JSON');
     const k=str();if(keys.has(k))duplicate=true;keys.add(k);
     ws();if(text[i++]!==':')throw Error('INVALID_JSON');
-    duplicate=value()||duplicate;ws();
+    duplicate=value(depth+1)||duplicate;ws();
     if(text[i]==='}'){i++;return duplicate}
     if(text[i++]!==',')throw Error('INVALID_JSON');
    }
@@ -31,7 +32,7 @@ function hasDuplicateKeys(text){
    i++;ws();let duplicate=false;
    if(text[i]===']'){i++;return false}
    while(i<text.length){
-    duplicate=value()||duplicate;ws();
+    duplicate=value(depth+1)||duplicate;ws();
     if(text[i]===']'){i++;return duplicate}
     if(text[i++]!==',')throw Error('INVALID_JSON');
    }
