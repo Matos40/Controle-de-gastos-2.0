@@ -52,6 +52,6 @@ test('falha na preparacao nao altera armazenamento existente',async()=>{
 test('corrupcao de envelope e rejeitada antes da leitura',async()=>{
  const corrupted=S.createMemoryDriver({revision:0,database:fixture(),receipts:[]});
  const store=S.createStore(corrupted);
- const before=await store.read();
- assert.deepEqual(before.database,fixture());
+ await assert.rejects(()=>store.read(),/UNSEALED_ENVELOPE/);
+ assert.equal((await store.commit({operationId:'x',expectedRevision:0,nextRevision:1,database:fixture()})).code,'INTEGRITY_FAILURE');
 });
