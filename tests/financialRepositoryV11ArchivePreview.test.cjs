@@ -56,3 +56,20 @@ test('arquivo adulterado e indice faltante sao rejeitados',async()=>{
  const missing=driver.inspect();delete missing.index.a;
  await assert.rejects(()=>A.create(A.createMemoryDriver(missing)).read(),/INDEX_MISMATCH/);
 });
+
+test('IDs reservados nao podem corromper indice de operacoes',async()=>{
+ const store=A.create(A.createMemoryDriver());await store.initialize();
+ for(const operationId of ['__proto__','constructor','prototype']){
+  assert.deepEqual(await store.append(receipt(operationId)),
+   {status:'rejected',code:'INVALID_RECEIPT'});
+ }
+ assert.deepEqual(Object.keys((await store.read()).index),[]);
+});
+test('arquivo corrompido impede append sem mutacao',async()=>{
+ const driver=A.createMemoryDriver(),store=A.create(driver);
+ await store.initialize();await store.append(receipt('original'));await store.archiveActive();
+ const broken=driver.inspect();broken.archives[0].items[0].operationId='modified';
+ const corruptedDriver=A.createMemoryDriver(broken),corrupted=A.create(corruptedDriver);
+ await assert.rejects(()=>corrupted.append(receipt('new')),/ARCHIVE_CHECKSUM_MISMATCH/);
+ assert.deepEqual(corruptedDriver.inspect(),broken);
+});
