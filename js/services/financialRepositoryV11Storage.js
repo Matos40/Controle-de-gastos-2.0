@@ -52,7 +52,7 @@
       return new Promise((resolve, reject) => {
         const tx = db.transaction('state', 'readwrite');
         const store = tx.objectStore('state');
-        let response, decided = false;
+        let response;
         tx.oncomplete = () => resolve(clone(response));
         tx.onabort = () => reject(tx.error || Error('IDB_ABORTED'));
         tx.onerror = () => {};
@@ -65,7 +65,6 @@
             if (result && typeof result.then === 'function') throw Error('ASYNC_TRANSACTION_CALLBACK');
             response = result.response;
             if (result.write) store.put(clone(validateEnvelope(result.write)), 'current');
-            decided = true;
           } catch (err) {
             try { tx.abort(); } catch (_) {}
             reject(err);
@@ -73,7 +72,8 @@
         };
       });
     }
-    return Object.freeze({ transact });
+    function close() { if (openPromise) openPromise.then(db => db.close()).catch(() => {}); openPromise = null; }
+    return Object.freeze({ transact, close });
   }
   function createStore(driver) {
     if (!driver || typeof driver.transact !== 'function') throw new Error('DRIVER_REQUIRED');
