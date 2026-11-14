@@ -41,7 +41,7 @@ async function inspectSyntheticPrivacy(text){
   {code:'PRIVACY_SECRETS_ABSENT',severity:'BLOCKED',passed:!secret},
   {code:'PRIVACY_PERSONAL_INDICATORS_ABSENT',severity:'REVIEW',passed:!personal},
   {code:'PRIVACY_UNKNOWN_FIELDS_ABSENT',severity:'REVIEW',passed:!unknown},
-  {code:'PRIVACY_PRIOR_VALIDATION',severity:'BLOCKED',passed:true}
+  {code:'PRIVACY_PRIOR_VALIDATION',severity:'REVIEW',passed:prior.decision!=='REVIEW'}
  ]});
 }
 module.exports=Object.freeze({inspectSyntheticPrivacy});
