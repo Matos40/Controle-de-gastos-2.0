@@ -59,3 +59,23 @@ test('planejamento de backup legado conserva investimentos e despesas recorrente
  assert.deepEqual(report.verifiedDatabase.months['2026-11'].investments,source.months['2026-11'].investments);
  assert.equal(report.verifiedDatabase.months['2026-11'].expenses.length,2);
 });
+
+test('backup legado preserva campos extras, parcelas, exclusoes e categorias sem normalizacao destrutiva',async()=>{
+ const source=legacy(),month=source.months['2026-11'];
+ month.customMetadata={theme:'dark',nested:{flag:true}};
+ month.expenses.push({id:'monthly',title:'Internet',amount:99.9,type:'fixed',category:'Servicos',paid:true,
+  installments:12,custom:{origin:'legacy'}});
+ month.cardExpenses.push({id:'oneoff',title:'Compra avulsa',installmentValue:29.9,isInstallment:false,
+  category:'Compras',paid:true});
+ month.deletedInstallmentOrigins.push('other:2');
+ month.extraIncomes.push({id:'dividend',amount:80,description:'Dividendos',category:'Investimentos'});
+ const report=await P.inspect(source);
+ assert.deepEqual(report.verifiedDatabase,source);
+ assert.equal((await I.seal(report.verifiedDatabase)).digest,report.sourceDigest);
+});
+test('origem selada e origem simples geram exatamente o mesmo snapshot financeiro',async()=>{
+ const source=legacy();
+ const plain=await P.inspect(source),sealed=await P.inspect(await I.seal(source));
+ assert.equal(plain.sourceDigest,sealed.sourceDigest);
+ assert.deepEqual(plain.verifiedDatabase,sealed.verifiedDatabase);
+});
