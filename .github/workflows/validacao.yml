@@ -36,5 +36,9 @@ jobs:
             test -f "$file" || { echo "::error::Arquivo ausente: $file"; exit 1; }
           done
           node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'))"
+      - name: Instalar navegador de testes isolados
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
       - name: Testar persistencia e regras financeiras
         run: node --test tests/*.test.cjs
