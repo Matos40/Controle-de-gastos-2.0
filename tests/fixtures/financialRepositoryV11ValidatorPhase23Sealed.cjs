@@ -26,7 +26,7 @@ async function validateSyntheticSealedJson(text){
  if(Buffer.byteLength(text,'utf8')>L.MAX_BYTES)return fail('SIZE_LIMIT');
  let envelope;
  try{envelope=JSON.parse(text);}catch{return fail('JSON_PARSE_FAILED');}
- try{if(D.hasDuplicateKeys(text))return fail('DUPLICATE_JSON_KEY');}catch{return fail('JSON_PARSE_FAILED');}
+ try{if(D.hasDuplicateKeys(text))return fail('DUPLICATE_JSON_KEY');}catch(error){return fail(error.message==='DEPTH_LIMIT'?'DEPTH_LIMIT':'JSON_PARSE_FAILED');}
  const issue=inspect(envelope);
  if(issue)return fail(issue);
  if(!envelope||typeof envelope!=='object'||Array.isArray(envelope))return fail('INVALID_ENVELOPE');
