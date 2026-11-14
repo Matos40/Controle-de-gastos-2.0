@@ -73,3 +73,32 @@ test('arquivo corrompido impede append sem mutacao',async()=>{
  await assert.rejects(()=>corrupted.append(receipt('new')),/ARCHIVE_CHECKSUM_MISMATCH/);
  assert.deepEqual(corruptedDriver.inspect(),broken);
 });
+
+test('arquivo com indice aparentemente valido mas operacao duplicada e rejeitado',async()=>{
+ const driver=A.createMemoryDriver(),store=A.create(driver);await store.initialize();
+ await store.append(receipt('a'));await store.archiveActive();
+ const state=driver.inspect();
+ state.active.push(receipt('a'));
+ await assert.rejects(()=>A.create(A.createMemoryDriver(state)).read(),/DUPLICATE_OPERATION_ID/);
+});
+test('backup com indice adulterado e checksum recalculado continua invalido',async()=>{
+ const I=require('../js/services/financialRepositoryV11Integrity.js');
+ const store=A.create(A.createMemoryDriver());await store.initialize();
+ await store.append(receipt('a'));await store.archiveActive();
+ const backup=await store.exportBackup();
+ delete backup.archiveState.index.a;
+ const sealed=await I.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},archiveState:backup.archiveState});
+ backup.digest=sealed.digest;
+ await assert.rejects(()=>store.verifyBackup(backup),/INDEX_MISMATCH/);
+});
+test('backup verificado e independente da origem e preserva deduplicacao',async()=>{
+ const original=A.create(A.createMemoryDriver());await original.initialize();
+ await original.append(receipt('old'));await original.archiveActive();
+ const backup=await original.exportBackup();
+ const restoredState=await original.verifyBackup(backup);
+ const recovered=A.create(A.createMemoryDriver(restoredState));
+ assert.equal((await recovered.append(receipt('old'))).code,'OPERATION_ID_REUSED');
+ assert.equal((await recovered.append(receipt('new'))).status,'appended');
+ assert.equal((await original.read()).active.length,0);
+ assert.equal((await recovered.read()).active.length,1);
+});
