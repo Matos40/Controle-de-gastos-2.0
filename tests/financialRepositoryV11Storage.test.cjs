@@ -58,3 +58,23 @@ test('leitura retorna copia isolada',async()=>{
   read.database.months['2026-11'].salary=900;
   assert.equal((await store.read()).database.months['2026-11'].salary,0);
 });
+
+test('recuperacao de resultado incerto usa recibo persistido',async()=>{
+  const underlying=createMemoryDriver();
+  const stable=createStore(underlying);
+  await stable.initialize(db());
+  let first=true;
+  const flaky={transact: async callback=>{
+    const result=await underlying.transact(callback);
+    if(first){first=false;throw Error('ack lost');}
+    return result;
+  }};
+  const store=createStore(flaky);
+  const req=commit('ack-lost',320);
+  assert.equal((await store.commit(req)).status,'unknown');
+  const replay=await createStore(underlying).commit(req);
+  assert.equal(replay.status,'committed');
+  assert.equal(replay.replay,true);
+  assert.equal((await stable.read()).revision,1);
+  assert.equal((await stable.read()).database.months['2026-11'].salary,320);
+});
