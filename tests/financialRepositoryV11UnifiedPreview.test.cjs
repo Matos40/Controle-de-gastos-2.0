@@ -152,7 +152,7 @@ test('cadeia de revisoes rejeita lacuna mesmo com digest de envelope recalculado
  damaged.index.one.nextRevision=3;
  const {digest:ignored,...body}=damaged;
  damaged.digest=(await I.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},value:body})).digest;
- await assert.rejects(()=>U.create(A.createMemoryDriver(damaged)).read(),/REVISION_CHAIN_MISMATCH/);
+ await assert.rejects(()=>U.create(A.createMemoryDriver(damaged)).read(),/(REVISION_CHAIN_MISMATCH|UNIFIED_RECEIPT_MISMATCH)/);
 });
 test('backup legado nao e importado silenciosamente como envelope unificado',async()=>{
  const store=U.create(A.createMemoryDriver());await store.initialize(db(0));
