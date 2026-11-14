@@ -47,7 +47,7 @@ test('DIFF-02 consecutive fixed and installment inheritance match by financial f
  const ctx=legacy(db);ctx.ensureMonthExists('2027-01');
  const r=repo(db);r.apply('CREATE_MONTH',{month:'2027-01'});
  const projection=m=>({salary:m.salary,expenses:m.expenses.map(x=>({title:x.title,type:x.type,amount:x.amount,paid:x.paid})),cards:m.cardExpenses.map(x=>({title:x.title,installmentValue:x.installmentValue,currentInstallment:x.currentInstallment,paid:x.paid}))});
- assert.deepEqual(projection(r.read().months['2027-01']),projection(ctx.appDb.months['2027-01']));
+ assert.deepEqual(projection(r.read().months['2027-01']),clone(projection(ctx.appDb.months['2027-01'])));
 });
 test('DIFF-03 gap month inheritance differs: legacy fallback versus immediate predecessor',()=>{
  const db={selectedMonth:'2026-11',months:{'2026-11':month(1200)}};
