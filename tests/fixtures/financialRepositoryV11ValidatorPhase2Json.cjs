@@ -2,6 +2,7 @@
 // Phase 2.1/2.2: synthetic JSON text in memory only. No file, network, or storage APIs.
 const C=require('./financialRepositoryV11ValidatorPhase1Contracts.cjs');
 const I=require('../../js/services/financialRepositoryV11Integrity.js');
+const D=require('./financialRepositoryV11SyntheticJsonDuplicateKeys.cjs');
 const MAX_BYTES=128*1024,MAX_DEPTH=32,MAX_NODES=10000;
 const fail=(code)=>C.report({format:'json',profile:'json-legacy',checks:[{code,severity:'BLOCKED',passed:false}]});
 function inspectTree(root){
@@ -25,6 +26,7 @@ function validateSyntheticJson(text){
  if(Buffer.byteLength(text,'utf8')>MAX_BYTES)return fail('SIZE_LIMIT');
  let data;
  try{data=JSON.parse(text);}catch{return fail('JSON_PARSE_FAILED');}
+ try{if(D.hasDuplicateKeys(text))return fail('DUPLICATE_JSON_KEY');}catch{return fail('JSON_PARSE_FAILED');}
  const issue=inspectTree(data);
  if(issue)return fail(issue);
  if(!data||typeof data!=='object'||Array.isArray(data))return fail('INVALID_ROOT');
