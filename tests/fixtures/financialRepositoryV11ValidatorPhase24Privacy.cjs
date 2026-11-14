@@ -3,10 +3,11 @@
 const C=require('./financialRepositoryV11ValidatorPhase1Contracts.cjs');
 const L=require('./financialRepositoryV11ValidatorPhase2Json.cjs');
 const S=require('./financialRepositoryV11ValidatorPhase23Sealed.cjs');
+const D=require('./financialRepositoryV11SyntheticJsonDuplicateKeys.cjs');
 const known=new Set(['selectedMonth','months','salary','budgetLimit','expenses','cardExpenses','title','amount','installmentValue','installment','totalInstallments','category','id','date','description','value','type','paid','fixed','investments','income','extraIncome','cards','name','schemaVersion','algorithm','digest','database']);
 const secretKey=/(?:password|passwd|senha|secret|token|api[_-]?key|private[_-]?key|authorization|credential|client[_-]?secret)/i;
 const personalKey=/(?:email|e-mail|cpf|phone|telefone|celular|address|endereco|endereço|full[_-]?name|nome|documento|rg)/i;
-const secretValue=/(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:bearer\s+)[a-z0-9._-]{8,}|(?:sk[_-](?:test[_-]|live[_-])?)[a-z0-9_-]{12,})/i;
+const secretValue=/(?:ghp_[a-z0-9]{20,}|AKIA[A-Z0-9]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:bearer\s+)[a-z0-9._-]{8,}|(?:sk[_-](?:test[_-]|live[_-])?)[a-z0-9_-]{12,})/i;
 const personalValue=/(?:[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}|\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\(?\d{2}\)?\s?9?\d{4}[- ]?\d{4}\b)/i;
 const failure=(profile,code)=>C.report({format:'json',profile,checks:[{code,severity:'BLOCKED',passed:false}]});
 async function inspectSyntheticPrivacy(text){
@@ -15,6 +16,7 @@ async function inspectSyntheticPrivacy(text){
  if(Buffer.byteLength(text,'utf8')>L.MAX_BYTES)return failure(profile,'SIZE_LIMIT');
  let data;
  try{data=JSON.parse(text);}catch{return failure(profile,'JSON_PARSE_FAILED');}
+ try{if(D.hasDuplicateKeys(text))return failure(profile,'DUPLICATE_JSON_KEY');}catch{return failure(profile,'JSON_PARSE_FAILED');}
  const sealed=!!data&&typeof data==='object'&&!Array.isArray(data)&&
   (Object.hasOwn(data,'schemaVersion')||Object.hasOwn(data,'digest')||Object.hasOwn(data,'database'));
  const actualProfile=sealed?'json-sealed-v1':'json-legacy';
@@ -26,7 +28,7 @@ async function inspectSyntheticPrivacy(text){
   if(value&&typeof value==='object'){
    for(const [key,child] of Object.entries(value)){
     if(secretKey.test(key))secret=true;
-    else if(personalKey.test(key))personal=true;
+    else if(personalKey.test(key)||key==='name')personal=true;
     else if(!known.has(key)&&!/^\d{4}-\d{2}$/.test(key))unknown=true;
     stack.push({value:child,path:key});
    }
