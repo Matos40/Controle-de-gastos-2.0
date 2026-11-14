@@ -44,3 +44,18 @@ test('snapshot legado pode iniciar envelope isolado na revisao zero sem fabricar
  assert.equal((await I.seal(state.database)).digest,report.sourceDigest);
  assert.equal(state.database.months['2026-11'].deletedInstallmentOrigins[0],'origin:3');
 });
+
+test('planejamento rejeita backup desconhecido sem tocar origem',async()=>{
+ const unknown={schemaVersion:9,database:legacy(),digest:'x'};
+ const before=JSON.stringify(unknown);
+ await assert.rejects(()=>P.inspect(unknown),/INVALID_DATABASE/);
+ assert.equal(JSON.stringify(unknown),before);
+});
+test('planejamento de backup legado conserva investimentos e despesas recorrentes',async()=>{
+ const source=legacy();
+ source.months['2026-11'].investments=[{id:'inv',amount:500,category:'Investimentos'}];
+ source.months['2026-11'].expenses.push({id:'electric',title:'Energia',amount:150,type:'fixed'});
+ const report=await P.inspect(source);
+ assert.deepEqual(report.verifiedDatabase.months['2026-11'].investments,source.months['2026-11'].investments);
+ assert.equal(report.verifiedDatabase.months['2026-11'].expenses.length,2);
+});
