@@ -10,7 +10,7 @@
     'UPSERT_CARD_EXPENSE', 'DELETE_CARD_EXPENSE', 'CLEAR_EXPENSES',
     'CLEAR_CARD_EXPENSES', 'CREATE_MONTH', 'ADVANCE_MONTH',
     'SYNC_PREVIOUS_MONTH', 'REPLACE_FINANCIAL_DATABASE']);
-  const MONTH = /^\\d{4}-(0[1-9]|1[0-2])$/;
+  const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function fail(code) { return { status: 'rejected', code }; }
   function cents(value) {
@@ -95,8 +95,15 @@
           // O adaptador deve garantir commit atomico e deteccao de conflito.
           if (typeof adapter.commit !== 'function' || adapter.atomic !== true)
             return fail('TRANSACTIONAL_ADAPTER_REQUIRED');
-          const outcome = adapter.commit({ expectedRevision: revision, nextRevision: revision + 1,
-            operationId: cmd.operationId, database: clone(next) });
+          let outcome;
+          try {
+            outcome = adapter.commit({ expectedRevision: revision, nextRevision: revision + 1,
+              operationId: cmd.operationId, database: clone(next) });
+          } catch (_) {
+            return { status: 'unknown', code: 'COMMIT_UNCONFIRMED' };
+          }
+          if (outcome && typeof outcome.then === 'function')
+            return fail('ASYNC_ADAPTER_NOT_SUPPORTED');
           if (!outcome || outcome.status !== 'committed')
             return outcome && ['conflict', 'rejected', 'unknown'].includes(outcome.status)
               ? outcome : { status: 'unknown', code: 'COMMIT_UNCONFIRMED' };
