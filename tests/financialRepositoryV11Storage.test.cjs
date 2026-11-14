@@ -117,3 +117,39 @@ test('inicializacao nao repara silenciosamente envelope corrompido',async()=>{
  assert.equal((await store.initialize(db())).status,'existing');
  await assert.rejects(()=>store.read(),/UNSEALED_ENVELOPE/);
 });
+
+test('recibos novos guardam digest sem replicar snapshot financeiro',async()=>{
+ const store=createStore(createMemoryDriver());await store.initialize(db());
+ const req=commit('compact',123);
+ assert.equal((await store.commit(req)).status,'committed');
+ const receipt=(await store.read()).receipts[0];
+ assert.equal(receipt.database,undefined);
+ assert.match(receipt.databaseDigest,/^[0-9a-f]{64}$/);
+ assert.equal((await store.commit(req)).replay,true);
+ assert.equal((await store.commit(commit('compact',124))).code,'OPERATION_ID_REUSED');
+});
+test('recibo legado com snapshot continua valido quando envelope esta selado',async()=>{
+ const Integrity=require('../js/services/financialRepositoryV11Integrity.js');
+ const initial=db(),next=commit('legacy',44).database;
+ const receipts=[{operationId:'legacy',expectedRevision:0,nextRevision:1,signature:null,database:next}];
+ const seal=await Integrity.seal(next);
+ const receiptSeal=await Integrity.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},receipts});
+ const driver=createMemoryDriver({revision:1,database:next,receipts,
+  seal:{...seal,revision:1,receiptsDigest:receiptSeal.digest}});
+ const store=createStore(driver);
+ assert.equal((await store.commit(commit('legacy',44))).replay,true);
+ assert.equal((await store.read()).revision,1);
+});
+test('recibos duplicados sao rejeitados sem alterar envelope',async()=>{
+ const Integrity=require('../js/services/financialRepositoryV11Integrity.js');
+ const initial=db();
+ const receipts=[{operationId:'duplicate',expectedRevision:0,nextRevision:1,signature:null,databaseDigest:'0'.repeat(64)},
+ {operationId:'duplicate',expectedRevision:1,nextRevision:2,signature:null,databaseDigest:'1'.repeat(64)}];
+ const seal=await Integrity.seal(initial);
+ const receiptSeal=await Integrity.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},receipts});
+ const driver=createMemoryDriver({revision:2,database:initial,receipts,seal:{...seal,revision:2,receiptsDigest:receiptSeal.digest}});
+ const store=createStore(driver);
+ await assert.rejects(()=>store.read(),/DUPLICATE_RECEIPTS/);
+ assert.equal((await store.commit(commit('new',1,2))).status,'rejected');
+ assert.equal(driver.inspect().receipts.length,2);
+});
