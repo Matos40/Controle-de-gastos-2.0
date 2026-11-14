@@ -201,3 +201,24 @@ test('promptAdvanceMonth respeita exclusao registrada da parcela seguinte', () =
   assert.equal(t.run('appDb.months["2026-12"].cardExpenses.length'),0);
   assert.deepEqual(Array.from(t.run('appDb.months["2026-12"].deletedInstallmentOrigins')),['compra1:2']);
 });
+
+
+test('sincronizacao nao confunde despesa unica com fixa de mesmo titulo', () => {
+  const t = setup({selectedMonth:'2026-11',months:{
+    '2026-10':{salary:0,expenses:[{id:'fixa',title:'Internet',type:'fixed',amount:120}],cardExpenses:[]},
+    '2026-11':{salary:0,expenses:[{id:'unica',title:'Internet',type:'one-time',amount:30}],cardExpenses:[]}
+  }});
+  t.run('loadDatabase(); syncFromPreviousMonth(true); syncFromPreviousMonth(true)');
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),2);
+  assert.equal(t.run('appDb.months["2026-11"].expenses.filter(e => e.type === "fixed").length'),1);
+  assert.equal(t.run('appDb.months["2026-11"].expenses.find(e => e.id === "unica").amount'),30);
+});
+
+test('criar mes anterior nao herda dados de mes futuro', () => {
+  const t = setup({selectedMonth:'2026-12',months:{
+    '2026-12':{salary:9000,budgetLimit:5000,expenses:[{id:'futura',title:'Conta futura',type:'fixed',amount:99}],cardExpenses:[]}
+  }});
+  t.run('loadDatabase(); ensureMonthExists("2026-11")');
+  assert.equal(t.run('appDb.months["2026-11"].salary'),0);
+  assert.equal(t.run('appDb.months["2026-11"].expenses.length'),0);
+});
