@@ -1,14 +1,15 @@
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence } from 'firebase/auth';
+import { getAuth, connectAuthEmulator, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence, browserSessionPersistence } from 'firebase/auth';
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 const projectId='demo-raytech-cg';
-export async function createClient({name,host='127.0.0.1'}={}){
+export async function createClient({name,host='127.0.0.1',persistSession=false}={}){
  if(host!=='127.0.0.1'||typeof name!=='string'||!name.trim())throw Error('EMULATOR_ONLY');
  const app=initializeApp({projectId,apiKey:'demo-key',authDomain:projectId+'.firebaseapp.com',appId:'1:123:web:demo'},name);
  const auth=getAuth(app),functions=getFunctions(app,'us-central1');
  connectAuthEmulator(auth,'http://'+host+':9099',{disableWarnings:true});
  connectFunctionsEmulator(functions,host,5001);
- await setPersistence(auth,inMemoryPersistence);
+ await setPersistence(auth,persistSession?browserSessionPersistence:inMemoryPersistence);
+ await auth.authStateReady();
  let generation=0,uid=null,disposed=false;
  const stop=onAuthStateChanged(auth,u=>{const next=u?.uid||null;if(next!==uid){uid=next;generation++;}});
  async function signIn(){if(disposed)throw Error('DISPOSED');const r=await signInWithPopup(auth,new GoogleAuthProvider());if(auth.currentUser?.uid!==r.user.uid)throw Error('SESSION_CHANGED');return {uid:r.user.uid};}

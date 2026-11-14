@@ -4,12 +4,12 @@ const projects=new Set(['demo-raytech-cg','raytech-cg-homologacao']);
 const validId=x=>typeof x==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(x);
 const canonical=x=>Array.isArray(x)?'['+x.map(canonical).join(',')+']':x&&typeof x==='object'?'{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}':JSON.stringify(x);
 async function hash(x,crypto){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(x)))),b=>b.toString(16).padStart(2,'0')).join('');}
-export function createQueue({project,uid,indexedDB=globalThis.indexedDB,crypto=globalThis.crypto,session,call}){
+export function createQueue({project,uid,indexedDB=globalThis.indexedDB,crypto=globalThis.crypto,session,call,sessionValid=()=>true}){
  if(!projects.has(project)||!validId(uid)||!indexedDB||!crypto||typeof session!=='function'||typeof call!=='function')throw Error('INVALID_QUEUE');
  const key=[project,uid],name='raytech-cg-v11-experimental-queue-v1';
- const active=()=>session()===uid;
+ const active=()=>session()===uid&&sessionValid();
  async function open(){return new Promise((resolve,reject)=>{const r=indexedDB.open(name,1);r.onupgradeneeded=()=>r.result.createObjectStore('pending',{keyPath:['project','uid']});r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
- async function tx(mode,fn){const db=await open();try{return await new Promise((resolve,reject)=>{const t=db.transaction('pending',mode),s=t.objectStore('pending');let value; t.oncomplete=()=>resolve(value);t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error||Error('ABORTED'));const r=s.get(key);r.onsuccess=()=>{try{value=fn(s,r.result);}catch(e){reject(e);t.abort();}};});}finally{db.close();}}
+ async function tx(mode,fn){const db=await open();try{return await new Promise((resolve,reject)=>{const t=db.transaction('pending',mode),s=t.objectStore('pending');let value; t.oncomplete=()=>resolve(value);t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error||Error('ABORTED'));const r=s.get(key);r.onsuccess=()=>{try{if(mode==='readwrite'&&!active())throw Error('SESSION_CHANGED');value=fn(s,r.result);}catch(e){reject(e);t.abort();}};});}finally{db.close();}}
  const read=()=>tx('readonly',(_,row)=>row||null);
  async function enqueue(command){
   if(!active())throw Error('SESSION_CHANGED');

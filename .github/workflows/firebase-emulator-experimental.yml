@@ -34,3 +34,7 @@ jobs:
         run: npm run test:queue
       - name: Run Auth, Functions and Firestore emulator tests
         run: npm run test:emulator
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Run real browser IndexedDB integration
+        run: npm run test:browser
