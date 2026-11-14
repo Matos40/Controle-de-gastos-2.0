@@ -149,3 +149,21 @@ test('Chromium bloqueia recibo adulterado e conserva idempotencia apos reabertur
  });
  assert.deepEqual(result,{first:'committed',replay:true,failed:true});
 });
+
+test('Chromium persiste recibo compacto apos reabertura',async()=>{
+ const result=await browserTest(async()=>{
+  const S=FinancialRepositoryV11Storage;
+  const name='idb-compact-'+crypto.randomUUID();
+  const d=S.createIndexedDbDriver(indexedDB,name),store=S.createStore(d);
+  const db={selectedMonth:'2026-11',months:{'2026-11':{salary:1,expenses:[],cardExpenses:[]}}};
+  await store.initialize(db);
+  const req={operationId:'compact-on-disk',expectedRevision:0,nextRevision:1,database:db};
+  const first=await store.commit(req);d.close();
+  const reopenedDriver=S.createIndexedDbDriver(indexedDB,name),reopened=S.createStore(reopenedDriver);
+  const saved=await reopened.read(),replay=await reopened.commit(req);
+  reopenedDriver.close();
+  return {first:first.status,replay:replay.replay,revision:saved.revision,
+   compact:saved.receipts[0].database===undefined,digest:saved.receipts[0].databaseDigest.length};
+ });
+ assert.deepEqual(result,{first:'committed',replay:true,revision:1,compact:true,digest:64});
+});
