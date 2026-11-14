@@ -176,3 +176,32 @@ test('recibo com revisao futura e rejeitado mesmo com checksum valido',async()=>
  tampered.seal.receiptsDigest=receiptSeal.digest;
  await assert.rejects(()=>createStore(createMemoryDriver(tampered)).read(),/INVALID_RECEIPT/);
 });
+
+test('limite de 10000 recibos bloqueia nova operacao sem apagar historico e preserva replay',async()=>{
+ const I=require('../js/services/financialRepositoryV11Integrity.js');
+ const database=db(),digest=(await I.seal(database)).digest;
+ const receipts=Array.from({length:10000},(_,i)=>({
+  operationId:'history-'+i,expectedRevision:i,nextRevision:i+1,signature:null,databaseDigest:digest
+ }));
+ const receiptSeal=await I.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},receipts});
+ const seal={...(await I.seal(database)),revision:10000,receiptsDigest:receiptSeal.digest};
+ const driver=createMemoryDriver({revision:10000,database,receipts,seal}),store=createStore(driver);
+ assert.equal((await store.read()).receipts.length,10000);
+ const replay=await store.commit({operationId:'history-0',expectedRevision:0,nextRevision:1,database});
+ assert.equal(replay.status,'committed');assert.equal(replay.replay,true);
+ const rejected=await store.commit({operationId:'new-10001',expectedRevision:10000,nextRevision:10001,database});
+ assert.deepEqual(rejected,{status:'rejected',code:'RECEIPT_CAPACITY_EXCEEDED'});
+ assert.equal((await store.read()).revision,10000);
+ assert.equal(driver.inspect().receipts.length,10000);
+});
+test('limite nao autoriza repeticao com payload diferente',async()=>{
+ const I=require('../js/services/financialRepositoryV11Integrity.js');
+ const database=db(),digest=(await I.seal(database)).digest;
+ const receipts=Array.from({length:10000},(_,i)=>({
+  operationId:'history-'+i,expectedRevision:i,nextRevision:i+1,signature:null,databaseDigest:digest
+ }));
+ const receiptSeal=await I.seal({selectedMonth:'2026-11',months:{'2026-11':{expenses:[],cardExpenses:[]}},receipts});
+ const seal={...(await I.seal(database)),revision:10000,receiptsDigest:receiptSeal.digest};
+ const store=createStore(createMemoryDriver({revision:10000,database,receipts,seal}));
+ assert.equal((await store.commit(commit('history-0',500))).code,'OPERATION_ID_REUSED');
+});
