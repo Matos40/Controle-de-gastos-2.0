@@ -88,3 +88,32 @@ test('falha de leitura nao promove sucesso nem altera estado',async()=>{
  assert.equal((await broken.commit(commit('x',20))).status,'unknown');
  assert.equal((await store.read()).revision,0);
 });
+
+test('recibos mantem historico de ids sem expirar',async()=>{
+ const store=createStore(createMemoryDriver());await store.initialize(db());
+ for(let i=0;i<25;i++){
+  const result=await store.commit(commit('op-'+i,i+1,i));
+  assert.equal(result.status,'committed');
+ }
+ const saved=await store.read();
+ assert.equal(saved.receipts.length,25);
+ assert.equal((await store.commit(commit('op-0',1,0))).replay,true);
+ assert.equal((await store.commit(commit('op-0',999,0))).code,'OPERATION_ID_REUSED');
+ assert.equal((await store.read()).revision,25);
+});
+test('corrupcao do digest de recibos bloqueia escrita sem reparo automatico',async()=>{
+ const driver=createMemoryDriver(),store=createStore(driver);await store.initialize(db());
+ await store.commit(commit('original',10));
+ const original=driver.inspect();
+ const corrupted={...original,receipts:original.receipts.map(x=>({...x}))};
+ corrupted.receipts[0].signature='tampered';
+ const damaged=createStore(createMemoryDriver(corrupted));
+ await assert.rejects(()=>damaged.read(),/RECEIPTS_MISMATCH/);
+ const result=await damaged.commit(commit('another',20,1));
+ assert.equal(result.code,'INTEGRITY_FAILURE');
+});
+test('inicializacao nao repara silenciosamente envelope corrompido',async()=>{
+ const store=createStore(createMemoryDriver({revision:0,database:db(),receipts:[]}));
+ assert.equal((await store.initialize(db())).status,'existing');
+ await assert.rejects(()=>store.read(),/UNSEALED_ENVELOPE/);
+});
