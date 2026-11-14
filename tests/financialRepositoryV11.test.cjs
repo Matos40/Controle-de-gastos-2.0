@@ -36,7 +36,7 @@ test('revisao antiga gera conflito e nao altera dados', () => {
 test('valor invalido e comando pendente nao geram mutacao', () => {
   const repo = Repository.create(initial());
   assert.equal(repo.execute(command('a','SET_SALARY',{month:'2026-11',amountCents:-1})).code,'INVALID_MONEY');
-  assert.equal(repo.execute(command('b','CLEAR_CARD_EXPENSES',{month:'2026-11'})).code,'COMMAND_NOT_YET_IMPLEMENTED');
+  assert.equal(repo.execute(command('b','CLEAR_CARD_EXPENSES',{month:'2026-11'})).code,'INVALID_SCOPE');
   assert.equal(repo.read().revision,0);
 });
 test('alteracao de pagamento e entrada extra preservam isolamento', () => {
@@ -71,5 +71,51 @@ test('validacao aceita mes real e rejeita mes malformado', () => {
 test('excecao do adaptador produz estado desconhecido sem falso sucesso', () => {
   const repo = Repository.create(initial(),{adapter:{atomic:true,commit:()=>{throw Error('falha de rede');}}});
   assert.equal(repo.execute(command('uncertain','SET_SALARY',{month:'2026-11',amountCents:9999})).status,'unknown');
+  assert.equal(repo.read().revision,0);
+});
+
+test('despesa fixa e despesa unica com mesmo titulo coexistem por id', () => {
+  const repo = Repository.create(initial());
+  const a = command('a','UPSERT_EXPENSE',{month:'2026-11',item:{id:'fix',title:'Internet',type:'fixed',amountCents:12500}});
+  const b = command('b','UPSERT_EXPENSE',{month:'2026-11',item:{id:'once',title:'Internet',type:'one-time',amountCents:3000}},1);
+  assert.equal(repo.execute(a).status,'committed');
+  assert.equal(repo.execute(b).status,'committed');
+  assert.equal(repo.read().database.months['2026-11'].expenses.filter(x=>x.title==='Internet').length,2);
+  assert.equal(repo.read().database.months['2026-11'].expenses.find(x=>x.id==='fix').amount,125);
+});
+test('edicao por id preserva campos legados e rejeita valores invalidos', () => {
+  const repo = Repository.create(initial());
+  assert.equal(repo.execute(command('a','UPSERT_EXPENSE',{month:'2026-11',item:{id:'e1',title:'Luz editada',type:'fixed',amountCents:12345}})).status,'committed');
+  assert.equal(repo.read().database.months['2026-11'].expenses.length,1);
+  assert.equal(repo.read().database.months['2026-11'].expenses[0].amount,123.45);
+  assert.equal(repo.execute(command('b','UPSERT_EXPENSE',{month:'2026-11',item:{id:'e1',title:'Luz',type:'fixed',amountCents:1.2}},1)).code,'INVALID_MONEY');
+  assert.equal(repo.read().revision,1);
+});
+test('parcela excluida registra tombstone sem afetar outros meses', () => {
+  const db=initial();
+  db.months['2026-11'].cardExpenses[0]={id:'p2',title:'Notebook',isInstallment:true,installments:3,currentInstallment:2,installmentOriginId:'p1',installmentValue:100};
+  const repo=Repository.create(db);
+  assert.equal(repo.execute(command('del','DELETE_CARD_EXPENSE',{month:'2026-11',id:'p2',scope:'current'})).status,'committed');
+  assert.deepEqual(repo.read().database.months['2026-11'].deletedInstallmentOrigins,['p1:2']);
+  assert.equal(repo.read().database.months['2026-11'].cardExpenses.length,0);
+});
+test('limpeza do cartao registra tombstones das parcelas', () => {
+  const db=initial();
+  db.months['2026-11'].cardExpenses.push({id:'p3',title:'Notebook',isInstallment:true,installments:3,currentInstallment:3,installmentOriginId:'p1',installmentValue:100});
+  const repo=Repository.create(db);
+  assert.equal(repo.execute(command('clear','CLEAR_CARD_EXPENSES',{month:'2026-11',scope:'current'})).status,'committed');
+  assert.deepEqual(repo.read().database.months['2026-11'].deletedInstallmentOrigins,['p1:3']);
+  assert.equal(repo.read().database.months['2026-11'].cardExpenses.length,0);
+});
+test('exclusao sem escopo explicito e rejeitada sem mutacao', () => {
+  const repo=Repository.create(initial());
+  assert.equal(repo.execute(command('bad','DELETE_EXPENSE',{month:'2026-11',id:'e1'})).code,'INVALID_SCOPE');
+  assert.equal(repo.read().database.months['2026-11'].expenses.length,1);
+  assert.equal(repo.read().revision,0);
+});
+test('parcela com numero invalido e rejeitada', () => {
+  const repo=Repository.create(initial());
+  const item={id:'new',title:'Compra',isInstallment:true,installments:3,currentInstallment:4,amountCents:2000};
+  assert.equal(repo.execute(command('bad','UPSERT_CARD_EXPENSE',{month:'2026-11',item})).code,'INVALID_INSTALLMENT');
   assert.equal(repo.read().revision,0);
 });
