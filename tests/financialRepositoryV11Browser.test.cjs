@@ -11,7 +11,8 @@ async function browserTest(fn) {
   try {
     const context = await browser.newContext();
     const page = await context.newPage();
-    await page.goto('about:blank');
+    await page.route('http://localhost:8765/**', route => route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>IndexedDB isolated tests</title>'}));
+    await page.goto('http://localhost:8765/isolated-test');
     await page.addScriptTag({content:core});
     await page.addScriptTag({content:storage});
     await page.addScriptTag({content:bridge});
