@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
 const path = require('node:path');
 const fs = require('node:fs');
 const core = fs.readFileSync(path.join(__dirname, '../js/services/financialRepositoryV11.js'),'utf8');
+const integrity = fs.readFileSync(path.join(__dirname, '../js/services/financialRepositoryV11Integrity.js'),'utf8');
 const storage = fs.readFileSync(path.join(__dirname, '../js/services/financialRepositoryV11Storage.js'),'utf8');
 const bridge = fs.readFileSync(path.join(__dirname, '../js/services/financialRepositoryV11Async.js'),'utf8');
 async function browserTest(fn) {
@@ -14,6 +15,7 @@ async function browserTest(fn) {
     await page.route('http://localhost:8765/**', route => route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>IndexedDB isolated tests</title>'}));
     await page.goto('http://localhost:8765/isolated-test');
     await page.addScriptTag({content:core});
+    await page.addScriptTag({content:integrity});
     await page.addScriptTag({content:storage});
     await page.addScriptTag({content:bridge});
     return await page.evaluate(fn);
@@ -110,4 +112,40 @@ test('Chromium IndexedDB conserva estrutura e campos de backup legado',async()=>
  assert.deepEqual(result.deleted,['origin:3']);
  assert.equal(result.extra[0].amount,100);
  assert.equal(result.salary,3500);
+});
+
+test('Chromium rejeita corrupcao do envelope persistido sem sobrescrever',async()=>{
+ const result=await browserTest(async()=>{
+  const S=FinancialRepositoryV11Storage;
+  const name='idb-corrupt-'+crypto.randomUUID();
+  const driver=S.createIndexedDbDriver(indexedDB,name),store=S.createStore(driver);
+  const db={selectedMonth:'2026-11',months:{'2026-11':{salary:1,expenses:[],cardExpenses:[]}}};
+  await store.initialize(db);
+  await driver.transact(current=>{current.database.months['2026-11'].salary=999;
+    return {write:current,response:true};});
+  let failed=false;try{await store.read();}catch(e){failed=true;}
+  const outcome=await store.commit({operationId:'bad',expectedRevision:0,nextRevision:1,database:db});
+  const raw=await driver.transact(current=>({response:current}));
+  driver.close();
+  return {failed,code:outcome.code,salary:raw.database.months['2026-11'].salary};
+ });
+ assert.deepEqual(result,{failed:true,code:'INTEGRITY_FAILURE',salary:999});
+});
+test('Chromium bloqueia recibo adulterado e conserva idempotencia apos reabertura',async()=>{
+ const result=await browserTest(async()=>{
+  const S=FinancialRepositoryV11Storage;
+  const name='idb-receipt-'+crypto.randomUUID();
+  const d=S.createIndexedDbDriver(indexedDB,name),store=S.createStore(d);
+  const db={selectedMonth:'2026-11',months:{'2026-11':{salary:1,expenses:[],cardExpenses:[]}}};
+  await store.initialize(db);
+  const req={operationId:'once',expectedRevision:0,nextRevision:1,database:db};
+  const first=await store.commit(req);d.close();
+  const d2=S.createIndexedDbDriver(indexedDB,name),s2=S.createStore(d2);
+  const replay=await s2.commit(req);
+  await d2.transact(current=>{current.receipts[0].operationId='forged';return {write:current,response:true};});
+  let failed=false;try{await s2.read();}catch(e){failed=true;}
+  d2.close();
+  return {first:first.status,replay:replay.replay,failed};
+ });
+ assert.deepEqual(result,{first:'committed',replay:true,failed:true});
 });
