@@ -117,3 +117,34 @@ test('rollback apos operacao no banco isolado nao altera backup legado',async()=
  assert.deepEqual(result,{committed:'committed',removed:true,empty:true,
   sourcePreserved:true,sourceDigest:true});
 });
+
+test('rollback bloqueado por conexao aberta nao destrói backup e conclui apos fechamento',async()=>{
+ const result=await run(async()=>{
+  const I=FinancialRepositoryV11Integrity,A=FinancialRepositoryV11ArchivePreview;
+  const U=FinancialRepositoryV11UnifiedPreview;
+  const source={selectedMonth:'2026-11',months:{'2026-11':{salary:123,expenses:[],cardExpenses:[]}}};
+  const backup=await I.seal(source),original=JSON.stringify(backup);
+  const name='legacy-blocked-rollback-'+crypto.randomUUID();
+  const driver=A.createIndexedDbDriver(indexedDB,name),store=U.create(driver);
+  await store.initialize(source);driver.close();
+  const blocker=await new Promise((resolve,reject)=>{
+   const req=indexedDB.open(name,1);
+   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+  const deletion=indexedDB.deleteDatabase(name);
+  const blocked=await new Promise((resolve,reject)=>{
+   deletion.onblocked=()=>resolve(true);
+   deletion.onerror=()=>reject(deletion.error);
+   deletion.onsuccess=()=>resolve(false);
+  });
+  const intact=JSON.stringify(backup)===original;
+  blocker.close();
+  const removed=await new Promise((resolve,reject)=>{
+   deletion.onsuccess=()=>resolve(true);deletion.onerror=()=>reject(deletion.error);
+  });
+  const reopened=A.createIndexedDbDriver(indexedDB,name),state=await U.create(reopened).read();
+  reopened.close();
+  return {blocked,intact,removed,empty:state===null};
+ });
+ assert.deepEqual(result,{blocked:true,intact:true,removed:true,empty:true});
+});
