@@ -24,7 +24,7 @@
       const prevFixed = (prevData.expenses || []).filter(e => e.type === 'fixed');
 
       prevFixed.forEach(pItem => {
-        const existingIndex = currentData.expenses.findIndex(e => e.title.trim().toLowerCase() === pItem.title.trim().toLowerCase());
+        const existingIndex = currentData.expenses.findIndex(e => e.type === 'fixed' && String(e.title || '').trim().toLowerCase() === String(pItem.title || '').trim().toLowerCase());
         if (existingIndex !== -1) {
           // Uma despesa ja existente pode ter sido editada neste mes: preservar seu valor.
         } else {
@@ -105,7 +105,9 @@
         const monthKeys = Object.keys(appDb.months).sort();
         const prevYM = getPreviousMonthYM(ym);
         
-        const prevData = appDb.months[prevYM] || (monthKeys.length > 0 ? appDb.months[monthKeys[monthKeys.length - 1]] : null);
+        const priorMonths = monthKeys.filter(key => key < ym);
+        const fallbackYM = priorMonths.length ? priorMonths[priorMonths.length - 1] : null;
+        const prevData = appDb.months[prevYM] || (fallbackYM ? appDb.months[fallbackYM] : null);
         const prevSalary = prevData ? (prevData.salary || 0) : 0;
         const prevBudget = prevData ? (prevData.budgetLimit || 0) : 0;
         const todayDayStr = String(new Date().getDate()).padStart(2, '0');
