@@ -1,0 +1,34 @@
+name: Firebase experimental (emulators only)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'experimental/firebase/**'
+      - 'experimental/phase2/**'
+      - 'experimental/diff03/**'
+      - 'js/services/financialRepositoryV11*.js'
+      - '.github/workflows/firebase-emulator-experimental.yml'
+permissions:
+  contents: read
+jobs:
+  emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: experimental/firebase
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install isolated SDKs
+        run: npm install --no-audit --no-fund
+      - name: Install isolated Functions dependencies
+        run: npm run install-functions
+      - name: Run Auth, Functions and Firestore emulator tests
+        run: npm run test:emulator
