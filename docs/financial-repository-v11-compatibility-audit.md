@@ -25,3 +25,10 @@ Escopo: codigo isolado do PR #7; nao homologado para producao.
 - Testes de migracao e rollback sem alterar a chave legado controle_gastos_multimonth_v3.
 - Politica de recibos compactos com retencao duravel e protecao de replay.
 - Revisao de seguranca Firestore Rules no Emulator Suite antes de qualquer ativacao.
+
+## Implementacao posterior: recibos compactos (experimental)
+- Novos recibos registram databaseDigest SHA-256 em vez de copia integral do banco.
+- Recibos antigos com database embutido continuam verificaveis quando o envelope possui selo valido.
+- Limite conservador de 10.000 recibos: ao atingir o limite, bloquear novas escritas sem descartar IDs ou permitir replay. Este limite exige planejamento de arquivamento duravel antes de ativar.
+- Digest de recibos continua coberto pelo selo do envelope. IDs duplicados sao rejeitados.
+- Ainda nao existe compactacao automatica dos recibos antigos nem politica de arquivamento/rotacao. A mudanca permanece isolada no PR.
