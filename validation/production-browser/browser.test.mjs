@@ -1,0 +1,34 @@
+import {test,after,before} from 'node:test';
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {readFile} from 'node:fs/promises';
+import {resolve,extname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=fileURLToPath(new URL('../../',import.meta.url));
+const base='https://matos40.github.io/Controle-de-gastos-2.0/';
+const contentType={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.ico':'image/x-icon'};
+const appStub="export const initializeApp=(f,n)=>({options:f,name:n});";
+const authStub=`let auth={currentUser:null},cb=()=>{};
+export const getAuth=()=>auth;export const onAuthStateChanged=(a,f)=>{cb=f;queueMicrotask(()=>f(a.currentUser));return ()=>{};};
+export class GoogleAuthProvider{};export const signInWithPopup=async a=>{a.currentUser={uid:'browser-fixture-uid'};cb(a.currentUser);return {user:a.currentUser};};
+export const signOut=async a=>{a.currentUser=null;cb(null);};`;
+const firestoreStub=`export const getFirestore=()=>({});export const doc=(_, ...p)=>p;
+export async function getDocFromServer(p){globalThis.__reads=(globalThis.__reads||0)+1;return {exists:()=>!!globalThis.__allowed,data:()=>({enabled:true})};}
+export async function runTransaction(db,fn){return fn({get:async()=>({exists:()=>false}),set:()=>{globalThis.__writes=(globalThis.__writes||0)+1;throw Error('unexpected write');}});}`;
+const externalStub=url=>url.includes('firebase-app.js')?appStub:url.includes('firebase-auth.js')?authStub:url.includes('firebase-firestore.js')?firestoreStub:url.includes('cdn.tailwindcss.com')?"window.tailwind={};document.head.insertAdjacentHTML('beforeend','<style>.hidden{display:none!important}</style>');":url.includes('chart.umd.min.js')?"window.Chart=class{destroy(){}update(){}};":url.includes('xlsx.full.min.js')?"window.XLSX={};":null;
+let browser;
+before(async()=>{browser=await chromium.launch({headless:true});});after(async()=>{await browser?.close();});
+const raw=JSON.stringify({selectedMonth:'2026-12',months:{'2026-12':{salary:1000,budgetLimit:0,extraIncomes:[],expenses:[{id:'fixture',title:'Mercado exemplo',category:'alimentacao',amount:20,type:'one-time',date:'2026-12-01',paid:false}],cardExpenses:[],deletedInstallmentOrigins:[],closed:false,closedAt:null}}});
+async function setup(t,pin=false){
+ const ctx=await browser.newContext({serviceWorkers:'block'});t.after(()=>ctx.close());
+ await ctx.route('**/*',async route=>{const url=route.request().url();if(url.startsWith(base)){let rel=new URL(url).pathname.slice(new URL(base).pathname.length)||'index.html';const path=resolve(root,rel);if(!path.startsWith(resolve(root)+'/'))return route.abort();try{return await route.fulfill({status:200,contentType:contentType[extname(path)]??'application/octet-stream',body:await readFile(path)});}catch{return route.fulfill({status:404,body:'not found'});}}const stub=externalStub(url);if(stub!==null)return route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:stub});return route.abort();});
+ await ctx.addInitScript(({raw,pin})=>{localStorage.setItem('controle_gastos_multimonth_v3',raw);if(pin)localStorage.setItem('controle_gastos_pin_lock','1234');},{raw,pin});
+ const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base,{waitUntil:'load'});await page.waitForFunction(()=>document.getElementById('productionCloudConnect')?.disabled===false);
+ return {page,errors};
+}
+const click=(page,id)=>page.locator('#'+id).evaluate(el=>el.click());
+const textIs=(page,phrase)=>page.waitForFunction(x=>document.getElementById('productionCloudStatus').textContent.includes(x),phrase);
+test('BROWSER01 official HTML loads local data; first connection requires user action',async t=>{const {page,errors}=await setup(t);assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);await click(page,'productionV2Preview');await page.waitForFunction(()=>document.getElementById('productionV2PreviewStatus').textContent.includes('Compatível'));assert.equal(await page.evaluate(()=>globalThis.__reads??0),0);assert.equal(await page.locator('#productionCloudSeed').isDisabled(),true);assert.equal(errors.length,0,errors.join('; '));});
+test('BROWSER02 Google SDK simulated login exposes UID; unapproved account denied',async t=>{const {page}=await setup(t);await click(page,'productionCloudConnect');await textIs(page,'Entre com a conta Google');await click(page,'productionCloudLogin');await textIs(page,'browser-fixture-uid');await click(page,'productionCloudInspect');await textIs(page,'PRODUCTION_NOT_APPROVED');assert.equal(await page.locator('#productionCloudSeed').isDisabled(),true);assert.equal(await page.evaluate(()=>globalThis.__writes??0),0);});
+test('BROWSER03 approved account read-only; synthetic finance cannot be uploaded even by dispatched events',async t=>{const {page}=await setup(t);await page.evaluate(()=>{globalThis.__allowed=true;});await click(page,'productionCloudConnect');await textIs(page,'Entre com a conta Google');await click(page,'productionCloudLogin');await textIs(page,'browser-fixture-uid');await click(page,'productionCloudInspect');await textIs(page,'Conta autorizada');for(const id of ['productionCloudSeed','productionCloudAdopt','productionCloudRefresh']){assert.equal(await page.locator('#'+id).isDisabled(),true);await page.locator('#'+id).evaluate(e=>e.dispatchEvent(new Event('click')));}assert.equal(await page.evaluate(()=>globalThis.__writes??0),0);assert.equal(await page.evaluate(()=>localStorage.getItem('raytech_production_v2_device')),null);assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);await click(page,'productionCloudLogout');await textIs(page,'Entre com a conta Google');});
+test('BROWSER04 PIN blocks connection and local preview',async t=>{const {page}=await setup(t,true);assert.equal(await page.locator('#pinLockOverlay').evaluate(el=>el.classList.contains('hidden')),false);await click(page,'productionCloudConnect');await click(page,'productionV2Preview');await textIs(page,'Login disponível');assert.equal(await page.locator('#productionCloudLogin').isDisabled(),true);assert.equal(await page.evaluate(()=>globalThis.__reads??0),0);});

@@ -1,0 +1,32 @@
+name: V2 browser controlled release
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'validation/production-browser/**'
+      - 'js/productionV2/**'
+      - 'index.html'
+      - 'sw.js'
+      - '.github/workflows/validar-browser-producao-v2.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: validation/production-browser
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test dependency
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test actual HTML in Chromium with simulated Firebase SDK
+        run: npm test
