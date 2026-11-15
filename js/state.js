@@ -1,6 +1,8 @@
 /* Estado compartilhado da aplicação. Scripts clássicos são carregados em ordem no index.html. */
     // Chaves de armazenamento
-    const STORAGE_DATABASE_KEY = 'controle_gastos_multimonth_v3';
+    const CLEAN_WORKSPACE = typeof location !== 'undefined' && new URLSearchParams(location.search).get('workspace') === 'v2-clean';
+    const STORAGE_DATABASE_KEY = CLEAN_WORKSPACE ? 'raytech_cg_v2_clean_finance_v1' : 'controle_gastos_multimonth_v3';
+    let cleanWorkspaceStore = null;
     const STORAGE_GEMINI_KEY = 'gemini_user_api_key';
     const STORAGE_PIN_KEY = 'controle_gastos_pin_lock';
     const DEFAULT_API_KEY = '';

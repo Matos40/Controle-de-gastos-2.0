@@ -2,9 +2,9 @@
 (function () {
   'use strict';
   const KEY = 'controle_gastos_onboarding_v1';
-  const DB_KEY = 'controle_gastos_multimonth_v3';
+  const DB_KEY = typeof STORAGE_DATABASE_KEY==='string' ? STORAGE_DATABASE_KEY : 'controle_gastos_multimonth_v3';
   const PIN_KEY = 'controle_gastos_pin_lock';
-  const hadDatabaseBeforeStartup = localStorage.getItem(DB_KEY) !== null;
+  const hadDatabaseBeforeStartup = (typeof CLEAN_WORKSPACE!=='undefined'&&CLEAN_WORKSPACE)||localStorage.getItem(DB_KEY) !== null;
   const steps = [
     { icon: 'fa-wallet', title: 'Bem-vindo ao Raytech CG', body: 'Organize seu dinheiro, acompanhe seus gastos e planeje seus próximos meses com tranquilidade.' },
     { icon: 'fa-money-bill-wave', title: 'Comece pelas receitas', body: 'Na aba Contas, informe seu salário mensal e registre outras receitas. Você pode fazer isso depois.' },

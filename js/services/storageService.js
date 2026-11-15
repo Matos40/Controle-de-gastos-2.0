@@ -211,6 +211,11 @@
     }
 
     function loadDatabase() {
+      if (CLEAN_WORKSPACE) {
+        if (!cleanWorkspaceStore) throw Error('CLEAN_RECOVERY_REQUIRED');
+        appDb = cleanWorkspaceStore.snapshot();
+        return;
+      }
       try {
         const saved = localStorage.getItem(STORAGE_DATABASE_KEY);
         if (saved) {
@@ -247,6 +252,17 @@
     }
 
     function saveDatabase() {
+      if (CLEAN_WORKSPACE) {
+        if (!cleanWorkspaceStore || window.productionCleanWorkspaceReady !== true) throw Error('CLEAN_WORKSPACE_NOT_READY');
+        try {
+          cleanWorkspaceStore.save(JSON.stringify(appDb));
+        } catch (err) {
+          appDb = cleanWorkspaceStore.snapshot();
+          showToast('Alteração não salva no V2. O último banco válido foi preservado.', 'error');
+          throw Error('CLEAN_SAVE_REJECTED');
+        }
+        return;
+      }
       localStorage.setItem(STORAGE_DATABASE_KEY, JSON.stringify(appDb));
     }
 
@@ -301,8 +317,9 @@
       if (typeof document === 'undefined' || document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return false;
       if (document.querySelector('[id$="Modal"]:not(.hidden)') || document.activeElement?.matches('input,textarea,select,[contenteditable="true"]')) return false;
       if (localStorage.getItem(STORAGE_DATABASE_KEY) !== expected || JSON.stringify(appDb) !== expected) return false;
+      if (!CLEAN_WORKSPACE || window.productionCleanWorkspaceReady !== true || !cleanWorkspaceStore) return false;
       const candidate = validateBackupDatabase(JSON.parse(payload));
-      localStorage.setItem(STORAGE_DATABASE_KEY, payload);
+      try { cleanWorkspaceStore.replace(expected, payload); } catch { return false; }
       appDb = candidate;
       updateMonthHeader();
       renderAll();

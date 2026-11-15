@@ -108,7 +108,7 @@ function exportToExcel() {
     ];
     addSheet('Backup restauracao', restoreRows, [30, 10, 10, 10, 100]);
 
-    const filename = `Controle_Financeiro_Completo_${appDb.selectedMonth || 'backup'}.xlsx`;
+    const filename = `Controle_Financeiro_${CLEAN_WORKSPACE?'V2_':''}Completo_${appDb.selectedMonth || 'backup'}.xlsx`;
     XLSX.writeFile(wb, filename, { compression: true });
     showToast('Planilha de backup completo exportada com sucesso!', 'success');
   } catch (err) {
@@ -291,7 +291,7 @@ function exportData() {
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appDb, null, 2));
   const a = document.createElement('a');
   a.href = dataStr;
-  a.download = `controle_financeiro_backup_${appDb.selectedMonth}.json`;
+  a.download = `controle_financeiro_${CLEAN_WORKSPACE?'v2_':''}backup_${appDb.selectedMonth}.json`;
   a.click();
   a.remove();
   showToast('Backup JSON baixado com sucesso!', 'success');
