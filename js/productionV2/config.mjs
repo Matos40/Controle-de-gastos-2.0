@@ -1,5 +1,5 @@
-// Controlled release: Google authentication and read-only account verification; financial transfer disabled.
-export const PRODUCTION_CONFIG=Object.freeze({enabled:true,syncEnabled:false,firebase:Object.freeze({
+// Controlled release: Controlled V2 synchronization; explicit account authorization and local consent required.
+export const PRODUCTION_CONFIG=Object.freeze({enabled:true,syncEnabled:true,firebase:Object.freeze({
   "apiKey": "AIzaSyCLmwjAC-tuKwSusDNfnZo83a-2K0ZoP3M",
   "authDomain": "raytech-cg-producao.firebaseapp.com",
   "projectId": "raytech-cg-producao",
