@@ -1,10 +1,10 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-test('PWA-B2-01 official production entry stays disabled; laboratory rejects public origin independently',async()=>{
+test('PWA-B2-01 explicit disabled flag blocks production entry; laboratory rejects public origin independently',async()=>{
  const {createProductionSyncSession,createExperimentalSession}=await import('../js/experimentalSync/session.mjs');const {PRODUCTION_CONFIG}=await import('../js/productionV2/config.mjs');
  const location={origin:'https://matos40.github.io',pathname:'/Controle-de-gastos-2.0/',search:''};
- assert.throws(()=>createProductionSyncSession({config:PRODUCTION_CONFIG,location,search:''}),/TRANSFER_DISABLED/);
+ assert.throws(()=>createProductionSyncSession({config:{...PRODUCTION_CONFIG,syncEnabled:false},location,search:''}),/TRANSFER_DISABLED/);
  assert.throws(()=>createExperimentalSession({origin:location.origin,search:''}),/ISOLATION/);
- const config={...PRODUCTION_CONFIG,syncEnabled:true};
+ assert.equal(PRODUCTION_CONFIG.syncEnabled,true); const config=PRODUCTION_CONFIG;
  for(const search of ['?workspace=legacy','?workspace=v2-clean','?workspace=invalid'])assert.throws(()=>createProductionSyncSession({config,location:{...location,search},search}),/TRANSFER_DISABLED/);
  assert.throws(()=>createProductionSyncSession({config,location:{...location,origin:'https://example.com'},search:''}),/ORIGIN/);
 });
