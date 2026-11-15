@@ -16,7 +16,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
  const previewStatus=el('productionV2PreviewStatus');if(canSync&&previewStatus)previewStatus.textContent='Verificação de compatibilidade somente neste dispositivo. Sincronização disponível no painel abaixo.';
  if(dbKey===null){for(const button of [connect,login,inspect,seed,logout,refresh,adopt,...extra])if(button)button.disabled=true;status.textContent='Endereço de banco inválido.';return;}
  const CONNECTION_KEY='auto-connect-v1',LAST_KEY='last-sync-v1';
- const connection=()=>syncStorage.getItem(CONNECTION_KEY);
+ const connection=()=>{const stored=syncStorage.getItem(CONNECTION_KEY);if(stored!==null)return stored==='signed-out'?null:stored;try{const p=JSON.parse(syncStorage.getItem('experimental-sync-policy-v1')),c=JSON.parse(syncStorage.getItem(DEVICE_KEY));return p?.uid&&p.uid===c?.uid&&['active','paused'].includes(p.state)?p.uid:null;}catch{return null;}};
  const online=()=>win?.navigator?.onLine!==false;
  let restoring=false,cloud=null,uid=null,busy=false,generation=0,session=null,runtime=null,plan=null,bound=false,review=null,invalid=false,writeAllowed=false,storageChanged=false;
  const unlocked=()=>!el('pinLockOverlay')||el('pinLockOverlay').classList.contains('hidden');
@@ -81,9 +81,9 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
  historyBtn?.addEventListener('click',()=>action(async()=>{const s=requireSession();if(historyBox)historyBox.textContent=JSON.stringify(s.history(),null,2);}));
  historyExport?.addEventListener('click',()=>action(async()=>{const s=requireSession();download('raytech-revisoes.json',{current:s.review(),history:s.history(),recovery:s.recoveryHistory()});}));
  diagnosticBtn?.addEventListener('click',()=>action(async()=>{download('raytech-diagnostico-local.json',requireSession().recoveryExport());}));
- logout.addEventListener('click',()=>action(async()=>{if(!uid)return;syncStorage.removeItem(CONNECTION_KEY);generation++;stop();await cloud.signOut();}));
+ logout.addEventListener('click',()=>action(async()=>{if(!uid)return;syncStorage.setItem(CONNECTION_KEY,'signed-out');generation++;stop();await cloud.signOut();}));
  if(win&&canSync){
-  const lifecycle=()=>{runtime?.changed();paint();if(!online()||!ready()||doc.visibilityState==='hidden')return;if(!cloud&&connection())void action(connectCloud);else void restore();};
+  const lifecycle=()=>{runtime?.changed();paint();if(!online()||!ready()||doc.visibilityState==='hidden')return;if(!cloud&&connection()&&!busy)void action(connectCloud);else void restore();};
   win.addEventListener('online',lifecycle);win.addEventListener('offline',lifecycle);doc.addEventListener?.('visibilitychange',lifecycle);
   win.addEventListener('storage',e=>{if(e.key===dbKey||e.key===syncPrefix(search)+DEVICE_KEY||e.key===syncPrefix(search)+REVIEW_KEY){storageChanged=true;stop();say('Alteração em outra aba. Feche as outras abas e reabra; sincronização bloqueada.');paint();}});
   win.addEventListener('pagehide',()=>{generation++;stop(true);},{once:true});
