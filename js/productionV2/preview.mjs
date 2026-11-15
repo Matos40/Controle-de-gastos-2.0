@@ -1,6 +1,6 @@
 import {validatePayload} from './model.mjs';
 // No cloud dependency or write. Defaults are only applied in a disposable copy.
-export function previewLocal(raw){
+export function prepareLocal(raw){
  if(typeof raw!=='string'||raw.length>180000)return {compatible:false,reason:'Banco ausente ou acima do limite de tamanho.'};
  try{
   const parsed=JSON.parse(raw),db=structuredClone(parsed);
@@ -12,9 +12,10 @@ export function previewLocal(raw){
    if(m.extraIncomes===undefined)m.extraIncomes=[];
   }
   validatePayload(JSON.stringify(db));
-  return {compatible:true,months:Object.keys(db.months).length,entries:Object.values(db.months).reduce((n,m)=>n+m.expenses.length+m.cardExpenses.length+m.extraIncomes.length,0)};
+  return {compatible:true,payload:JSON.stringify(db),months:Object.keys(db.months).length,entries:Object.values(db.months).reduce((n,m)=>n+m.expenses.length+m.cardExpenses.length+m.extraIncomes.length,0)};
  }catch{return {compatible:false,reason:'Estrutura, parcelas antigas, datas ou limites incompatíveis. O banco original não foi alterado.'};}
 }
+export function previewLocal(raw){const {payload,...summary}=prepareLocal(raw);return summary;}
 export function bindPreview(document,storage){
  const button=document.getElementById('productionV2Preview'),status=document.getElementById('productionV2PreviewStatus');
  if(!button||!status)return;
