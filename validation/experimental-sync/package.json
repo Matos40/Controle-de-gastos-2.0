@@ -12,6 +12,7 @@
   "devDependencies": {
     "firebase-tools": "14.26.0",
     "playwright": "1.56.1",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "xlsx": "0.18.5"
   }
 }
