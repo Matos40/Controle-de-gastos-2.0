@@ -1,18 +1,19 @@
 import {PRODUCTION_CONFIG} from './config.mjs';
 import {prepareLocal} from './preview.mjs';
 import {createSyncEngine,DEVICE_KEY} from './syncEngine.mjs';
-import {isCleanWorkspace,databaseKey,scopeSyncStorage,strictPrepare} from './cleanWorkspace.mjs';
+import {databaseKey,scopeSyncStorage,strictPrepare,canTransfer,syncPrefix} from './cleanWorkspace.mjs';
+import {withQueueLock} from './queue.mjs';
 export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async()=>{const m=await import('./firebaseAdapter.mjs');return m.openProductionCloud();},confirm=message=>globalThis.confirm(message),win=globalThis.window}={}){
  const el=id=>doc.getElementById(id),status=el('productionCloudStatus'),connect=el('productionCloudConnect'),login=el('productionCloudLogin'),inspect=el('productionCloudInspect'),seed=el('productionCloudSeed'),logout=el('productionCloudLogout'),refresh=el('productionCloudRefresh'),adopt=el('productionCloudAdopt');
  if(!status||!connect||!login||!inspect||!seed||!logout)return;
- const search=win?.location?.search??'',dbKey=databaseKey(search),syncStorage=scopeSyncStorage(storage),canSync=config.syncEnabled===true&&isCleanWorkspace(search);
+ const search=win?.location?.search??'',dbKey=databaseKey(search),syncStorage=scopeSyncStorage(storage,search),canSync=canTransfer(config,search);
  let cloud=null,uid=null,busy=false,generation=0,approved=false,engine=null,timer=null,paused=false,storageChanged=false;
  const unlocked=()=>!el('pinLockOverlay')||el('pinLockOverlay').classList.contains('hidden');
  const say=message=>{status.textContent=message;};
  function paint(){connect.disabled=busy||!!cloud||!config.enabled;login.disabled=busy||!cloud||!!uid;inspect.disabled=busy||!uid;seed.disabled=!canSync||busy||!uid||!approved||!!syncStorage.getItem(DEVICE_KEY);logout.disabled=busy||!uid;if(refresh)refresh.disabled=!canSync||busy||!engine;if(adopt)adopt.disabled=seed.disabled;}
  const error=e=>{const code=typeof e?.code==='string'?e.code:typeof e?.message==='string'&&/^PRODUCTION_[A-Z_]+$/.test(e.message)?e.message:'PRODUCTION_UNAVAILABLE';say('Operação não concluída ('+code+'). Dados e pendências preservados.');if(['production/not-approved','permission-denied','PRODUCTION_NOT_APPROVED','PRODUCTION_DEVICE_BOUND','PRODUCTION_RECOVERY_REQUIRED','PRODUCTION_BUDGET'].includes(code))paused=true;};
  const action=async fn=>{if(busy||!unlocked())return;busy=true;paint();try{await fn();}catch(e){error(e);}finally{busy=false;paint();}};
- function makeEngine(who,g){return createSyncEngine({cloud,storage:syncStorage,uid:who,prepare:strictPrepare,local:{read:()=>storage.getItem(dbKey),apply:(raw,payload)=>win?.productionV2ApplyLocal?.(raw,payload)===true},isCurrent:()=>g===generation&&uid===who&&unlocked()&&!storageChanged&&win?.productionCleanWorkspaceReady===true,online:()=>win?.navigator?.onLine!==false});}
+ function makeEngine(who,g){return createSyncEngine({cloud,storage:syncStorage,uid:who,prepare:strictPrepare,lock:(key,fn)=>withQueueLock('main_'+key,fn),local:{read:()=>storage.getItem(dbKey),apply:(raw,payload)=>win?.productionV2ApplyLocal?.(raw,payload)===true},isCurrent:()=>g===generation&&uid===who&&unlocked()&&!storageChanged&&win?.productionCleanWorkspaceReady===true,online:()=>win?.navigator?.onLine!==false});}
  function schedule(ms=60000){if(!win||!config.enabled||!canSync)return;win.clearTimeout(timer);timer=win.setTimeout(()=>{if(engine&&!paused&&!storageChanged&&doc.visibilityState!=='hidden')void action(tick);schedule();},ms);}
  async function tick(){if(!canSync||!engine||storageChanged)return;const r=await engine.tick();if(r.status==='conflict'){say('Conflito de dados ('+r.count+'). Ambos os lados preservados; exporte o backup e não sobrescreva.');paused=true;}else if(r.status==='offline')say('Offline. Alterações locais preservadas'+(r.pending?' · sincronização pendente.':'.'));else if(r.status==='unbound')say('Vincule o banco local explicitamente.');else say('Nuvem V2 · Revisão '+r.revision+(r.status==='updated'?' · Dados recebidos, verificando pendências.':' · Sincronizado.'));if(r.status==='updated')schedule(2000);}
  connect.addEventListener('click',()=>action(async()=>{if(!config.enabled)throw Error('PRODUCTION_DISABLED');cloud=await open();cloud.onSession(user=>{generation++;uid=user?.uid??null;approved=false;engine=null;paused=false;storageChanged=false;if(uid){if(canSync){engine=makeEngine(uid,generation);try{if(engine.inspect())schedule(500);}catch(e){error(e);}}if(!paused)say('UID: '+uid+'. Verifique a autorização da conta.');}else say('Entre com a conta Google desejada.');paint();});}));
@@ -22,7 +23,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
  seed.addEventListener('click',()=>link(false));adopt?.addEventListener('click',()=>link(true));
  refresh?.addEventListener('click',()=>action(async()=>{paused=false;await tick();schedule();}));
  logout.addEventListener('click',()=>action(async()=>{if(!uid)return;approved=false;engine=null;generation++;win?.clearTimeout(timer);await cloud.signOut();}));
- if(win&&config.enabled&&canSync){win.addEventListener('online',()=>schedule(500));win.addEventListener('offline',()=>{if(engine)say('Offline. Dados locais preservados.');});win.addEventListener('storage',e=>{if(e.key===dbKey||e.key==='raytech_cg_v2_clean_sync_v1:'+DEVICE_KEY){storageChanged=true;paused=true;say('Alteração em outra aba. Feche as outras abas e recarregue para sincronizar.');}});doc.addEventListener?.('visibilitychange',()=>{if(doc.visibilityState!=='hidden')schedule(1500);});}
+ if(win&&config.enabled&&canSync){win.addEventListener('online',()=>schedule(500));win.addEventListener('offline',()=>{if(engine)say('Offline. Dados locais preservados.');});win.addEventListener('storage',e=>{if(e.key===dbKey||e.key===syncPrefix(search)+DEVICE_KEY){storageChanged=true;paused=true;say('Alteração em outra aba. Feche as outras abas e recarregue para sincronizar.');}});doc.addEventListener?.('visibilitychange',()=>{if(doc.visibilityState!=='hidden')schedule(1500);});}
  say(config.enabled?(canSync?'Conecte-se para verificar sua conta.':'Login disponível para validação. Transferências financeiras desativadas.'):'Nuvem V2 aguardando liberação. Nenhuma conexão foi iniciada.');paint();
 }
 if(typeof document!=='undefined')bindCloudPanel(document,localStorage);

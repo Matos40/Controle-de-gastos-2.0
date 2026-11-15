@@ -1,4 +1,10 @@
 /* Exportação e importação Excel otimizada para migração e versão mobile sem perdas. */
+function encodeWorkspaceBackup(db) {
+  return MAIN_WORKSPACE ? cleanWorkspaceStore.encodeBackup(db) : db;
+}
+function decodeWorkspaceBackup(db) {
+  return MAIN_WORKSPACE ? cleanWorkspaceStore.decodeBackup(db) : db;
+}
 function exportToExcel() {
   if (typeof XLSX === 'undefined') {
     showToast('Biblioteca do Excel ainda carregando. Aguarde um instante.', 'error');
@@ -96,7 +102,7 @@ function exportToExcel() {
     applyMoney(wsIncomes, [4]);
 
     // Aba de Backup JSON integral para restauração sem perdas
-    const backupJson = JSON.stringify(appDb);
+    const backupJson = JSON.stringify(encodeWorkspaceBackup(appDb));
     const chunkSize = 30000;
     const chunks = [];
     for (let offset = 0; offset < backupJson.length; offset += chunkSize) {
@@ -108,7 +114,7 @@ function exportToExcel() {
     ];
     addSheet('Backup restauracao', restoreRows, [30, 10, 10, 10, 100]);
 
-    const filename = `Controle_Financeiro_${CLEAN_WORKSPACE?'V2_':''}Completo_${appDb.selectedMonth || 'backup'}.xlsx`;
+    const filename = `Controle_Financeiro_${MAIN_WORKSPACE?'V2_PRINCIPAL_':CLEAN_WORKSPACE?'V2_':''}Completo_${appDb.selectedMonth || 'backup'}.xlsx`;
     XLSX.writeFile(wb, filename, { compression: true });
     showToast('Planilha de backup completo exportada com sucesso!', 'success');
   } catch (err) {
@@ -149,8 +155,7 @@ function handleExcelImport(event) {
             let fullJson = '';
             rows.forEach(r => { if (r['JSON']) fullJson += r['JSON']; });
             if (fullJson) {
-              const parsedDb = JSON.parse(fullJson);
-              validateBackupDatabase(parsedDb);
+              const parsedDb = validateRestoreCandidate(decodeWorkspaceBackup(JSON.parse(fullJson)));
               showModal('Restaurar backup do Excel?', 'Esta operacao substituira todos os dados financeiros atuais pelos dados do arquivo. Confirme somente se possui um backup seguro.', () => {
                 try {
                   restoreBackupDatabase(parsedDb);
@@ -172,6 +177,7 @@ function handleExcelImport(event) {
       }
 
       if (!restored) {
+        if (MAIN_WORKSPACE) throw Error('Use uma planilha de backup integral do V2 principal. Importação genérica está bloqueada nesta fase.');
         // Trabalha numa copia isolada. A base ativa so muda depois de gravar com sucesso.
         const originalDb = appDb;
         const workingDb = JSON.parse(JSON.stringify(appDb));
@@ -288,10 +294,10 @@ function handleExcelImport(event) {
 }
 
 function exportData() {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appDb, null, 2));
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(encodeWorkspaceBackup(appDb), null, 2));
   const a = document.createElement('a');
   a.href = dataStr;
-  a.download = `controle_financeiro_${CLEAN_WORKSPACE?'v2_':''}backup_${appDb.selectedMonth}.json`;
+  a.download = `controle_financeiro_${MAIN_WORKSPACE?'v2_principal_':CLEAN_WORKSPACE?'v2_':''}backup_${appDb.selectedMonth}.json`;
   a.click();
   a.remove();
   showToast('Backup JSON baixado com sucesso!', 'success');
@@ -302,8 +308,8 @@ function handleJsonImport(event) {
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const candidate = validateRestoreCandidate(JSON.parse(e.target.result));
-      showModal('Restaurar backup JSON?', CLEAN_WORKSPACE ? 'Somente os dados do banco V2 de testes serão substituídos. O banco legado ficará intacto. Guarde um backup antes de confirmar.' : 'Todos os dados financeiros atuais serão substituídos pelo conteúdo do backup. Esta operação não pode ser desfeita sem outro backup.', () => {
+      const candidate = validateRestoreCandidate(decodeWorkspaceBackup(JSON.parse(e.target.result)));
+      showModal('Restaurar backup JSON?', MAIN_WORKSPACE ? 'Somente o banco V2 principal será substituído. Legado e testes serão preservados. Guarde um backup antes de confirmar.' : CLEAN_WORKSPACE ? 'Somente os dados do banco V2 de testes serão substituídos. O banco legado ficará intacto. Guarde um backup antes de confirmar.' : 'Todos os dados financeiros atuais serão substituídos pelo conteúdo do backup. Esta operação não pode ser desfeita sem outro backup.', () => {
         try {
           restoreBackupDatabase(candidate);
           showToast('Backup JSON restaurado com sucesso!', 'success');

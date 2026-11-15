@@ -12,3 +12,10 @@ Este PR corrige a navegação por confirmação interna e antecipa a validação
 - Validar nova chave, isolamento triplo, reabertura, PWA, offline, exportação/restauração, regras e consumo Spark com dados fictícios isolados.
 - Manter `syncEnabled:false` até aprovação específica da sincronização. Verificar conta e estado da nuvem antes de qualquer vínculo. Nunca enviar dados fictícios ao Firestore de produção.
 - Preservar PRs #7 e #12. Nenhuma alteração nas regras Firebase ou publicação por este PR.
+
+## Candidato de armazenamento principal
+- URL explícita `?workspace=v2-main`; a página sem query continua sendo o legado. A abertura explícita pela URL ou pelo botão confirmado inicia o banco principal vazio, sem copiar outras chaves. A troca padrão depende de autorização posterior.
+- Banco `raytech_cg_v2_main_finance_v1`; marcador `raytech_cg_v2_main_initialized_v1`; metadados prefixados por `raytech_cg_v2_main_sync_v1:`; Web Lock `raytech-cg-v2-main-workspace`; lock de sincronização na namespace main_.
+- Backup principal JSON e aba integral Excel usam envelope `raytech-cg-v2-main-backup-v1`. Rejeitam backups crus do legado/teste e importação Excel genérica nesta fase. O envelope diferencia origem operacional, não autentica arquivos contra adulteração deliberada. Exportação e restauração integral continuam disponíveis.
+- Flag `syncEnabled:false` preservada. Painel e adaptador exigem modo principal para qualquer futura transferência. Nenhuma escrita real, migração, merge ou publicação.
+- A falta do banco após marcador ou checkpoint exige recuperação explícita, não recriação silenciosa. Uma escrita interrompida no primeiro acesso pode exigir recuperação manual. Não limpar dados do navegador.

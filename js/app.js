@@ -220,14 +220,26 @@ async function triggerNativePwaInstall() {
           showModal(CLEAN_WORKSPACE ? 'Voltar ao banco legado?' : 'Abrir banco V2 de testes?', 'Os bancos permanecem separados. O histórico original e os dados de teste serão preservados. As transferências financeiras continuam desativadas.', () => location.assign(url.href));
         });
       }
+      const mainButton = document.getElementById('mainWorkspaceSwitch');
+      if (mainButton) {
+        if (MAIN_WORKSPACE) mainButton.classList.add('hidden');
+        mainButton.addEventListener('click', () => {
+          if (MAIN_WORKSPACE || document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return;
+          const url = new URL(location.href);url.searchParams.set('workspace','v2-main');
+          closeHeaderDrawer();
+          showModal('Abrir banco V2 principal?', 'Este banco é independente. Nenhum dado será copiado dos bancos de teste ou legado. A nuvem permanece desativada.', () => location.assign(url.href));
+        });
+      }
       if (CLEAN_WORKSPACE) {
+        if (MAIN_WORKSPACE && badge) badge.textContent='BANCO V2 PRINCIPAL · local · nuvem desativada | Legado e testes preservados';
         badge?.classList.remove('hidden');
         gate?.classList.remove('hidden');
         let release;
         try {
           const {openCleanStore,acquireCleanLease} = await import('./productionV2/cleanWorkspace.mjs');
-          release = await acquireCleanLease();
-          cleanWorkspaceStore = openCleanStore(localStorage,getTodayYM());
+          release = await acquireCleanLease(navigator.locks,location.search);
+          cleanWorkspaceStore = openCleanStore(localStorage,getTodayYM(),location.search);
+          if(cleanWorkspaceStore.readCurrent()!==localStorage.getItem(STORAGE_DATABASE_KEY)) throw Error('CLEAN_WORKSPACE_SELECTION');
           window.productionCleanWorkspaceReady = true;
           window.addEventListener('pagehide', () => { window.productionCleanWorkspaceReady=false; release(); }, {once:true});
           window.addEventListener('pageshow', event => { if(event.persisted) location.reload(); });
