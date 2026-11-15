@@ -1,0 +1,14 @@
+# Integração V2 de produção — candidato isolado
+Base oficial 1ba033cb47aa7ed68bdbdc899dee89574b32fea8; origem homologada 4a01326a742731c3c2c86a54b5385f96041d8165. PR #7 não alterado. Nenhum script novo é carregado pelo index.html.
+
+## Configuração manual (não publicar regras propostas ainda)
+1. Criar projeto Firebase exclusivamente para produção, preferencialmente ID raytech-cg-producao (ou sufixo único). Plano Spark. Registrar app Web, copiar somente firebaseConfig (não chave privada, service account ou senha). 
+2. Authentication: ativar Google e adicionar matos40.github.io em domínios autorizados. Firestore Standard, banco default, modo produção (nega acesso). Escolher região antes de criar.
+3. Enviar objeto de configuração público ao responsável pela integração. Manter config.mjs disabled até testes de emulador, interface e compatibilidade concluídos.
+4. Regras propostas docs/firestore-producao-v2-proposta.rules, exclusivamente namespace raytechProductionFinanceV2 e raytechProductionAccessV2; negar demais caminhos. Validar no emulador antes de publicar. Depois da validação, autorização manual por UID com documento de acesso enabled:true; nenhuma autoautorização.
+
+## Implementado nesta etapa
+Modelo derivado da baseline, descrições não precisam conter Teste; validação conservadora de schema e valores. Recibos independentes, transação idempotente, adaptador Firebase SDK com guarda de origem e projeto, fila UID local com trava Web Locks disponível, confirmação de recibo, limite preventivo por dispositivo, conciliação de três vias reaproveitada. Sem leitura/escrita automática do banco local original; nenhuma API chamada só por carregar os módulos. Nenhuma chave de API Gemini ou PIN enviada.
+
+## Gates obrigatórios antes de ativar
+Validar compatibilidade de backups legados sintéticos (parcelas antigas sem origem, valores divergentes, datas, limites, títulos e 24 meses/180000 caracteres); não modificar ou substituir silenciosamente. Adaptar normalização reversível e preview explícito. Integrar a interface com PIN e controle de sessão, checkpoint, observador remoto, fila automática sob trava, confirmação de seed, política de conflito e teste físico com dados fictícios. Validar regras em emulador (UID cruzado, recibos, revisões), CSP/CDN/PWA e projeto real. A suíte atual usa mocks e validações estáticas, NÃO demonstra regra Firestore implantável nem sincronização real. Manter caminho local como padrão até aprovação. O backup existente não é autorização para enviar dados a outro projeto. Não integrar PR #7 nesta etapa.
