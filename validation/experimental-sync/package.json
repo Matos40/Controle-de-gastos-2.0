@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "firebase emulators:exec --project demo-raytech-sync-experimental --only firestore \"node --test emulator.test.mjs\""
+    "test": "firebase emulators:exec --project demo-raytech-sync-experimental --only firestore \"node --test --test-concurrency=1 emulator.test.mjs panel.test.mjs\"",
+    "lab": "firebase emulators:exec --project demo-raytech-sync-experimental --only firestore \"node lab.mjs\""
   },
   "dependencies": {
     "firebase": "11.10.0",
