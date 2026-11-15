@@ -196,8 +196,18 @@
       return db;
     }
 
+    function validateRestoreCandidate(candidate) {
+      const validated = validateBackupDatabase(candidate);
+      if (CLEAN_WORKSPACE) {
+        if (!cleanWorkspaceStore || window.productionCleanWorkspaceReady !== true) throw Error('Banco V2 não está pronto. Abra novamente o banco separado.');
+        try { cleanWorkspaceStore.check(JSON.stringify(validated)); }
+        catch { throw Error('Backup incompatível com o banco V2. Use um backup V2 válido; o arquivo legado exige migração separada. Nenhum dado foi alterado.'); }
+      }
+      return validated;
+    }
+
     function restoreBackupDatabase(candidate) {
-      const restored = validateBackupDatabase(candidate);
+      const restored = validateRestoreCandidate(candidate);
       const previous = appDb;
       appDb = restored;
       try {

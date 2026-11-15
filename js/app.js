@@ -214,10 +214,10 @@ async function triggerNativePwaInstall() {
         switchButton.textContent = CLEAN_WORKSPACE ? 'Voltar ao banco legado' : 'Abrir banco V2 separado';
         switchButton.addEventListener('click', () => {
           if (document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return;
-          if (!CLEAN_WORKSPACE && !window.confirm('Abrir o espaço V2 independente? Seu histórico legado ficará preservado, e a nuvem seguirá desativada.')) return;
           const url = new URL(location.href);
           if (CLEAN_WORKSPACE) url.searchParams.delete('workspace'); else url.searchParams.set('workspace','v2-clean');
-          location.assign(url.href);
+          closeHeaderDrawer();
+          showModal(CLEAN_WORKSPACE ? 'Voltar ao banco legado?' : 'Abrir banco V2 de testes?', 'Os bancos permanecem separados. O histórico original e os dados de teste serão preservados. As transferências financeiras continuam desativadas.', () => location.assign(url.href));
         });
       }
       if (CLEAN_WORKSPACE) {

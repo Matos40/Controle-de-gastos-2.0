@@ -26,7 +26,7 @@ export function openCleanStore(storage,month){
   if(storage.getItem(CLEAN_KEY)!==next)fail('CLEAN_WRITE_FAILED');
   committed=next;return true;
  }
- return {snapshot,read:()=>committed,replace,save:next=>replace(committed,next),readCurrent:()=>storage.getItem(CLEAN_KEY)};
+ return {snapshot,read:()=>committed,replace,save:next=>replace(committed,next),check:next=>{validatePayload(next);return true;},readCurrent:()=>storage.getItem(CLEAN_KEY)};
 }
 // Hold an exclusive browser lock for the lifetime of a clean-workspace tab.
 // Never silently fall back to a different bank or an unlocked writer.

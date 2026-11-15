@@ -302,8 +302,8 @@ function handleJsonImport(event) {
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const candidate = validateBackupDatabase(JSON.parse(e.target.result));
-      showModal('Restaurar backup JSON?', 'Todos os dados financeiros atuais serao substituidos pelo conteudo do backup. Esta operacao nao pode ser desfeita sem outro backup.', () => {
+      const candidate = validateRestoreCandidate(JSON.parse(e.target.result));
+      showModal('Restaurar backup JSON?', CLEAN_WORKSPACE ? 'Somente os dados do banco V2 de testes serão substituídos. O banco legado ficará intacto. Guarde um backup antes de confirmar.' : 'Todos os dados financeiros atuais serão substituídos pelo conteúdo do backup. Esta operação não pode ser desfeita sem outro backup.', () => {
         try {
           restoreBackupDatabase(candidate);
           showToast('Backup JSON restaurado com sucesso!', 'success');
