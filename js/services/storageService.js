@@ -266,9 +266,11 @@
         if (!cleanWorkspaceStore || window.productionCleanWorkspaceReady !== true) throw Error('CLEAN_WORKSPACE_NOT_READY');
         try {
           cleanWorkspaceStore.save(JSON.stringify(appDb));
+          if(MAIN_WORKSPACE) window.updateMainCapacity?.();
         } catch (err) {
           appDb = cleanWorkspaceStore.snapshot();
-          showToast('Alteração não salva no V2. O último banco válido foi preservado.', 'error');
+          const limit=String(err?.message||'').match(/(?:PAYLOAD_LIMIT|MONTH_LIMIT|ENTRY_LIMIT|DELETION_MARKS)/);
+          showToast(limit?'Limite de armazenamento V2 atingido. Exporte um backup; o banco anterior foi preservado.':'Alteração não salva no V2. O último banco válido foi preservado.', 'error');
           throw Error('CLEAN_SAVE_REJECTED');
         }
         return;

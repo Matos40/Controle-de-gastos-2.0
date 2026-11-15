@@ -1,4 +1,4 @@
-import {blank,validatePayload} from './model.mjs';
+import {blank,validatePayload,LEGACY_LIMITS} from './model.mjs';
 export const LEGACY_KEY='controle_gastos_multimonth_v3';
 export const CLEAN_KEY='raytech_cg_v2_clean_finance_v1';
 export const SYNC_PREFIX='raytech_cg_v2_clean_sync_v1:';
@@ -59,4 +59,43 @@ export function acquireCleanLease(locks=globalThis.navigator?.locks,search='?wor
    resolve(()=>release());await hold;
   })).catch(reject);
  });
+}
+
+export const MAIN_QUARANTINE_KEY='raytech_cg_v2_main_quarantine_v1';
+export function recoveryState(storage){
+ const raw=storage.getItem(MAIN_KEY),marker=storage.getItem(MAIN_INITIALIZED_KEY),checkpoint=scopeSyncStorage(storage,'?workspace=v2-main').getItem('raytech_production_v2_device');
+ const valid=raw!==null&&strictPrepare(raw).compatible;
+ return {raw,marker,checkpoint,needed:!valid||marker!=='1',available:checkpoint===null&&(!valid||marker!=='1')&&(raw!==null||marker!==null)};
+}
+// Caller must hold the main workspace lease. Never recover a cloud-bound device locally.
+export function recoverMainStore(storage,{expected,backup,pin='',confirmed=false}){
+ const fail=code=>{throw Error(code);};
+ if(confirmed!==true)fail('RECOVERY_CONFIRMATION_REQUIRED');
+ const savedPin=storage.getItem('controle_gastos_pin_lock');
+ if(savedPin!==null&&pin!==savedPin)fail('RECOVERY_PIN');
+ const current=recoveryState(storage);
+ if(current.checkpoint!==null)fail('RECOVERY_CLOUD_BOUND');
+ if(!current.available)fail('RECOVERY_NOT_REQUIRED');
+ if(!expected||current.raw!==expected.raw||current.marker!==expected.marker||current.checkpoint!==expected.checkpoint)fail('RECOVERY_CHANGED');
+ const next=JSON.stringify(decodeMainBackup(backup));
+ if(current.raw!==null){
+  const archived=storage.getItem(MAIN_QUARANTINE_KEY);
+  if(archived!==null&&archived!==current.raw)fail('RECOVERY_ARCHIVE_OCCUPIED');
+  if(archived===null)storage.setItem(MAIN_QUARANTINE_KEY,current.raw);
+  if(storage.getItem(MAIN_QUARANTINE_KEY)!==current.raw)fail('RECOVERY_ARCHIVE_FAILED');
+ }
+ storage.setItem(MAIN_INITIALIZED_KEY,'1');
+ if(storage.getItem(MAIN_INITIALIZED_KEY)!=='1'||storage.getItem(MAIN_KEY)!==current.raw)fail('RECOVERY_CHANGED');
+ storage.setItem(MAIN_KEY,next);
+ if(storage.getItem(MAIN_KEY)!==next)fail('RECOVERY_WRITE_FAILED');
+ return true;
+}
+export function mainCapacity(raw){
+ const d=validatePayload(raw),months=Object.values(d.months);
+ const maxEntries=Math.max(0,...months.flatMap(m=>[m.expenses.length,m.cardExpenses.length,m.extraIncomes.length]));
+ const maxMarks=Math.max(0,...months.map(m=>(m.deletedInstallmentOrigins??[]).length));
+ return {characters:raw.length,bytes:new TextEncoder().encode(raw).length,months:months.length,maxEntries,maxMarks,limits:LEGACY_LIMITS,near:[raw.length/LEGACY_LIMITS.payload,months.length/LEGACY_LIMITS.months,maxEntries/LEGACY_LIMITS.entries,maxMarks/LEGACY_LIMITS.tombstones].some(v=>v>=0.8)};
+}
+export function capacityMessage(raw){
+ const r=mainCapacity(raw);return 'Capacidade local: '+r.months+'/'+r.limits.months+' meses · '+r.characters+'/'+r.limits.payload+' caracteres · maior lista '+r.maxEntries+'/'+r.limits.entries+' · marcas '+r.maxMarks+'/'+r.limits.tombstones+(r.near?' · Atenção: limite próximo; exporte backup e planeje ampliação antes de novos lançamentos.':'.');
 }

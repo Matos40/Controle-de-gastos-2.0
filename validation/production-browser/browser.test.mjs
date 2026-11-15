@@ -4,6 +4,9 @@ import {chromium} from 'playwright';
 import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
+import {createServer} from 'node:http';
+const require=createRequire(import.meta.url),XLSX=require('xlsx'),xlsxPath=require.resolve('xlsx/dist/xlsx.full.min.js');
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const base='https://matos40.github.io/Controle-de-gastos-2.0/';
 const contentType={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.ico':'image/x-icon'};
@@ -21,7 +24,7 @@ before(async()=>{browser=await chromium.launch({headless:true});});after(async()
 const raw=JSON.stringify({selectedMonth:'2026-12',months:{'2026-12':{salary:1000,budgetLimit:0,extraIncomes:[],expenses:[{id:'fixture',title:'Mercado exemplo',category:'alimentacao',amount:20,type:'one-time',date:'2026-12-01',paid:false}],cardExpenses:[],deletedInstallmentOrigins:[],closed:false,closedAt:null}}});
 async function setup(t,pin=false,query=''){
  const ctx=await browser.newContext({serviceWorkers:'block'});t.after(()=>ctx.close());
- await ctx.route('**/*',async route=>{const url=route.request().url();if(url.startsWith(base)){let rel=new URL(url).pathname.slice(new URL(base).pathname.length)||'index.html';const path=resolve(root,rel);if(!path.startsWith(resolve(root)+'/'))return route.abort();try{return await route.fulfill({status:200,contentType:contentType[extname(path)]??'application/octet-stream',body:await readFile(path)});}catch{return route.fulfill({status:404,body:'not found'});}}const stub=externalStub(url);if(stub!==null)return route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:stub});return route.abort();});
+ await ctx.route('**/*',async route=>{const url=route.request().url();if(url.startsWith(base)){let rel=new URL(url).pathname.slice(new URL(base).pathname.length)||'index.html';const path=resolve(root,rel);if(!path.startsWith(resolve(root)+'/'))return route.abort();try{return await route.fulfill({status:200,contentType:contentType[extname(path)]??'application/octet-stream',body:await readFile(path)});}catch{return route.fulfill({status:404,body:'not found'});}}if(url.includes('xlsx.full.min.js'))return route.fulfill({status:200,contentType:'text/javascript',body:await readFile(xlsxPath)});const stub=externalStub(url);if(stub!==null)return route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:stub});return route.abort();});
  await ctx.addInitScript(({raw,pin})=>{if(localStorage.getItem('controle_gastos_multimonth_v3')===null)localStorage.setItem('controle_gastos_multimonth_v3',raw);if(pin)localStorage.setItem('controle_gastos_pin_lock','1234');},{raw,pin});
  const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base+query,{waitUntil:'load'});await page.waitForFunction(()=>document.getElementById('productionCloudConnect')?.disabled===false);
  return {page,errors};
@@ -63,4 +66,44 @@ test('BROWSER11 principal rejects raw trial backup; accepts identified main back
  await upload(data);await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('somente um backup identificado'));assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),saved);assert.equal(await page.locator('#confirmModal').evaluate(x=>x.classList.contains('hidden')),true);
  await upload({format:'raytech-cg-v2-main-backup-v1',database:data});await page.waitForFunction(()=>!document.getElementById('confirmModal').classList.contains('hidden'));await click(page,'modalConfirmBtn');await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('restaurado com sucesso'));assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),JSON.stringify(data));
  await page.evaluate(()=>{globalThis.__allowed=true;});await click(page,'productionCloudConnect');await textIs(page,'Entre com a conta Google');await click(page,'productionCloudLogin');await textIs(page,'browser-fixture-uid');await click(page,'productionCloudInspect');await textIs(page,'Conta autorizada');for(const id of ['productionCloudSeed','productionCloudAdopt','productionCloudRefresh']){assert.equal(await page.locator('#'+id).isDisabled(),true);await page.locator('#'+id).evaluate(e=>e.dispatchEvent(new Event('click')));}assert.equal(await page.evaluate(()=>globalThis.__writes??0),0);assert.equal(await page.evaluate(()=>localStorage.getItem('raytech_cg_v2_main_sync_v1:raytech_production_v2_device')),null);
+});
+
+test('BROWSER12 emergency recovery validates PIN and main backup, archives corrupt bytes and preserves other banks',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-main');await cleanReady(page);
+ const expected=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),mainKey);expected.months[expected.selectedMonth].salary=987;
+ await page.evaluate(k=>{localStorage.setItem(k,'corrupted-fixture');localStorage.setItem('raytech_cg_v2_clean_finance_v1','test-fixture');localStorage.setItem('controle_gastos_pin_lock','1234');},mainKey);
+ await page.reload();await page.waitForFunction(()=>!document.getElementById('mainRecoveryForm').hidden);
+ const upload=async data=>page.locator('#mainRecoveryFile').setInputFiles({name:'fixture.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(data))});
+ const submit=()=>page.locator('#mainRecoveryForm').evaluate(el=>el.dispatchEvent(new Event('submit',{cancelable:true})));
+ await upload({format:'raytech-cg-v2-main-backup-v1',database:expected});await page.locator('#mainRecoveryPin').fill('0000');await page.locator('#mainRecoveryConfirm').check();await submit();await page.waitForFunction(()=>document.getElementById('cleanWorkspaceGateStatus').textContent.includes('PIN incorreto'));
+ assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),'corrupted-fixture');
+ await upload(expected);await page.locator('#mainRecoveryPin').fill('1234');await submit();await page.waitForFunction(()=>document.getElementById('cleanWorkspaceGateStatus').textContent.includes('Recuperação recusada'));
+ await upload({format:'raytech-cg-v2-main-backup-v1',database:expected});await page.locator('#mainRecoveryPin').fill('1234');await submit();await cleanReady(page);
+ assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),JSON.stringify(expected));assert.equal(await page.evaluate(()=>localStorage.getItem('raytech_cg_v2_main_quarantine_v1')),'corrupted-fixture');assert.equal(await page.evaluate(()=>localStorage.getItem('raytech_cg_v2_clean_finance_v1')),'test-fixture');assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
+});
+test('BROWSER13 actual XLSX export and import roundtrip with SheetJS, rejects raw test envelope',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-main');await cleanReady(page);assert.equal(await page.evaluate(()=>XLSX.version),'0.18.5');
+ await page.evaluate(()=>{document.getElementById('salaryInput').value='1234,56';document.getElementById('salaryInput').dispatchEvent(new Event('input'));});
+ const saved=await page.evaluate(k=>localStorage.getItem(k),mainKey);
+ const [download]=await Promise.all([page.waitForEvent('download'),page.evaluate(()=>exportToExcel())]);assert.match(download.suggestedFilename(),/V2_PRINCIPAL/);const bytes=await readFile(await download.path());
+ const wb=XLSX.read(bytes,{type:'buffer'}),rows=XLSX.utils.sheet_to_json(wb.Sheets['Backup restauracao']);const envelope=JSON.parse(rows.map(r=>r.JSON).join(''));assert.equal(envelope.format,'raytech-cg-v2-main-backup-v1');assert.deepEqual(envelope.database,JSON.parse(saved));
+ await page.evaluate(()=>{document.getElementById('salaryInput').value='3,00';document.getElementById('salaryInput').dispatchEvent(new Event('input'));});const changed=await page.evaluate(k=>localStorage.getItem(k),mainKey);
+ const bad=XLSX.utils.book_new();XLSX.utils.book_append_sheet(bad,XLSX.utils.aoa_to_sheet([['JSON'],[saved]]),'Backup restauracao');
+ await page.locator('#excelImportInput').setInputFiles({name:'test.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:XLSX.write(bad,{type:'buffer',bookType:'xlsx'})});await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('somente um backup identificado'));assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),changed);
+ await page.locator('#excelImportInput').setInputFiles({name:'main.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:bytes});await page.waitForFunction(()=>!document.getElementById('confirmModal').classList.contains('hidden'));await click(page,'modalConfirmBtn');await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('restaurado com sucesso'));assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),saved);assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
+});
+test('BROWSER14 real service worker controls localhost, offline navigation and finance persistence',async t=>{
+ const cdn=['https://cdn.tailwindcss.com','https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css','https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js','https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js','https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'];
+ // Local mirrors remove external network dependency. The SW cache/fetch logic is unchanged.
+ const server=createServer(async(req,res)=>{try{const u=new URL(req.url,'http://localhost'),rel=u.pathname.replace(/^\/app\//,'')||'index.html';if(rel.startsWith('mirror/')){const i=Number(rel.split('/')[1]);const code=i===0?"window.tailwind={};document.head.insertAdjacentHTML('beforeend','<style>.hidden{display:none!important}</style>');":i===3?"window.Chart=class{destroy(){}update(){}};":'';res.setHeader('Content-Type',i===1||i===4?'text/css':'text/javascript');return res.end(i===2?await readFile(xlsxPath):code);}
+ const file=resolve(root,rel);if(!file.startsWith(resolve(root)+'/'))throw Error('path');let body=await readFile(file);if(rel==='index.html'||rel==='sw.js'){let s=body.toString();cdn.forEach((url,i)=>{s=s.split(url).join('/app/mirror/'+i);});body=s;}
+ res.setHeader('Content-Type',contentType[extname(file)]??'application/octet-stream');res.end(body);}catch{res.statusCode=404;res.end('not found');}});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>{server.closeAllConnections();server.close();});const url='http://127.0.0.1:'+server.address().port+'/app/?workspace=v2-main';
+ const ctx=await browser.newContext({serviceWorkers:'allow'});t.after(()=>ctx.close());const page=await ctx.newPage();await page.goto(url);await cleanReady(page);await page.waitForFunction(()=>navigator.serviceWorker.controller!==null,{},{timeout:30000});
+ assert.equal(await page.evaluate(()=>navigator.serviceWorker.controller.scriptURL.endsWith('/app/sw.js')),true);
+ await page.evaluate(()=>{document.getElementById('salaryInput').value='1234,00';document.getElementById('salaryInput').dispatchEvent(new Event('input'));});
+ await ctx.setOffline(true);await page.reload();await cleanReady(page);assert.equal(new URL(page.url()).search,'?workspace=v2-main');
+ assert.equal(await page.evaluate(k=>{const d=JSON.parse(localStorage.getItem(k));return d.months[d.selectedMonth].salary},mainKey),1234);
+ await page.evaluate(()=>{document.getElementById('salaryInput').value='4321,00';document.getElementById('salaryInput').dispatchEvent(new Event('input'));});await page.reload();await cleanReady(page);
+ assert.equal(await page.evaluate(k=>{const d=JSON.parse(localStorage.getItem(k));return d.months[d.selectedMonth].salary},mainKey),4321);await ctx.setOffline(false);
 });
