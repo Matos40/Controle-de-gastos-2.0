@@ -11,17 +11,17 @@ const root=fileURLToPath(new URL('../../',import.meta.url));
 const base='https://matos40.github.io/Controle-de-gastos-2.0/';
 const contentType={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.ico':'image/x-icon'};
 const appStub="export const initializeApp=(f,n)=>({options:f,name:n});";
-const authStub=`let auth={currentUser:null},cb=()=>{};
+const authStub=`let auth={currentUser:sessionStorage.getItem('fixture-auth')?{uid:'browser-fixture-uid'}:null},cb=()=>{};
 export const getAuth=()=>auth;export const onAuthStateChanged=(a,f)=>{cb=f;queueMicrotask(()=>f(a.currentUser));return ()=>{};};
-export class GoogleAuthProvider{};export const signInWithPopup=async a=>{a.currentUser={uid:'browser-fixture-uid'};cb(a.currentUser);return {user:a.currentUser};};
-export const signOut=async a=>{a.currentUser=null;cb(null);};`;
+export class GoogleAuthProvider{};export const signInWithPopup=async a=>{a.currentUser={uid:'browser-fixture-uid'};sessionStorage.setItem('fixture-auth','1');cb(a.currentUser);return {user:a.currentUser};};
+export const signOut=async a=>{a.currentUser=null;sessionStorage.removeItem('fixture-auth');cb(null);};`;
 const firestoreStub=`export const getFirestore=()=>({});export const doc=(_, ...p)=>p;
 export async function getDocFromServer(p){globalThis.__reads=(globalThis.__reads||0)+1;return {exists:()=>!!globalThis.__allowed,data:()=>({enabled:true})};}
 export async function runTransaction(db,fn){return fn({get:async()=>({exists:()=>false}),set:()=>{globalThis.__writes=(globalThis.__writes||0)+1;throw Error('unexpected write');}});}`;
 const b2FirestoreStub=`export const getFirestore=()=>({});export const doc=(_, ...p)=>p;
 const key=p=>'fixture-b2-remote:'+p.join('/');
 function snapshot(p){const raw=sessionStorage.getItem(key(p));return {exists:()=>raw!==null,data:()=>JSON.parse(raw)};}
-export async function getDocFromServer(p){globalThis.__reads=(globalThis.__reads||0)+1;if(p[0]==='raytechProductionAccessV2')return {exists:()=>true,data:()=>({enabled:true,writeEnabled:globalThis.__writeAllowed===true})};return snapshot(p);}
+export async function getDocFromServer(p){globalThis.__reads=(globalThis.__reads||0)+1;if(p[0]==='raytechProductionAccessV2')return {exists:()=>true,data:()=>({enabled:true,writeEnabled:globalThis.__writeAllowed===true||globalThis.__writeAllowed===undefined&&sessionStorage.getItem('fixture-write')==='1'})};return snapshot(p);}
 export async function runTransaction(db,fn){const writes=[];const out=await fn({get:async p=>snapshot(p),set:(p,v)=>writes.push([p,v])});for(const [p,v] of writes){sessionStorage.setItem(key(p),JSON.stringify(v));globalThis.__writes=(globalThis.__writes||0)+1;}return out;}`;
 const externalStub=url=>url.includes('firebase-app.js')?appStub:url.includes('firebase-auth.js')?authStub:url.includes('firebase-firestore.js')?firestoreStub:url.includes('cdn.tailwindcss.com')?"window.tailwind={};document.head.insertAdjacentHTML('beforeend','<style>.hidden{display:none!important}</style>');":url.includes('chart.umd.min.js')?"window.Chart=class{destroy(){}update(){}};":url.includes('xlsx.full.min.js')?"window.XLSX={};":null;
 let browser;
@@ -157,4 +157,14 @@ test('BROWSER18 actual enabled PWA uses B2 with simulated account gate; explicit
  await page.locator('#jsonImportInput').setInputFiles({name:'fiction.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'raytech-cg-v2-main-backup-v1',database:newData}))});
  await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('Banco vinculado'));assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),saved);
  assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);assert.equal(errors.length,0,errors.join('; '));
+});
+
+test('BROWSER19 reconnect after reload, offline online event, durable pause and logout',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);
+ await page.evaluate(()=>{sessionStorage.setItem('fixture-write','1');});await click(page,'productionCloudConnect');await textIs(page,'Entre com a conta Google');await click(page,'productionCloudLogin');await textIs(page,'conectada');await click(page,'productionCloudInspect');await textIs(page,'nuvem vazia');
+ await page.evaluate(()=>{document.getElementById('productionCloudConsent').checked=true;document.getElementById('productionCloudBackupSaved').checked=true;});await click(page,'productionCloudSeed');await textIs(page,'Vínculo confirmado');await page.waitForFunction(()=>!document.getElementById('productionCloudRefresh').disabled);await click(page,'productionCloudRefresh');await textIs(page,'revisão 1');
+ await page.reload();await cleanReady(page);await textIs(page,'Sincronizado');await page.waitForFunction(()=>!document.getElementById('productionCloudRefresh').disabled);assert.match(await page.locator('#productionCloudLastSync').textContent(),/Última sincronização: [^—]/);
+ await page.context().setOffline(true);await page.evaluate(()=>{document.getElementById('salaryInput').value='777,00';document.getElementById('salaryInput').dispatchEvent(new Event('input'));});await page.context().setOffline(false);await textIs(page,'revisão 2');
+ await click(page,'productionCloudPause');await textIs(page,'Sincronização pausada');await page.reload();await cleanReady(page);await page.waitForFunction(()=>!document.getElementById('productionCloudResume').disabled);assert.equal(await page.locator('#productionCloudRefresh').isDisabled(),true);
+ await click(page,'productionCloudLogout');await textIs(page,'Entre com a conta Google');await page.reload();await cleanReady(page);assert.equal(await page.locator('#productionCloudConnect').isDisabled(),false);assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
 });
