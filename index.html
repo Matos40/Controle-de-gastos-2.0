@@ -560,6 +560,18 @@
             <div class="text-[10px] font-bold text-slate-400 uppercase">Nuvem V2 · acesso controlado</div>
             <button type="button" id="productionV2Preview" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs">Verificar compatibilidade local</button>
             <p id="productionV2PreviewStatus" role="status" class="text-xs text-slate-400">Transferências financeiras desativadas. Verificação somente neste dispositivo.</p>
+            <button type="button" id="productionConciliationOpen" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-emerald-300 text-xs">Conciliar parcelas antigas</button>
+            <div id="productionConciliationPanel" class="hidden border border-slate-700 rounded-lg p-2 space-y-2">
+              <p class="text-xs text-slate-300">Revise somente neste dispositivo. Não compartilhe capturas com valores ou descrições. Confirme apenas compras que reconhecer.</p>
+              <p id="productionConciliationStatus" role="status" class="text-xs text-slate-300"></p>
+              <div id="productionConciliationList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+              <div class="grid grid-cols-2 gap-1">
+                <button type="button" id="productionConciliationUndo" disabled class="p-2 rounded bg-slate-800 text-xs disabled:opacity-40">Desfazer última</button>
+                <button type="button" id="productionConciliationReset" class="p-2 rounded bg-slate-800 text-xs">Reiniciar revisão</button>
+                <button type="button" id="productionConciliationSave" disabled class="p-2 rounded bg-emerald-900 text-xs disabled:opacity-40">Guardar plano local</button>
+                <button type="button" id="productionConciliationClose" class="p-2 rounded bg-slate-800 text-xs">Fechar revisão</button>
+              </div>
+            </div>
             <div class="grid grid-cols-2 gap-1.5">
               <button type="button" disabled id="productionCloudConnect" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Conectar nuvem</button>
               <button type="button" disabled id="productionCloudLogin" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Entrar com Google</button>
@@ -1613,6 +1625,7 @@
   <script src="./js/onboarding.js"></script>
   <script type="module" src="./js/productionV2/preview.mjs"></script>
   <script type="module" src="./js/productionV2/cloudPanel.mjs"></script>
+  <script type="module" src="./js/productionV2/conciliationPanel.mjs"></script>
 
 </body>
 </html>
