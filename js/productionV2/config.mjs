@@ -1,5 +1,12 @@
 // Deliberately disabled until production project and rules are verified.
-export const PRODUCTION_CONFIG=Object.freeze({enabled:false,firebase:null});
+export const PRODUCTION_CONFIG=Object.freeze({enabled:false,firebase:Object.freeze({
+  "apiKey": "AIzaSyCLmwjAC-tuKwSusDNfnZo83a-2K0ZoP3M",
+  "authDomain": "raytech-cg-producao.firebaseapp.com",
+  "projectId": "raytech-cg-producao",
+  "storageBucket": "raytech-cg-producao.firebasestorage.app",
+  "messagingSenderId": "609408493250",
+  "appId": "1:609408493250:web:3dd0a5d8ed9df408367d5b"
+})});
 export function requireProductionConfig(config,location){
  if(config?.enabled!==true)throw Error('PRODUCTION_DISABLED');
  const f=config.firebase;
