@@ -7,11 +7,11 @@ export const DEVICE_KEY='raytech_production_v2_device';
 const BACKUP='raytech_production_v2_original:';
 const sameData=(a,b)=>canonical(validatePayload(a).months)===canonical(validatePayload(b).months);
 const fail=code=>{throw Error(code);};
-export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,online=()=>true,hash=payloadHash,id=()=>crypto.randomUUID(),lock=withQueueLock,day=()=>new Date().toISOString().slice(0,10)}){
+export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,online=()=>true,hash=payloadHash,id=()=>crypto.randomUUID(),lock=withQueueLock,day=()=>new Date().toISOString().slice(0,10),prepare=prepareLocal}){
  const check=()=>{if(!isCurrent()||cloud.currentUid()!==uid)fail('PRODUCTION_SESSION_CHANGED');};
  const read=()=>{const raw=storage.getItem(DEVICE_KEY);if(raw===null)return null;const s=JSON.parse(raw);if(!s||s.format!==1||s.uid!==uid)fail('PRODUCTION_DEVICE_BOUND');return s;};
  const write=s=>{check();storage.setItem(DEVICE_KEY,JSON.stringify(s));};
- const checkedLocal=()=>{const raw=local.read(),p=prepareLocal(raw);if(!p.compatible)fail('PRODUCTION_LOCAL_INCOMPATIBLE');return {raw,payload:p.payload};};
+ const checkedLocal=()=>{const raw=local.read(),p=prepare(raw);if(!p.compatible)fail('PRODUCTION_LOCAL_INCOMPATIBLE');return {raw,payload:p.payload};};
  const verified=async data=>{if(data===null)return null;const h=validateV2Head(data.head),r=validateV2Receipt(data.receipt);if(h.revision!==r.revision||h.lastOperationId!==r.operationId||h.hash!==r.hash||await hash(h.payload)!==h.hash)fail('PRODUCTION_INTEGRITY');check();return {head:h,receipt:r};};
  const expected=async q=>validateV2Receipt({operationId:q.id,revision:q.expectedRevision+1,parentId:q.parentId,hash:await hash(q.payload)});
  function backup(raw){const key=BACKUP+uid;if(storage.getItem(key)===null){storage.setItem(key,raw);if(storage.getItem(key)!==raw)fail('PRODUCTION_BACKUP');}}

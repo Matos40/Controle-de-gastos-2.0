@@ -1,6 +1,7 @@
 import {PRODUCTION_CONFIG,requireProductionConfig} from './config.mjs';
 import {commitV2,validateV2Head,validateV2Receipt} from './capacity.mjs';
 import {canonical} from './model.mjs';
+import {isCleanWorkspace} from './cleanWorkspace.mjs';
 const sha=async p=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(p))),b=>b.toString(16).padStart(2,'0')).join('');
 export async function openProductionCloud(config=PRODUCTION_CONFIG){
  const f=requireProductionConfig(config,globalThis.location);
@@ -32,7 +33,7 @@ export async function openProductionCloud(config=PRODUCTION_CONFIG){
     if(receipt.operationId!==head.lastOperationId||receipt.revision!==head.revision||receipt.hash!==head.hash||await sha(head.payload)!==head.hash)throw Error('PRODUCTION_INTEGRITY');
     verifyUid(uid);return {head,receipt};
    },{maxAttempts:3});verifyUid(uid);return result;},
-  async send(uid,command){if(config.syncEnabled!==true)throw Error('PRODUCTION_TRANSFER_DISABLED');await approved(uid);return commitV2(api,uid,command);},
+  async send(uid,command){if(config.syncEnabled!==true||!isCleanWorkspace(globalThis.location?.search??''))throw Error('PRODUCTION_TRANSFER_DISABLED');await approved(uid);return commitV2(api,uid,command);},
   async confirm(uid,expected){await approved(uid);const s=await fire.getDocFromServer(receiptRef(uid,expected.operationId));verifyUid(uid);if(!s.exists())return false;return canonical(validateV2Receipt(s.data()))===canonical(expected);}
  };
 }
