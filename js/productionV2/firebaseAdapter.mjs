@@ -14,7 +14,7 @@ export async function openProductionCloud(config=PRODUCTION_CONFIG){
  const currentUid=()=>auth.currentUser?.uid??null,verifyUid=uid=>{if(!/^[A-Za-z0-9_-]{1,128}$/.test(uid)||currentUid()!==uid)throw Error('PRODUCTION_UID');};
  const headRef=uid=>fire.doc(db,'raytechProductionFinanceV2',uid);
  const receiptRef=(uid,op)=>fire.doc(db,'raytechProductionFinanceV2',uid,'receipts',op);
- async function approved(uid){verifyUid(uid);const access=await fire.getDocFromServer(fire.doc(db,'raytechProductionAccessV2',uid));verifyUid(uid);if(!access.exists()||access.data().enabled!==true)throw Error('PRODUCTION_NOT_APPROVED');}
+ async function approved(uid,{write=false}={}){verifyUid(uid);const access=await fire.getDocFromServer(fire.doc(db,'raytechProductionAccessV2',uid));verifyUid(uid);if(!access.exists()||access.data().enabled!==true)throw Error('PRODUCTION_NOT_APPROVED');if(write&&access.data().writeEnabled!==true)throw Error('PRODUCTION_WRITE_NOT_APPROVED');return {writeEnabled:access.data().writeEnabled===true};}
  const api={currentUid,sha,transaction:fn=>fire.runTransaction(db,tx=>fn({
   getHead:async uid=>{verifyUid(uid);const a=await tx.get(headRef(uid));return a.exists()?a.data():null;},
   getReceipt:async(uid,op)=>{verifyUid(uid);const a=await tx.get(receiptRef(uid,op));return a.exists()?a.data():null;},
@@ -33,7 +33,7 @@ export async function openProductionCloud(config=PRODUCTION_CONFIG){
     if(receipt.operationId!==head.lastOperationId||receipt.revision!==head.revision||receipt.hash!==head.hash||await sha(head.payload)!==head.hash)throw Error('PRODUCTION_INTEGRITY');
     verifyUid(uid);return {head,receipt};
    },{maxAttempts:3});verifyUid(uid);return result;},
-  async send(uid,command){if(!canTransfer(config,globalThis.location?.search??''))throw Error('PRODUCTION_TRANSFER_DISABLED');await approved(uid);return commitV2(api,uid,command);},
+  async send(uid,command){if(!canTransfer(config,globalThis.location?.search??''))throw Error('PRODUCTION_TRANSFER_DISABLED');await approved(uid,{write:true});return commitV2(api,uid,command);},
   async confirm(uid,expected){await approved(uid);const s=await fire.getDocFromServer(receiptRef(uid,expected.operationId));verifyUid(uid);if(!s.exists())return false;return canonical(validateV2Receipt(s.data()))===canonical(expected);}
  };
 }

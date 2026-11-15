@@ -197,6 +197,7 @@
     }
 
     function validateRestoreCandidate(candidate) {
+      if (MAIN_WORKSPACE && localStorage.getItem('raytech_cg_v2_main_sync_v1:raytech_production_v2_device') !== null) throw Error('Banco vinculado. Prepare a restauração revisada pelo painel Nuvem V2. Nenhum dado foi alterado.');
       const validated = validateBackupDatabase(candidate);
       if (CLEAN_WORKSPACE) {
         if (!cleanWorkspaceStore || window.productionCleanWorkspaceReady !== true) throw Error('Banco V2 não está pronto. Abra novamente o banco separado.');

@@ -1,5 +1,6 @@
 // Experimental only. Not imported by production HTML, PWA or Firebase adapter.
 import {createSyncEngine,DEVICE_KEY} from './engine.mjs';
+import {requireProductionConfig} from '../productionV2/config.mjs';
 import {archiveRows,appendArchive} from './history.mjs';
 import {canonical,validatePayload,validId} from '../productionV2/model.mjs';
 import {validateV2Head,validateV2Receipt} from '../productionV2/capacity.mjs';
@@ -22,8 +23,20 @@ export async function validateCheckpoint(s,uid,hash){
  return s;
 }
 function reserve(storage,uid,day,reads,writes){const b=read(storage,BUDGET_KEY);if(b&&(!shape(b,'uid|day|reads|writes')||b.uid!==uid||!/^\d{4}-\d{2}-\d{2}$/.test(b.day)||![b.reads,b.writes].every(n=>Number.isSafeInteger(n)&&n>=0)||b.day>day))fail('EXPERIMENTAL_BUDGET');const n=b?.day===day?b:{uid,day,reads:0,writes:0};if(n.reads+reads>LIMITS.reads||n.writes+writes>LIMITS.writes)fail('EXPERIMENTAL_BUDGET');put(storage,BUDGET_KEY,{...n,reads:n.reads+reads,writes:n.writes+writes});}
-export function createExperimentalSession({cloud,storage,local,uid,hash,id,day=()=>new Date().toISOString().slice(0,10),online=()=>true,visible=()=>true,unlocked=()=>true,lock,search='?workspace=v2-main',origin=globalThis.location?.origin??'http://localhost'}){
- if(!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)||!isMainWorkspace(search)||!/^[-\w]{1,128}$/.test(uid)||!lock||!hash||!id)fail('EXPERIMENTAL_ISOLATION');
+export function createExperimentalSession(options){
+ const {origin=globalThis.location?.origin??'http://localhost',search='?workspace=v2-main'}=options;
+ if(!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)||!isMainWorkspace(search))fail('EXPERIMENTAL_ISOLATION');
+ return createSession(options);
+}
+// Production candidate: separate explicit entry, never relax the laboratory origin check.
+export function createProductionSyncSession(options){
+ const {config,location,search}=options;
+ requireProductionConfig(config,location);
+ if(config.syncEnabled!==true||typeof search!=='string'||search!==(location.search??'')||!isMainWorkspace(search))fail('PRODUCTION_TRANSFER_DISABLED');
+ return createSession(options);
+}
+function createSession({cloud,storage,local,uid,hash,id,day=()=>new Date().toISOString().slice(0,10),online=()=>true,visible=()=>true,unlocked=()=>true,lock}){
+ if(!/^[-\w]{1,128}$/.test(uid)||!lock||!hash||!id)fail('EXPERIMENTAL_ISOLATION');
  let active=false,busy=false,epoch=0,operationEpoch=-1,failures=0,next=0,plan=null,recoveryPlan=null;
  const current=()=>cloud.currentUid()===uid&&unlocked();
  const allowed=()=>active&&current()&&operationEpoch===epoch&&policy()?.state==='active';
