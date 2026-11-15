@@ -214,25 +214,70 @@ async function triggerNativePwaInstall() {
         switchButton.textContent = CLEAN_WORKSPACE ? 'Voltar ao banco legado' : 'Abrir banco V2 separado';
         switchButton.addEventListener('click', () => {
           if (document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return;
-          if (!CLEAN_WORKSPACE && !window.confirm('Abrir o espaço V2 independente? Seu histórico legado ficará preservado, e a nuvem seguirá desativada.')) return;
           const url = new URL(location.href);
           if (CLEAN_WORKSPACE) url.searchParams.delete('workspace'); else url.searchParams.set('workspace','v2-clean');
-          location.assign(url.href);
+          closeHeaderDrawer();
+          showModal(CLEAN_WORKSPACE ? 'Voltar ao banco legado?' : 'Abrir banco V2 de testes?', 'Os bancos permanecem separados. O histórico original e os dados de teste serão preservados. As transferências financeiras continuam desativadas.', () => location.assign(url.href));
+        });
+      }
+      const mainButton = document.getElementById('mainWorkspaceSwitch');
+      if (mainButton) {
+        if (MAIN_WORKSPACE) mainButton.classList.add('hidden');
+        mainButton.addEventListener('click', () => {
+          if (MAIN_WORKSPACE || document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return;
+          const url = new URL(location.href);url.searchParams.set('workspace','v2-main');
+          closeHeaderDrawer();
+          showModal('Abrir banco V2 principal?', 'Este banco é independente. Nenhum dado será copiado dos bancos de teste ou legado. A nuvem permanece desativada.', () => location.assign(url.href));
         });
       }
       if (CLEAN_WORKSPACE) {
+        if (MAIN_WORKSPACE && badge) badge.textContent='BANCO V2 PRINCIPAL · local · nuvem desativada | Legado e testes preservados';
         badge?.classList.remove('hidden');
         gate?.classList.remove('hidden');
-        let release;
+        let release,workspace;
         try {
-          const {openCleanStore,acquireCleanLease} = await import('./productionV2/cleanWorkspace.mjs');
-          release = await acquireCleanLease();
-          cleanWorkspaceStore = openCleanStore(localStorage,getTodayYM());
+          workspace = await import('./productionV2/cleanWorkspace.mjs');
+          const {openCleanStore,acquireCleanLease} = workspace;
+          release = await acquireCleanLease(navigator.locks,location.search);
+          cleanWorkspaceStore = openCleanStore(localStorage,getTodayYM(),location.search);
+          if(cleanWorkspaceStore.readCurrent()!==localStorage.getItem(STORAGE_DATABASE_KEY)) throw Error('CLEAN_WORKSPACE_SELECTION');
           window.productionCleanWorkspaceReady = true;
           window.addEventListener('pagehide', () => { window.productionCleanWorkspaceReady=false; release(); }, {once:true});
           window.addEventListener('pageshow', event => { if(event.persisted) location.reload(); });
+          if(MAIN_WORKSPACE) window.updateMainCapacity=()=>{try{document.getElementById('mainCapacityStatus').textContent=workspace.capacityMessage(cleanWorkspaceStore.read());}catch{}};
           gate?.classList.add('hidden');
-        } catch {
+        } catch (err) {
+          if(MAIN_WORKSPACE && release && workspace && err?.message==='CLEAN_RECOVERY_REQUIRED'){
+            const expected=workspace.recoveryState(localStorage);
+            if(expected.available){
+              const form=document.getElementById('mainRecoveryForm'),status=document.getElementById('cleanWorkspaceGateStatus');
+              status.textContent='Banco V2 principal indisponível. Restaure somente um backup JSON identificado do principal. Legado e testes permanecem intactos.';
+              form.classList.remove('hidden');form.hidden=false;
+              const pin=document.getElementById('mainRecoveryPin'),requiresPin=localStorage.getItem(STORAGE_PIN_KEY)!==null;
+              pin.hidden=!requiresPin;pin.required=requiresPin;
+              let active=true;
+              window.addEventListener('pagehide',()=>{active=false;release();},{once:true});
+              form.addEventListener('submit',async event=>{
+                event.preventDefault();const btn=document.getElementById('mainRecoverySubmit');
+                if(btn.disabled||!active)return;btn.disabled=true;
+                try{
+                  const file=document.getElementById('mainRecoveryFile').files[0];
+                  if(!file||file.size>2000000)throw Error('RECOVERY_FILE');
+                  const backup=JSON.parse(await file.text());
+                  if(!active)return;
+                  workspace.recoverMainStore(localStorage,{expected,backup,pin:pin.value,confirmed:document.getElementById('mainRecoveryConfirm').checked});
+                  pin.value='';status.textContent='Recuperação concluída. Reabrindo o banco principal.';
+                  active=false;release();location.reload();
+                }catch(e){
+                  const messages={RECOVERY_PIN:'PIN incorreto.',RECOVERY_CLOUD_BOUND:'Banco vinculado à nuvem: recuperação exige conciliação específica.',RECOVERY_ARCHIVE_OCCUPIED:'Já existe uma cópia de quarentena diferente. Não sobrescrevemos nenhuma cópia.',RECOVERY_CHANGED:'O banco mudou. Feche esta página e reabra para verificar.',RECOVERY_FILE:'Selecione um backup JSON de até 2 MB.'};
+                  status.textContent=(messages[e?.message]||'Recuperação recusada. Verifique o arquivo e o espaço disponível.')+' Nenhum banco anterior foi descartado.';
+                  pin.value='';btn.disabled=false;
+                }
+              });
+              return;
+            }
+            if(expected.checkpoint!==null){release();document.getElementById('cleanWorkspaceGateStatus').textContent='Banco principal vinculado à nuvem. Recuperação exige conciliação específica; metadados preservados.';return;}
+          }
           release?.();
           window.productionCleanWorkspaceReady = false;
           document.getElementById('cleanWorkspaceGateStatus').textContent = 'V2 indisponível. Feche outras abas V2 ou recupere o banco separado. Nenhum banco existente foi substituído.';
@@ -240,6 +285,7 @@ async function triggerNativePwaInstall() {
         }
       }
       loadDatabase();
+      window.updateMainCapacity?.();
       updateMonthHeader();
       renderAll();
       setupPasteAndDropEvents();

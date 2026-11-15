@@ -1,6 +1,6 @@
 import {inspectPayload,LEGACY_LIMITS} from './model.mjs';
 import {normalizeCardState,reconstructOrigins,auditEquivalence} from './legacyPhase2.mjs';
-import {databaseKey} from './cleanWorkspace.mjs';
+import {databaseKey,isV2Workspace} from './cleanWorkspace.mjs';
 const labels=Object.freeze({
   "DB_ABSENT": "Banco local ausente",
   "PAYLOAD_LIMIT": "Banco acima do limite de tamanho",
@@ -112,7 +112,10 @@ export function bindPreview(document,storage,key=databaseKey(globalThis.location
  button.addEventListener('click',()=>{
   if(document.getElementById('pinLockOverlay')&&!document.getElementById('pinLockOverlay').classList.contains('hidden'))return;
   try{
-   const p=previewLocal(storage.getItem(key));
+   const raw=storage.getItem(key),p=previewLocal(raw);
+   if(isV2Workspace(globalThis.location?.search??'')&&inspectPayload(raw).issues.length){
+    status.textContent='Banco V2 incompatível. '+describe(inspectPayload(raw).issues)+'. Nenhuma alteração realizada.';return;
+   }
    const warnings=p.warnings?.length?' Avisos: '+describe(p.warnings)+'.':'';
    status.textContent=(p.compatible?'Compatível: '+p.months+' mês(es), '+p.entries+' lançamento(s). Equivalência financeira conferida. Nenhum dado enviado.':p.reason)+warnings;
   }catch{status.textContent='Não foi possível ler o banco local. Nenhuma alteração realizada.';}

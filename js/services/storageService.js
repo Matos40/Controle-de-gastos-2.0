@@ -196,8 +196,18 @@
       return db;
     }
 
+    function validateRestoreCandidate(candidate) {
+      const validated = validateBackupDatabase(candidate);
+      if (CLEAN_WORKSPACE) {
+        if (!cleanWorkspaceStore || window.productionCleanWorkspaceReady !== true) throw Error('Banco V2 não está pronto. Abra novamente o banco separado.');
+        try { cleanWorkspaceStore.check(JSON.stringify(validated)); }
+        catch { throw Error('Backup incompatível com o banco V2. Use um backup V2 válido; o arquivo legado exige migração separada. Nenhum dado foi alterado.'); }
+      }
+      return validated;
+    }
+
     function restoreBackupDatabase(candidate) {
-      const restored = validateBackupDatabase(candidate);
+      const restored = validateRestoreCandidate(candidate);
       const previous = appDb;
       appDb = restored;
       try {
@@ -256,9 +266,11 @@
         if (!cleanWorkspaceStore || window.productionCleanWorkspaceReady !== true) throw Error('CLEAN_WORKSPACE_NOT_READY');
         try {
           cleanWorkspaceStore.save(JSON.stringify(appDb));
+          if(MAIN_WORKSPACE) window.updateMainCapacity?.();
         } catch (err) {
           appDb = cleanWorkspaceStore.snapshot();
-          showToast('Alteração não salva no V2. O último banco válido foi preservado.', 'error');
+          const limit=String(err?.message||'').match(/(?:PAYLOAD_LIMIT|MONTH_LIMIT|ENTRY_LIMIT|DELETION_MARKS)/);
+          showToast(limit?'Limite de armazenamento V2 atingido. Exporte um backup; o banco anterior foi preservado.':'Alteração não salva no V2. O último banco válido foi preservado.', 'error');
           throw Error('CLEAN_SAVE_REJECTED');
         }
         return;
@@ -317,7 +329,7 @@
       if (typeof document === 'undefined' || document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return false;
       if (document.querySelector('[id$="Modal"]:not(.hidden)') || document.activeElement?.matches('input,textarea,select,[contenteditable="true"]')) return false;
       if (localStorage.getItem(STORAGE_DATABASE_KEY) !== expected || JSON.stringify(appDb) !== expected) return false;
-      if (!CLEAN_WORKSPACE || window.productionCleanWorkspaceReady !== true || !cleanWorkspaceStore) return false;
+      if (!MAIN_WORKSPACE || window.productionCleanWorkspaceReady !== true || !cleanWorkspaceStore) return false;
       const candidate = validateBackupDatabase(JSON.parse(payload));
       try { cleanWorkspaceStore.replace(expected, payload); } catch { return false; }
       appDb = candidate;
