@@ -1,6 +1,7 @@
 import {PRODUCTION_CONFIG} from './config.mjs';
 import {databaseKey,scopeSyncStorage,canTransfer,syncPrefix} from './cleanWorkspace.mjs';
-import {createProductionSyncSession,DEVICE_KEY,LIMITS,RECOVERY_KEY,REVIEW_KEY} from '../experimentalSync/session.mjs';
+import {createProductionSyncSession,LIMITS,RECOVERY_KEY,REVIEW_KEY} from '../experimentalSync/session.mjs';
+import {DEVICE_KEY} from '../experimentalSync/engine.mjs';
 import {createPollRuntime} from '../experimentalSync/runtime.mjs';
 import {payloadHash} from './initialTransfer.mjs';
 import {withQueueLock} from './queue.mjs';
@@ -24,7 +25,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
   let st={active:false,busy:false};try{if(session)st=session.state();}catch{invalid=true;}
   const blocked=busy||!canSync||!session||invalid||!ready()||st.busy;
   seed.disabled=blocked||bound||plan?.mode!=='seed'||!writeAllowed;disable(adopt,blocked||bound||plan?.mode!=='adopt'||!writeAllowed);
-  disable(refresh,blocked||!bound||!st.active||!!review||!writeAllowed);disable(pauseBtn,blocked||!st.active);disable(resumeBtn,blocked||!bound||st.active||!!review||!writeAllowed);
+  disable(refresh,blocked||!bound||!st.active||!!review||!writeAllowed);disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bound||st.active||!!review||!writeAllowed);
   disable(backupBtn,blocked);disable(stageBtn,blocked||!bound||st.active||!!review||!writeAllowed);disable(reviewBtn,blocked||st.active||!review||!writeAllowed);disable(updateBtn,blocked||st.active||!review||!writeAllowed);
   for(const e of [historyBtn,historyExport,diagnosticBtn])disable(e,blocked);
  }
