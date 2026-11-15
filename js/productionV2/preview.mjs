@@ -61,7 +61,7 @@ function inferCategoryFromTitle(title) {
       return 'outros';
     }
 // Only additive transformations; original bytes remain in memory, never returned by previewLocal.
-export function convertLegacy(raw){
+export function stageLegacy(raw){
  const changes=new Map(),add=code=>changes.set(code,(changes.get(code)||0)+1);
  const fail=(code)=>({compatible:false,issues:[{code,count:1}],warnings:[]});
  if(typeof raw!=='string')return fail('DB_ABSENT');
@@ -84,13 +84,21 @@ export function convertLegacy(raw){
   }
  }
  reconstructOrigins(db,cards,add);
+ return {staged:true,db,original,raw,changes:[...changes].map(([code,count])=>({code,count}))};
+ }catch{return fail('CONVERSION_ERROR');}
+}
+export function finishLegacy(stage,db=stage.db){
+ if(!stage.staged)return stage;
+ try{
+ const {original,raw}=stage;
  const payload=JSON.stringify(db),report=inspectPayload(payload);
- const warnings=[...report.warnings,...[...changes].map(([code,count])=>({code,count}))];
+ const warnings=[...report.warnings,...stage.changes];
  if(report.issues.length)return {compatible:false,issues:report.issues,warnings};
  const audit=auditEquivalence(original,db);if(!audit.equivalent)return {compatible:false,issues:[{code:'FINANCIAL_EQUIVALENCE',count:1}],warnings};
  return {compatible:true,payload,original:raw,issues:[],warnings,audit,months:Object.keys(db.months).length,entries:Object.values(db.months).reduce((n,m)=>n+m.expenses.length+m.cardExpenses.length+m.extraIncomes.length,0)};
- }catch{return fail('CONVERSION_ERROR');}
+ }catch{return {compatible:false,issues:[{code:'CONVERSION_ERROR',count:1}],warnings:[]};}
 }
+export function convertLegacy(raw){return finishLegacy(stageLegacy(raw));}
 // Reversal applies only to the exact initial conversion, not subsequent financial edits.
 export function reverseLegacy(conversion,payload){
  if(!conversion?.compatible||typeof conversion.original!=='string'||payload!==conversion.payload)throw Error('PRODUCTION_REVERSAL_MISMATCH');
