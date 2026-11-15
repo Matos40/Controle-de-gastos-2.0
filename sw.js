@@ -1,4 +1,4 @@
-const CACHE_NAME = 'controle-gastos-shell-v13';
+const CACHE_NAME = 'controle-gastos-shell-v14';
 const APP_SHELL = [
   './', './index.html', './manifest.json', './favicon.ico', './raytech-icon-192.png', './raytech-icon-512.png', './css/styles.css',
   './js/state.js', './js/app.js', './js/onboarding.js',
@@ -16,36 +16,50 @@ const CDN_ASSETS = [
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await Promise.allSettled(APP_SHELL.map(url => cache.add(url)));
+    await Promise.all(APP_SHELL.map(url => cache.add(new Request(url,{cache:'reload'}))));
     await Promise.allSettled(CDN_ASSETS.map(url => cache.add(url)));
     await self.skipWaiting();
   })());
 });
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)));
+    // Preserve old shell caches and cross-app caches. Asset caches do not contain the financial database.
+    // No cache deletion is performed by this release.
     await self.clients.claim();
   })());
 });
+async function navigateShell(request) {
+  const cache = await caches.open(CACHE_NAME).catch(() => null);
+  const shell = () => cache ? cache.match('./index.html').catch(() => undefined) : Promise.resolve(undefined);
+  if (self.navigator?.onLine === false) return (await shell()) || Response.error();
+  const controller = new AbortController();
+  let timer;
+  try {
+    const fresh = await Promise.race([
+      fetch(request,{cache:'no-store',signal:controller.signal}),
+      new Promise((_,reject) => { timer=setTimeout(() => { reject(Error('NAVIGATION_TIMEOUT'));controller.abort(); },3500); })
+    ]);
+    if(fresh.ok)return fresh;
+    return (await shell()) || fresh;
+  } catch {
+    return (await shell()) || Response.error();
+  } finally {
+    if(timer!==undefined)clearTimeout(timer);
+  }
+}
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin && !CDN_ASSETS.some(asset => request.url.startsWith(asset.split('?')[0]))) return;
+  if (url.origin === self.location.origin && !url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
   if (request.mode === 'navigate') {
-    event.respondWith((async () => {
-      try { const fresh = await fetch(request); const cache = await caches.open(CACHE_NAME); cache.put('./index.html', fresh.clone()); return fresh; }
-      catch { return (await caches.match('./index.html')) || Response.error(); }
-    })());
+    event.respondWith(navigateShell(request));
     return;
   }
-  event.respondWith((async () => {
-    const cached = await caches.match(request);
-    const network = fetch(request).then(response => {
-      if (response && response.ok) caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
-      return response;
-    }).catch(() => cached);
-    return cached || network;
-  })());
+  const cache = caches.open(CACHE_NAME);
+  const cached = cache.then(c => c.match(request)).catch(() => undefined);
+  const network = fetch(request).then(response => ({response, copy: response.ok ? response.clone() : null}));
+  event.waitUntil(network.then(({copy}) => copy ? cache.then(c => c.put(request, copy)) : undefined).catch(() => {}));
+  event.respondWith(cached.then(hit => hit || network.then(({response}) => response).catch(() => Response.error())));
 });
