@@ -1,4 +1,4 @@
-const CACHE_NAME = 'controle-gastos-shell-v18';
+const CACHE_NAME = 'controle-gastos-shell-v19';
 const APP_SHELL = [
   './', './index.html', './manifest.json', './favicon.ico', './raytech-icon-192.png', './raytech-icon-512.png', './css/styles.css',
   './js/state.js', './js/app.js', './js/onboarding.js', './js/productionV2/preview.mjs', './js/productionV2/model.mjs', './js/productionV2/cloudPanel.mjs', './js/productionV2/initialTransfer.mjs', './js/productionV2/config.mjs', './js/productionV2/queue.mjs', './js/productionV2/capacity.mjs', './js/productionV2/firebaseAdapter.mjs', './js/productionV2/syncEngine.mjs',
