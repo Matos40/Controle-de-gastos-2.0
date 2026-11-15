@@ -31,3 +31,18 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: cp ../../docs/firestore-sync-experimental.rules firestore.rules
       - run: npm test
+  windows-panel:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: validation/experimental-sync
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm.cmd install --no-audit --no-fund
+      - run: node --test panel-windows.test.mjs
