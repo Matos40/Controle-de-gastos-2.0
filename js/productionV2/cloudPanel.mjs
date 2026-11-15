@@ -7,6 +7,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
  const el=id=>doc.getElementById(id),status=el('productionCloudStatus'),connect=el('productionCloudConnect'),login=el('productionCloudLogin'),inspect=el('productionCloudInspect'),seed=el('productionCloudSeed'),logout=el('productionCloudLogout'),refresh=el('productionCloudRefresh'),adopt=el('productionCloudAdopt');
  if(!status||!connect||!login||!inspect||!seed||!logout)return;
  const search=win?.location?.search??'',dbKey=databaseKey(search),syncStorage=scopeSyncStorage(storage,search),canSync=canTransfer(config,search);
+ if(dbKey===null){for(const button of [connect,login,inspect,seed,logout,refresh,adopt])if(button)button.disabled=true;status.textContent='Endereço de banco inválido.';return;}
  let cloud=null,uid=null,busy=false,generation=0,approved=false,engine=null,timer=null,paused=false,storageChanged=false;
  const unlocked=()=>!el('pinLockOverlay')||el('pinLockOverlay').classList.contains('hidden');
  const say=message=>{status.textContent=message;};
