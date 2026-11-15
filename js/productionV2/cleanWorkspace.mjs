@@ -19,7 +19,7 @@ export function isV2Workspace(search=''){return isCleanWorkspace(search)||isMain
 export const databaseKey=search=>({ 'v2-main':MAIN_KEY,'v2-clean':CLEAN_KEY,legacy:LEGACY_KEY })[workspaceMode(search)]??null;
 export const syncPrefix=search=>isMainWorkspace(search)?MAIN_SYNC_PREFIX:SYNC_PREFIX;
 export const canTransfer=(config,search)=>config?.enabled===true&&config?.syncEnabled===true&&isMainWorkspace(search);
-export function scopeSyncStorage(storage,search='?workspace=v2-clean'){const prefix=syncPrefix(search);return {getItem:k=>storage.getItem(prefix+k),setItem:(k,v)=>storage.setItem(prefix+k,v)};}
+export function scopeSyncStorage(storage,search='?workspace=v2-clean'){const prefix=syncPrefix(search);return {getItem:k=>storage.getItem(prefix+k),setItem:(k,v)=>storage.setItem(prefix+k,v),removeItem:k=>storage.removeItem(prefix+k)};}
 export function encodeMainBackup(db){validatePayload(JSON.stringify(db));return {format:MAIN_BACKUP_FORMAT,database:db};}
 export function decodeMainBackup(value){
  if(!value||Object.keys(value).length!==2||value.format!==MAIN_BACKUP_FORMAT||!Object.hasOwn(value,'database'))throw Error('Use somente um backup identificado do V2 principal. Backups de teste ou legado não são aceitos.');

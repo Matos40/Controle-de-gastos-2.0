@@ -18,13 +18,18 @@ export const signOut=async a=>{a.currentUser=null;cb(null);};`;
 const firestoreStub=`export const getFirestore=()=>({});export const doc=(_, ...p)=>p;
 export async function getDocFromServer(p){globalThis.__reads=(globalThis.__reads||0)+1;return {exists:()=>!!globalThis.__allowed,data:()=>({enabled:true})};}
 export async function runTransaction(db,fn){return fn({get:async()=>({exists:()=>false}),set:()=>{globalThis.__writes=(globalThis.__writes||0)+1;throw Error('unexpected write');}});}`;
+const b2FirestoreStub=`export const getFirestore=()=>({});export const doc=(_, ...p)=>p;
+const key=p=>'fixture-b2-remote:'+p.join('/');
+function snapshot(p){const raw=sessionStorage.getItem(key(p));return {exists:()=>raw!==null,data:()=>JSON.parse(raw)};}
+export async function getDocFromServer(p){globalThis.__reads=(globalThis.__reads||0)+1;if(p[0]==='raytechProductionAccessV2')return {exists:()=>true,data:()=>({enabled:true,writeEnabled:globalThis.__writeAllowed===true})};return snapshot(p);}
+export async function runTransaction(db,fn){const writes=[];const out=await fn({get:async p=>snapshot(p),set:(p,v)=>writes.push([p,v])});for(const [p,v] of writes){sessionStorage.setItem(key(p),JSON.stringify(v));globalThis.__writes=(globalThis.__writes||0)+1;}return out;}`;
 const externalStub=url=>url.includes('firebase-app.js')?appStub:url.includes('firebase-auth.js')?authStub:url.includes('firebase-firestore.js')?firestoreStub:url.includes('cdn.tailwindcss.com')?"window.tailwind={};document.head.insertAdjacentHTML('beforeend','<style>.hidden{display:none!important}</style>');":url.includes('chart.umd.min.js')?"window.Chart=class{destroy(){}update(){}};":url.includes('xlsx.full.min.js')?"window.XLSX={};":null;
 let browser;
 before(async()=>{browser=await chromium.launch({headless:true});});after(async()=>{await browser?.close();});
 const raw=JSON.stringify({selectedMonth:'2026-12',months:{'2026-12':{salary:1000,budgetLimit:0,extraIncomes:[],expenses:[{id:'fixture',title:'Mercado exemplo',category:'alimentacao',amount:20,type:'one-time',date:'2026-12-01',paid:false}],cardExpenses:[],deletedInstallmentOrigins:[],closed:false,closedAt:null}}});
-async function setup(t,pin=false,query='?workspace=legacy'){
+async function setup(t,pin=false,query='?workspace=legacy',b2Fixture=false){
  const ctx=await browser.newContext({serviceWorkers:'block'});t.after(()=>ctx.close());
- await ctx.route('**/*',async route=>{const url=route.request().url();if(url.startsWith(base)){let rel=new URL(url).pathname.slice(new URL(base).pathname.length)||'index.html';const path=resolve(root,rel);if(!path.startsWith(resolve(root)+'/'))return route.abort();try{return await route.fulfill({status:200,contentType:contentType[extname(path)]??'application/octet-stream',body:await readFile(path)});}catch{return route.fulfill({status:404,body:'not found'});}}if(url.includes('xlsx.full.min.js'))return route.fulfill({status:200,contentType:'text/javascript',body:await readFile(xlsxPath)});const stub=externalStub(url);if(stub!==null)return route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:stub});return route.abort();});
+ await ctx.route('**/*',async route=>{const url=route.request().url();if(url.startsWith(base)){let rel=new URL(url).pathname.slice(new URL(base).pathname.length)||'index.html';const path=resolve(root,rel);if(!path.startsWith(resolve(root)+'/'))return route.abort();try{let body=await readFile(path);if(b2Fixture&&rel==='js/productionV2/config.mjs'){body=body.toString().replace('syncEnabled:false','syncEnabled:true');}return await route.fulfill({status:200,contentType:contentType[extname(path)]??'application/octet-stream',body});}catch{return route.fulfill({status:404,body:'not found'});}}if(url.includes('xlsx.full.min.js'))return route.fulfill({status:200,contentType:'text/javascript',body:await readFile(xlsxPath)});const stub=b2Fixture&&url.includes('firebase-firestore.js')?b2FirestoreStub:externalStub(url);if(stub!==null)return route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:stub});return route.abort();});
  await ctx.addInitScript(({raw,pin})=>{if(localStorage.getItem('controle_gastos_multimonth_v3')===null)localStorage.setItem('controle_gastos_multimonth_v3',raw);if(pin)localStorage.setItem('controle_gastos_pin_lock','1234');},{raw,pin});
  const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base+query,{waitUntil:'load'});await page.waitForFunction(()=>document.getElementById('productionCloudConnect')?.disabled===false);
  return {page,errors};
@@ -133,4 +138,23 @@ test('BROWSER17 default main first access uses no legacy migration and blocks ac
  await page.evaluate(()=>{globalThis.__allowed=true;});await click(page,'productionCloudConnect');await textIs(page,'Entre com a conta Google');await click(page,'productionCloudLogin');await textIs(page,'browser-fixture-uid');await click(page,'productionCloudInspect');await textIs(page,'Conta autorizada');
  for(const id of ['productionCloudSeed','productionCloudAdopt','productionCloudRefresh']){assert.equal(await page.locator('#'+id).isDisabled(),true);await page.locator('#'+id).evaluate(e=>e.dispatchEvent(new Event('click')));}
  assert.equal(await page.evaluate(()=>globalThis.__writes??0),0);assert.equal(await page.evaluate(()=>localStorage.getItem('raytech_cg_v2_main_sync_v1:raytech_production_v2_device')),null);assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
+});
+
+test('BROWSER18 actual PWA candidate uses B2 with simulated gate; explicit bind, pause, reseed refusal and scoped restore block',async t=>{
+ const {page,errors}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);
+ await page.evaluate(()=>{globalThis.__writeAllowed=false;});await click(page,'productionCloudConnect');await textIs(page,'Entre com a conta Google');await click(page,'productionCloudLogin');await textIs(page,'browser-fixture-uid');
+ await click(page,'productionCloudInspect');await textIs(page,'PRODUCTION_WRITE_NOT_APPROVED');assert.equal(await page.locator('#productionCloudSeed').isDisabled(),true);
+ await page.evaluate(()=>{globalThis.__writeAllowed=true;});await click(page,'productionCloudInspect');await textIs(page,'nuvem vazia');
+ await page.waitForFunction(()=>!document.getElementById('productionCloudSeed').disabled);
+ await click(page,'productionCloudSeed');await textIs(page,'PRODUCTION_CONSENT');assert.equal(await page.evaluate(()=>globalThis.__writes??0),0);
+ await page.evaluate(()=>{document.getElementById('productionCloudConsent').checked=true;document.getElementById('productionCloudBackupSaved').checked=true;});
+ await click(page,'productionCloudSeed');await textIs(page,'Vínculo confirmado');await page.waitForFunction(()=>!document.getElementById('productionCloudRefresh').disabled);
+ await click(page,'productionCloudRefresh');await textIs(page,'revisão 1');await page.waitForFunction(()=>!document.getElementById('productionCloudPause').disabled);
+ assert.equal(await page.evaluate(()=>globalThis.__writes??0),2);
+ await click(page,'productionCloudPause');await textIs(page,'Sincronização pausada');await page.waitForFunction(()=>document.getElementById('productionCloudRefresh').disabled);
+ await page.locator('#productionCloudRefresh').evaluate(e=>e.dispatchEvent(new Event('click')));await textIs(page,'PRODUCTION_PAUSED');assert.equal(await page.evaluate(()=>globalThis.__writes??0),2);
+ const saved=await page.evaluate(k=>localStorage.getItem(k),mainKey);const newData=JSON.parse(saved);newData.months[newData.selectedMonth].salary=5000;
+ await page.locator('#jsonImportInput').setInputFiles({name:'fiction.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'raytech-cg-v2-main-backup-v1',database:newData}))});
+ await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('Banco vinculado'));assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),saved);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);assert.equal(errors.length,0,errors.join('; '));
 });

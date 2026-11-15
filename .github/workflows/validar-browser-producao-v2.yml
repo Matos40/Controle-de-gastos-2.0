@@ -5,6 +5,7 @@ on:
     paths:
       - 'validation/production-browser/**'
       - 'js/productionV2/**'
+      - 'js/experimentalSync/**'
       - 'index.html'
       - 'sw.js'
       - '.github/workflows/validar-browser-producao-v2.yml'

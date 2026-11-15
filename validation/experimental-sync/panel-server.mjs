@@ -1,0 +1,6 @@
+import {build} from 'esbuild';import {readFile} from 'node:fs/promises';import {createServer} from 'node:http';import {fileURLToPath} from 'node:url';
+export async function servePanel(port=0){
+ const panel=await readFile(new URL('./panel.html',import.meta.url));const bundle=await build({entryPoints:[fileURLToPath(new URL('./panel-entry.mjs',import.meta.url))],bundle:true,platform:'browser',format:'esm',write:false});
+ const server=createServer((req,res)=>{const host=req.headers.host??'';if(!/^127\.0\.0\.1:\d+$/.test(host)){res.writeHead(403).end();return;}res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self' http://127.0.0.1:8081; img-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");if(req.url==='/panel.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(bundle.outputFiles[0].text);}else if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(panel);}else{res.writeHead(404).end();}});
+ await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});return {server,origin:'http://127.0.0.1:'+server.address().port,close:()=>{server.closeAllConnections();server.close();}};
+}
