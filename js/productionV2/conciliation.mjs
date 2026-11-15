@@ -25,7 +25,7 @@ export function createConciliation(raw,prior=[]){
  function candidates(target){
   const all=records(db),t=all.find(r=>r.token===target);
   if(!t||t.x.isInstallment!==true||!absent(t.x.installmentOriginId))return [];
-  const tombs=Object.entries(db.months).flatMap(([month,m])=>m.deletedInstallmentOrigins.map(v=>({month,root:v.slice(0,v.lastIndexOf(':')),n:Number(v.slice(v.lastIndexOf(':')+1))})));
+  const tombs=Object.entries(db.months).flatMap(([month,m])=>(m.deletedInstallmentOrigins??[]).map(v=>({month,root:v.slice(0,v.lastIndexOf(':')),n:Number(v.slice(v.lastIndexOf(':')+1))})));
   const options=[];
   for(const a of all){
    if(a.x.isInstallment!==true||!validId(a.x.id))continue;
@@ -48,7 +48,7 @@ export function createConciliation(raw,prior=[]){
    if(tombs.some(v=>v.root===root&&combined.some(r=>r.x.currentInstallment===v.n)))continue;
    // Distinct-series declaration permitted only for existing record ID, never a fabricated ID.
    const projected=ordinal(t.month)-t.x.currentInstallment===ordinal(a.month)-a.x.currentInstallment;
-   options.push({anchor:a.token,kind:separate?'independent':unassigned?'link_pending':'link_existing',root,month:a.month,number:a.x.currentInstallment,title:a.x.title,amount:a.x.installmentValue,projected});
+   options.push({anchor:a.token,kind:separate?'independent':unassigned?'link_pending':'link_existing',root,month:a.month,number:a.x.currentInstallment,title:a.x.title,amount:a.x.installmentValue,date:a.x.date,paid:a.x.paid,position:Number(a.token.split(':')[1])+1,projected});
   }
   // One option per existing series; prefer earliest visible member.
   const seen=new Set();return options.sort((a,b)=>Number(a.kind==='independent')-Number(b.kind==='independent')||Number(b.projected)-Number(a.projected)||a.anchor.localeCompare(b.anchor)).filter(o=>{if(seen.has(o.root))return false;seen.add(o.root);return true;});
@@ -68,7 +68,7 @@ export function createConciliation(raw,prior=[]){
   const result=finishLegacy(stage,db);
   return {remaining:pending.length,decisions:steps.length,compatible:result.compatible===true,issues:result.issues,audit:result.audit??null};
  }
- function list(){return records(db).filter(r=>r.x.isInstallment===true&&absent(r.x.installmentOriginId)).map(r=>({token:r.token,month:r.month,title:r.x.title,number:r.x.currentInstallment,total:r.x.installments,amount:r.x.installmentValue,paid:r.x.paid,options:candidates(r.token)}));}
+ function list(){return records(db).filter(r=>r.x.isInstallment===true&&absent(r.x.installmentOriginId)).map(r=>({token:r.token,month:r.month,title:r.x.title,number:r.x.currentInstallment,total:r.x.installments,amount:r.x.installmentValue,paid:r.x.paid,date:r.x.date,position:Number(r.token.split(':')[1])+1,options:candidates(r.token)}));}
  function undo(){if(!steps.length)return status();const replay=steps.slice(0,-1);db=structuredClone(stage.db);steps=[];for(const d of replay)apply(d);return status();}
  function reset(){db=structuredClone(stage.db);steps=[];return status();}
  function finish(){const r=finishLegacy(stage,db);if(!r.compatible||!r.audit?.equivalent)fail('CONCILIATION_INCOMPLETE');return {payload:r.payload,original:raw,audit:r.audit,decisions:structuredClone(steps)};}
@@ -83,11 +83,13 @@ export async function loadPlan(storage,raw,hash=fingerprint){
  if(plan.source!==await hash(raw))fail('CONCILIATION_SOURCE_CHANGED');
  const s=createConciliation(raw,plan.decisions);s.finish();return s.decisions();
 }
-export async function savePlan(storage,raw,session,hash=fingerprint){
+export async function savePlan(storage,raw,session,hash=fingerprint,isCurrent=()=>true){
+ if(!isCurrent())fail('CONCILIATION_CANCELLED');
  const result=session.finish(),source=await hash(raw);
  // Re-run full audit rather than trusting the UI or serialized decisions.
  const verified=createConciliation(raw,result.decisions).finish();
  if(verified.payload!==result.payload)fail('CONCILIATION_PLAN_INVALID');
+ if(!isCurrent())fail('CONCILIATION_CANCELLED');
  if(storage.getItem('controle_gastos_multimonth_v3')!==raw)fail('CONCILIATION_SOURCE_CHANGED');
  const value=JSON.stringify({version:1,source,decisions:result.decisions});storage.setItem(PLAN_KEY,value);
  if(storage.getItem(PLAN_KEY)!==value)fail('CONCILIATION_PLAN_WRITE');
