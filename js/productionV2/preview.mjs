@@ -109,6 +109,7 @@ export function previewLocal(raw){const {payload,...summary}=prepareLocal(raw);r
 export function bindPreview(document,storage,key=databaseKey(globalThis.location?.search??'')){
  const button=document.getElementById('productionV2Preview'),status=document.getElementById('productionV2PreviewStatus');
  if(!button||!status)return;
+ if(key===null){button.disabled=true;status.textContent='Endereço de banco inválido.';return;}
  button.addEventListener('click',()=>{
   if(document.getElementById('pinLockOverlay')&&!document.getElementById('pinLockOverlay').classList.contains('hidden'))return;
   try{

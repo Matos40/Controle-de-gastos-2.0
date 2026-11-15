@@ -209,27 +209,29 @@ async function triggerNativePwaInstall() {
       initPwaEnvironment();
       const gate = document.getElementById('cleanWorkspaceGate');
       const badge = document.getElementById('cleanWorkspaceBanner');
-      const switchButton = document.getElementById('cleanWorkspaceSwitch');
-      if (switchButton) {
-        switchButton.textContent = CLEAN_WORKSPACE ? 'Voltar ao banco legado' : 'Abrir banco V2 separado';
-        switchButton.addEventListener('click', () => {
-          if (document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return;
-          const url = new URL(location.href);
-          if (CLEAN_WORKSPACE) url.searchParams.delete('workspace'); else url.searchParams.set('workspace','v2-clean');
+      if(WORKSPACE_MODE==='invalid'){
+        gate?.classList.remove('hidden');
+        document.getElementById('cleanWorkspaceGateStatus').textContent='Endereço de banco inválido. Nenhum banco foi aberto. Selecione um endereço válido.';
+        return;
+      }
+      const modes=[
+        ['cleanWorkspaceSwitch','v2-clean','Abrir banco V2 de testes','Os dados de teste são independentes. Nenhum dado será copiado.'],
+        ['legacyWorkspaceSwitch','legacy','Abrir banco legado','Seu histórico original será aberto; nenhum dado será copiado.'],
+        ['mainWorkspaceSwitch','v2-main','Abrir banco V2 principal (local)','Este é o banco principal independente. Nenhum dado será copiado.']
+      ];
+      for(const [id,mode,label,description] of modes){
+        const button=document.getElementById(id);
+        if(!button)continue;
+        button.textContent=label;
+        button.classList.toggle('hidden',WORKSPACE_MODE===mode);
+        button.addEventListener('click',()=>{
+          if(WORKSPACE_MODE===mode||document.getElementById('pinLockOverlay')&&!document.getElementById('pinLockOverlay').classList.contains('hidden'))return;
+          const url=new URL(location.href);url.searchParams.set('workspace',mode);
           closeHeaderDrawer();
-          showModal(CLEAN_WORKSPACE ? 'Voltar ao banco legado?' : 'Abrir banco V2 de testes?', 'Os bancos permanecem separados. O histórico original e os dados de teste serão preservados. As transferências financeiras continuam desativadas.', () => location.assign(url.href));
+          showModal(label+'?',description+' As transferências financeiras continuam desativadas.',()=>location.assign(url.href));
         });
       }
-      const mainButton = document.getElementById('mainWorkspaceSwitch');
-      if (mainButton) {
-        if (MAIN_WORKSPACE) mainButton.classList.add('hidden');
-        mainButton.addEventListener('click', () => {
-          if (MAIN_WORKSPACE || document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return;
-          const url = new URL(location.href);url.searchParams.set('workspace','v2-main');
-          closeHeaderDrawer();
-          showModal('Abrir banco V2 principal?', 'Este banco é independente. Nenhum dado será copiado dos bancos de teste ou legado. A nuvem permanece desativada.', () => location.assign(url.href));
-        });
-      }
+      if(WORKSPACE_MODE==='legacy'&&badge){badge.textContent='BANCO LEGADO · histórico original · nuvem desativada';badge.classList.remove('hidden');}
       if (CLEAN_WORKSPACE) {
         if (MAIN_WORKSPACE && badge) badge.textContent='BANCO V2 PRINCIPAL · local · nuvem desativada | Legado e testes preservados';
         badge?.classList.remove('hidden');
@@ -240,7 +242,7 @@ async function triggerNativePwaInstall() {
           const {openCleanStore,acquireCleanLease} = workspace;
           release = await acquireCleanLease(navigator.locks,location.search);
           cleanWorkspaceStore = openCleanStore(localStorage,getTodayYM(),location.search);
-          if(cleanWorkspaceStore.readCurrent()!==localStorage.getItem(STORAGE_DATABASE_KEY)) throw Error('CLEAN_WORKSPACE_SELECTION');
+          if(workspace.databaseKey(location.search)!==STORAGE_DATABASE_KEY||cleanWorkspaceStore.readCurrent()!==localStorage.getItem(STORAGE_DATABASE_KEY)) throw Error('CLEAN_WORKSPACE_SELECTION');
           window.productionCleanWorkspaceReady = true;
           window.addEventListener('pagehide', () => { window.productionCleanWorkspaceReady=false; release(); }, {once:true});
           window.addEventListener('pageshow', event => { if(event.persisted) location.reload(); });

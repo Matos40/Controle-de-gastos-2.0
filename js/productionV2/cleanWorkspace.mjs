@@ -3,15 +3,20 @@ export const LEGACY_KEY='controle_gastos_multimonth_v3';
 export const CLEAN_KEY='raytech_cg_v2_clean_finance_v1';
 export const SYNC_PREFIX='raytech_cg_v2_clean_sync_v1:';
 export const CLEAN_QUERY='workspace=v2-clean';
-export function isCleanWorkspace(search=''){return new URLSearchParams(search).get('workspace')==='v2-clean';}
+export function workspaceMode(search=''){
+ const values=new URLSearchParams(search).getAll('workspace');
+ if(values.length===0)return 'v2-main';
+ return values.length===1&&['v2-main','v2-clean','legacy'].includes(values[0])?values[0]:'invalid';
+}
+export function isCleanWorkspace(search=''){return workspaceMode(search)==='v2-clean';}
 export const MAIN_KEY='raytech_cg_v2_main_finance_v1';
 export const MAIN_SYNC_PREFIX='raytech_cg_v2_main_sync_v1:';
 export const MAIN_QUERY='workspace=v2-main';
 export const MAIN_INITIALIZED_KEY='raytech_cg_v2_main_initialized_v1';
 export const MAIN_BACKUP_FORMAT='raytech-cg-v2-main-backup-v1';
-export function isMainWorkspace(search=''){return new URLSearchParams(search).get('workspace')==='v2-main';}
+export function isMainWorkspace(search=''){return workspaceMode(search)==='v2-main';}
 export function isV2Workspace(search=''){return isCleanWorkspace(search)||isMainWorkspace(search);}
-export const databaseKey=search=>isMainWorkspace(search)?MAIN_KEY:isCleanWorkspace(search)?CLEAN_KEY:LEGACY_KEY;
+export const databaseKey=search=>({ 'v2-main':MAIN_KEY,'v2-clean':CLEAN_KEY,legacy:LEGACY_KEY })[workspaceMode(search)]??null;
 export const syncPrefix=search=>isMainWorkspace(search)?MAIN_SYNC_PREFIX:SYNC_PREFIX;
 export const canTransfer=(config,search)=>config?.enabled===true&&config?.syncEnabled===true&&isMainWorkspace(search);
 export function scopeSyncStorage(storage,search='?workspace=v2-clean'){const prefix=syncPrefix(search);return {getItem:k=>storage.getItem(prefix+k),setItem:(k,v)=>storage.setItem(prefix+k,v)};}
