@@ -1,0 +1,29 @@
+import {test,before,after} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+import {initializeTestEnvironment} from '@firebase/rules-unit-testing';import {doc,setDoc} from 'firebase/firestore';import {chromium} from 'playwright';import {servePanel} from './panel-server.mjs';import {PROJECT,localAdapter} from './adapter.mjs';
+let env,browser,panel;
+const uid='panel-owner',bank='synthetic-bank-b2',cp='raytech-lab-b2:raytech_production_v2_device';
+before(async()=>{assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8081');env=await initializeTestEnvironment({projectId:PROJECT,firestore:{rules:readFileSync(new URL('../../docs/firestore-sync-experimental.rules',import.meta.url),'utf8')}});await env.clearFirestore();await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'raytechProductionAccessV2',uid),{enabled:true,writeEnabled:true}));panel=await servePanel();browser=await chromium.launch({headless:true});});
+after(async()=>{await browser?.close();panel?.close();await env?.cleanup();});
+const status=(p,expected)=>p.waitForFunction(x=>document.getElementById('status').textContent.includes(x),expected);
+const click=(p,id)=>p.locator('#'+id).click();
+const check=(p,id)=>p.locator('#'+id).check();
+const salary=async(p,value)=>{await p.locator('#salaryInput').fill(String(value));await click(p,'saveSalary');await status(p,'salvo localmente');};
+const consent=async(p)=>{await check(p,'consent');await check(p,'backupSaved');await click(p,'authorize');await status(p,'Vínculo confirmado');};
+const sync=async(p,expected)=>{await click(p,'syncNow');await status(p,expected);};
+const current=p=>p.evaluate(k=>JSON.parse(localStorage.getItem(k)).months['2026-11'].salary,bank);
+async function device(t){const ctx=await browser.newContext({acceptDownloads:true});t.after(()=>ctx.close());const blocked=[];await ctx.route('**/*',route=>{const u=new URL(route.request().url());if(u.origin===panel.origin||u.origin==='http://127.0.0.1:8081')return route.continue();blocked.push(u.origin);return route.abort();});const page=await ctx.newPage();page.on('dialog',d=>d.accept());await page.goto(panel.origin);await status(page,'Laboratório pronto');return {page,ctx,blocked};}
+test('B212 complete panel controls with real emulator: seed/adopt, pause, backup, conflict refresh, restore and recovery',async t=>{
+ const A=await device(t),B=await device(t),a=A.page,b=B.page;
+ const cloud=localAdapter(env.authenticatedContext(uid).firestore(),uid);
+ await salary(a,100);await click(a,'inspect');await status(a,'vazia');await click(a,'cancel');await status(a,'cancelado');assert.equal(await cloud.read(uid),null);
+ await click(a,'inspect');await status(a,'vazia');await click(a,'authorize');await status(a,'CONSENTIMENTO');const d=a.waitForEvent('download');await click(a,'exportLocal');assert.equal((await d).suggestedFilename(),'backup-ficticio.json');await consent(a);await sync(a,'synced');assert.equal((await cloud.read(uid)).head.revision,1);
+ await click(b,'inspect');await status(b,'existente');await consent(b);assert.equal(await current(b),100);
+ await click(b,'pause');await status(b,'pausada');await b.reload();await status(b,'Laboratório pronto');assert.equal(await b.locator('#syncNow').isDisabled(),true);await click(b,'resume');await status(b,'retomada');
+ await salary(a,200);await salary(b,300);await sync(a,'synced');await sync(b,'conflict');assert.match(await b.locator('#local').textContent(),/"salary": 300/);
+ await salary(a,400);await sync(a,'synced');await b.locator('#choice').selectOption('remote');await check(b,'reviewConsent');await check(b,'reviewBackup');await click(b,'resolve');await status(b,'REVIEW_CHANGED');await click(b,'refreshReview');await status(b,'Revisão atualizada');assert.equal(await b.locator('#reviewConsent').isChecked(),false);assert.match(await b.locator('#remote').textContent(),/"salary": 400/);
+ await b.locator('#choice').selectOption('remote');await check(b,'reviewConsent');await check(b,'reviewBackup');await click(b,'resolve');await status(b,'Decisão aplicada');assert.equal(await current(b),400);assert.equal(await b.locator('#syncNow').isDisabled(),true);
+ const backup={format:'raytech-cg-v2-main-backup-v1',database:JSON.parse(await b.evaluate(k=>localStorage.getItem(k),bank))};backup.database.months['2026-11'].salary=500;
+ await b.locator('#backupFile').setInputFiles({name:'fixture.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});await click(b,'stage');await status(b,'Backup em revisão');assert.equal(await current(b),400);await b.locator('#choice').selectOption('restore');await check(b,'reviewConsent');await check(b,'reviewBackup');await click(b,'resolve');await status(b,'Decisão aplicada');assert.equal(await current(b),500);assert.equal((await cloud.read(uid)).head.revision,3);await click(b,'resume');await status(b,'retomada');await sync(b,'synced');await sync(a,'updated');assert.equal(await current(a),500);
+ await click(b,'pause');await status(b,'pausada');await b.evaluate(k=>localStorage.setItem(k,'corrupt-fixture'),bank);await b.reload();await status(b,'Laboratório pronto');assert.equal(await b.locator('#resume').isDisabled(),true);const diag=b.waitForEvent('download');await click(b,'diagnostic');assert.equal((await diag).suggestedFilename(),'diagnostico-ficticio.json');await click(b,'inspectRecovery');await status(b,'Recuperação preparada');await check(b,'recoveryConsent');await check(b,'recoveryBackup');await click(b,'recover');await status(b,'Banco recuperado');assert.equal(await current(b),500);assert.equal((await cloud.read(uid)).head.revision,4);assert.equal(await b.locator('#syncNow').isDisabled(),true);assert.deepEqual([...A.blocked,...B.blocked],[]);
+ const second=await B.ctx.newPage();await second.goto(panel.origin);await status(second,'TAB_BUSY');assert.equal(await second.locator('#inspect').isDisabled(),true);await second.close();
+});

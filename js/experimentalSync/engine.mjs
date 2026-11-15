@@ -69,6 +69,9 @@ export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,onl
   s={...s,base:{head:validateV2Head({marker:'raytech-financial-production-v2',revision:receipt.revision,lastOperationId:q.id,payload:q.payload,hash:receipt.hash}),receipt},pending:null};write(s);
   return {status:'synced',revision:receipt.revision};
  });}
- async function review({snapshot,target}){return run(async()=>{const s=read();if(!s||s.pending||s.apply)fail('PRODUCTION_REVIEW_PENDING');const remote=await verified(await cloud.read(uid));await continuity(s.base,remote);if(!remote||canonical(remote)!==canonical(snapshot.remote)||local.read()!==snapshot.local||canonical(s.base)!==canonical(snapshot.base))fail('PRODUCTION_REVIEW_CHANGED');validatePayload(target);return applyLocal(s,snapshot.local,target,remote);});}
+ async function review({snapshot,target}){return run(async()=>{const s=read();if(!s||s.pending)fail('PRODUCTION_REVIEW_PENDING');validatePayload(target);const selected=selection(snapshot.local,target),remote=await verified(await cloud.read(uid));await continuity(s.base,remote);
+  if(s.apply){const j=s.apply;if(j.before!==snapshot.local||j.target!==selected||canonical(j.base)!==canonical(snapshot.remote)||canonical(s.base)!==canonical(snapshot.base))fail('PRODUCTION_REVIEW_PENDING');await continuity(j.base,remote);return recoverApply(s);}
+  if(canonical(s.base)===canonical(snapshot.remote)&&local.read()===selected&&snapshot.local!==selected)return s; // previous reviewed apply committed before clearing review
+  if(!remote||canonical(remote)!==canonical(snapshot.remote)||local.read()!==snapshot.local||canonical(s.base)!==canonical(snapshot.base))fail('PRODUCTION_REVIEW_CHANGED');return applyLocal(s,snapshot.local,target,remote);});}
  return {bind,tick,review,inspect:read};
 }
