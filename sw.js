@@ -1,7 +1,7 @@
-const CACHE_NAME = 'controle-gastos-shell-v16';
+const CACHE_NAME = 'controle-gastos-shell-v17';
 const APP_SHELL = [
   './', './index.html', './manifest.json', './favicon.ico', './raytech-icon-192.png', './raytech-icon-512.png', './css/styles.css',
-  './js/state.js', './js/app.js', './js/onboarding.js', './js/productionV2/preview.mjs', './js/productionV2/model.mjs', './js/productionV2/cloudPanel.mjs', './js/productionV2/initialTransfer.mjs', './js/productionV2/config.mjs', './js/productionV2/queue.mjs', './js/productionV2/capacity.mjs', './js/productionV2/firebaseAdapter.mjs',
+  './js/state.js', './js/app.js', './js/onboarding.js', './js/productionV2/preview.mjs', './js/productionV2/model.mjs', './js/productionV2/cloudPanel.mjs', './js/productionV2/initialTransfer.mjs', './js/productionV2/config.mjs', './js/productionV2/queue.mjs', './js/productionV2/capacity.mjs', './js/productionV2/firebaseAdapter.mjs', './js/productionV2/syncEngine.mjs',
   './js/services/storageService.js', './js/services/geminiService.js', './js/services/excelService.js',
   './js/ui/renderSummary.js', './js/ui/renderExpenses.js', './js/ui/renderCards.js',
   './js/ui/renderAnalytics.js', './js/ui/renderHistory.js'
