@@ -14,7 +14,7 @@ function boot({online=true,network=async()=>new Response('fresh'),hit='current',
  return {dispatch,calls,listeners};
 }
 test('offline navigation uses current cache exclusively',async()=>{
- const w=boot({online:false});assert.equal(await(await w.dispatch().response).text(),'current');assert.deepEqual(w.calls.open,['controle-gastos-shell-v14']);assert.equal(w.calls.network,0);assert.equal(w.calls.global,0);
+ const w=boot({online:false});assert.equal(await(await w.dispatch().response).text(),'current');assert.deepEqual(w.calls.open,['controle-gastos-shell-v18']);assert.equal(w.calls.network,0);assert.equal(w.calls.global,0);
 });
 test('stalled connection uses current shell within deadline',async()=>{
  let signal,ms;const w=boot({network:(_,opts)=>{signal=opts.signal;return new Promise(()=>{});},timer:(fn,d)=>{ms=d;queueMicrotask(fn);return 1;},cancel:()=>{}});
