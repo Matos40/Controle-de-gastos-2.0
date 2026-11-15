@@ -6,6 +6,7 @@ on:
       - 'validation/production-v2/**'
       - 'docs/firestore-producao-v2-proposta.rules'
       - 'js/productionV2/**'
+      - 'js/experimentalSync/**'
       - '.github/workflows/validar-regras-producao-v2.yml'
 permissions:
   contents: read
