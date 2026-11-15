@@ -1,4 +1,5 @@
-import {inspectPayload,LEGACY_LIMITS,canonical} from './model.mjs';
+import {inspectPayload,LEGACY_LIMITS} from './model.mjs';
+import {normalizeCardState,reconstructOrigins,auditEquivalence} from './legacyPhase2.mjs';
 const labels=Object.freeze({
   "DB_ABSENT": "Banco local ausente",
   "PAYLOAD_LIMIT": "Banco acima do limite de tamanho",
@@ -35,7 +36,18 @@ const labels=Object.freeze({
   "DEFAULT_FIELDS": "Campos opcionais antigos preenchidos em cópia",
   "CATEGORY_INFERRED": "Categoria preenchida conforme regra do aplicativo antigo",
   "ORIGIN_RECOVERED": "Origem de primeira parcela recuperada",
-  "CONVERSION_ERROR": "Conversão não realizada"
+  "CONVERSION_ERROR": "Conversão não realizada",
+  "CARD_PAID_NORMALIZED": "Estado de pagamento equivalente ao V1",
+  "CARD_INSTALLMENT_NORMALIZED": "Estado de parcelamento equivalente ao V1",
+  "EMPTY_ORIGIN_NORMALIZED": "Origem vazia em compra à vista tratada",
+  "ORIGIN_AMBIGUOUS_GROUP": "Série sem vínculo inequívoco",
+  "ORIGIN_DELETION_ALIAS": "Marca de exclusão usa origem alternativa",
+  "ORIGIN_DELETION_COLLISION": "Origem proposta coincide com parcela excluída",
+  "ORIGIN_UNEXPLAINED_GAP": "Sequência tem intervalo sem comprovação",
+  "CARD_UNKNOWN_FIELDS": "Campos adicionais de cartão não reconhecidos",
+  "CARD_PAID_TYPE": "Tipo do campo paid incompatível",
+  "CARD_INSTALLMENT_TYPE": "Tipo do campo isInstallment incompatível",
+  "FINANCIAL_EQUIVALENCE": "Equivalência financeira não comprovada"
 });
 const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
 function inferCategoryFromTitle(title) {
@@ -56,6 +68,7 @@ export function convertLegacy(raw){
  if(raw.length>LEGACY_LIMITS.payload)return fail('PAYLOAD_LIMIT');
  let db;try{db=JSON.parse(raw);}catch{return fail('INVALID_JSON');}
  if(!object(db)||!object(db.months))return fail('ROOT_SCHEMA');
+ const original=structuredClone(db);
  try{
  const cards=[];
  for(const [month,m] of Object.entries(db.months)){
@@ -66,23 +79,16 @@ export function convertLegacy(raw){
   for(const k of ['expenses','cardExpenses']){
    if(!Array.isArray(m[k]))continue;
    for(const x of m[k]){if(!object(x))continue;if(!Object.hasOwn(x,'category')&&typeof x.title==='string'){x.category=inferCategoryFromTitle(x.title);add('CATEGORY_INFERRED');}
-    if(k==='cardExpenses'&&x.isInstallment===true)cards.push({month,x});
+    if(k==='cardExpenses'){normalizeCardState(x,add);if(x.isInstallment===true)cards.push({month,x});}
    }
   }
  }
- const sameSeries=(a,b)=>typeof a.title==='string'&&typeof b.title==='string'&&a.title.trim().toLowerCase()===b.title.trim().toLowerCase()&&a.installments===b.installments;
- for(const {month,x} of cards){
-  if(Object.hasOwn(x,'installmentOriginId')||x.currentInstallment!==1||typeof x.id!=='string'||!/^[a-zA-Z0-9_-]{1,512}$/.test(x.id))continue;
-  // V1 uses first record ID as origin when inheriting. Do not infer from title alone:
-  // another unanchored first or later installment or conflicting explicit origin blocks.
-  const ambiguous=cards.some(({x:y})=>y!==x&&sameSeries(x,y)&&y.installmentOriginId!==x.id);
-  const duplicateId=cards.some(({x:y})=>y!==x&&y.id===x.id);
-  if(!ambiguous&&!duplicateId){x.installmentOriginId=x.id;add('ORIGIN_RECOVERED');}
- }
+ reconstructOrigins(db,cards,add);
  const payload=JSON.stringify(db),report=inspectPayload(payload);
  const warnings=[...report.warnings,...[...changes].map(([code,count])=>({code,count}))];
  if(report.issues.length)return {compatible:false,issues:report.issues,warnings};
- return {compatible:true,payload,original:raw,issues:[],warnings,months:Object.keys(db.months).length,entries:Object.values(db.months).reduce((n,m)=>n+m.expenses.length+m.cardExpenses.length+m.extraIncomes.length,0)};
+ const audit=auditEquivalence(original,db);if(!audit.equivalent)return {compatible:false,issues:[{code:'FINANCIAL_EQUIVALENCE',count:1}],warnings};
+ return {compatible:true,payload,original:raw,issues:[],warnings,audit,months:Object.keys(db.months).length,entries:Object.values(db.months).reduce((n,m)=>n+m.expenses.length+m.cardExpenses.length+m.extraIncomes.length,0)};
  }catch{return fail('CONVERSION_ERROR');}
 }
 // Reversal applies only to the exact initial conversion, not subsequent financial edits.
@@ -92,7 +98,7 @@ export function reverseLegacy(conversion,payload){
  if(!verified.compatible||verified.payload!==payload)throw Error('PRODUCTION_REVERSAL_MISMATCH');
  return conversion.original;
 }
-const describe=items=>items.map(({code,count})=>(labels[code]??'Incompatibilidade identificada')+' ['+code+']: '+count).join('; ');
+const describe=items=>items.map(({code,count})=>(labels[code]??(code.startsWith('CARD_MISSING_')?'Campo obrigatório de cartão ausente':'Incompatibilidade identificada'))+' ['+code+']: '+count).join('; ');
 export function prepareLocal(raw){
  const {original,...r}=convertLegacy(raw);
  if(!r.compatible)r.reason=describe(r.issues)+'. O banco original não foi alterado.';
@@ -107,7 +113,7 @@ export function bindPreview(document,storage){
   try{
    const p=previewLocal(storage.getItem('controle_gastos_multimonth_v3'));
    const warnings=p.warnings?.length?' Avisos: '+describe(p.warnings)+'.':'';
-   status.textContent=(p.compatible?'Compatível: '+p.months+' mês(es), '+p.entries+' lançamento(s). Nenhum dado enviado.':p.reason)+warnings;
+   status.textContent=(p.compatible?'Compatível: '+p.months+' mês(es), '+p.entries+' lançamento(s). Equivalência financeira conferida. Nenhum dado enviado.':p.reason)+warnings;
   }catch{status.textContent='Não foi possível ler o banco local. Nenhuma alteração realizada.';}
  });
 }

@@ -41,8 +41,12 @@ export function inspectPayload(payload){
      if(!shape(x,['id','description','amount','date']))bad('INCOME_SCHEMA');
      if(!name(x.description))bad('TEXT_FORMAT');if(!money(x.amount))bad('ENTRY_MONEY');
     }else{
-     if(!shape(x,['id','installmentOriginId','title','category','isInstallment','installmentValue','totalAmount','installments','currentInstallment','date','paid'],['id','title','category','isInstallment','installmentValue','totalAmount','installments','currentInstallment','date','paid']))bad('CARD_SCHEMA');
-     if(!name(x.title))bad('TEXT_FORMAT');if(!cat(x.category))bad('CATEGORY');if(typeof x.paid!=='boolean'||typeof x.isInstallment!=='boolean')bad('CARD_STATE');
+     const required=['id','title','category','isInstallment','installmentValue','totalAmount','installments','currentInstallment','date','paid'];
+     if(!shape(x,[...required,'installmentOriginId'],required)){
+      bad('CARD_SCHEMA');for(const field of required)if(!Object.hasOwn(x,field))bad('CARD_MISSING_'+field.toUpperCase());
+      if(Object.keys(x).some(key=>!required.includes(key)&&key!=='installmentOriginId'))bad('CARD_UNKNOWN_FIELDS');
+     }
+     if(!name(x.title))bad('TEXT_FORMAT');if(!cat(x.category))bad('CATEGORY');if(typeof x.paid!=='boolean'||typeof x.isInstallment!=='boolean'){bad('CARD_STATE');if(typeof x.paid!=='boolean')bad('CARD_PAID_TYPE');if(typeof x.isInstallment!=='boolean')bad('CARD_INSTALLMENT_TYPE');}
      if(!money(x.installmentValue)||!money(x.totalAmount))bad('ENTRY_MONEY');
      if(!Number.isInteger(x.installments)||!Number.isInteger(x.currentInstallment)||x.installments<1||x.installments>LEGACY_LIMITS.installments||x.currentInstallment<1||x.currentInstallment>x.installments||(!x.isInstallment&&(x.installments!==1||x.currentInstallment!==1))||(x.isInstallment&&x.installments<2))bad('INSTALLMENT_NUMBER');
      if(x.isInstallment){
