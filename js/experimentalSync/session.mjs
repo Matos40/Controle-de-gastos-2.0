@@ -37,12 +37,12 @@ export function createProductionSyncSession(options){
 }
 function createSession({cloud,storage,local,uid,hash,id,day=()=>new Date().toISOString().slice(0,10),online=()=>true,visible=()=>true,unlocked=()=>true,lock}){
  if(!/^[-\w]{1,128}$/.test(uid)||!lock||!hash||!id)fail('EXPERIMENTAL_ISOLATION');
- let active=false,busy=false,epoch=0,operationEpoch=-1,failures=0,next=0,plan=null,recoveryPlan=null;
+ let active=false,busy=false,epoch=0,operationEpoch=-1,failures=0,next=0,plan=null,recoveryPlan=null,applyPlan=null;
  const current=()=>cloud.currentUid()===uid&&unlocked();
  const allowed=()=>active&&current()&&operationEpoch===epoch&&policy()?.state==='active';
  const policy=()=>{const p=read(storage,POLICY_KEY);if(p&&(!shape(p,'uid|state')||p.uid!==uid||!['active','paused'].includes(p.state)))fail('EXPERIMENTAL_POLICY');return p;};
  const setPolicy=state=>{policy();put(storage,POLICY_KEY,{uid,state});};
- const suspend=()=>{active=false;epoch++;plan=null;recoveryPlan=null;};
+ const suspend=()=>{active=false;epoch++;plan=null;recoveryPlan=null;applyPlan=null;};
  const stop=()=>{suspend();setPolicy('paused');};
  const check=()=>{if(!current())fail('EXPERIMENTAL_SESSION');};
  const network=()=>{if(!allowed())fail('EXPERIMENTAL_PAUSED');if(!online()||!visible())fail('EXPERIMENTAL_OFFLINE');};
@@ -71,6 +71,8 @@ function createSession({cloud,storage,local,uid,hash,id,day=()=>new Date().toISO
   const target=j.remote.head.payload,next={...old,base:j.remote},raw=local.read(),cp=storage.getItem(DEVICE_KEY);
   if(cp!==j.checkpoint&&(!same(JSON.parse(cp),next)||raw!==target))fail('EXPERIMENTAL_RECOVERY_CHANGED');if(raw!==j.raw&&raw!==target)fail('EXPERIMENTAL_RECOVERY_CHANGED');const remote=await recoveryRemote(old);if(!same(remote,j.remote)||operationEpoch!==epoch||local.read()!==raw||storage.getItem(DEVICE_KEY)!==cp)fail('EXPERIMENTAL_RECOVERY_CHANGED');
   if(raw!==target&&!local.apply(raw,target))fail('EXPERIMENTAL_RECOVERY_LOCAL');if(local.read()!==target)fail('EXPERIMENTAL_RECOVERY_LOCAL');put(storage,DEVICE_KEY,next);storage.removeItem(RECOVERY_KEY);if(storage.getItem(RECOVERY_KEY)!==null)fail('EXPERIMENTAL_STORAGE');stop();return {status:'recovered-paused',revision:next.base.head.revision};});}
+ async function inspectApply(){return serial(async()=>{if(active||read(storage,REVIEW_KEY)||read(storage,RECOVERY_KEY))fail('EXPERIMENTAL_RECOVERY_PAUSE');setPolicy('active');active=true;let p;try{p=await engine.inspectApply();}finally{stop();}applyPlan=p;return structuredClone(p);});}
+ async function resolveApply({choices,confirmed=false,backupSaved=false}={}){return serial(async()=>{if(active||!confirmed||!backupSaved||!applyPlan||read(storage,REVIEW_KEY)||read(storage,RECOVERY_KEY))fail('EXPERIMENTAL_REVIEW_CONSENT');const p=applyPlan;setPolicy('active');active=true;try{await engine.resolveApply({...p,choices});applyPlan=null;next=0;return {status:'recovered-active'};}catch(e){stop();throw e;}});}
  async function reserveListener(){return serial(async()=>{if(!active||!online()||!visible()||read(storage,REVIEW_KEY)||read(storage,RECOVERY_KEY))return false;budget(12);return true;});}
- return {reserveListener,inspect,authorize,resume,restoreActive,suspend,pause:stop,logout:stop,sessionChanged:stop,tick,stageRestore,review,resolve,refreshReview,history:()=>{check();return archiveRows(storage,ARCHIVE_KEY).map(x=>x.value);},inspectRecovery,recover,recoveryExport,recoveryHistory:()=>{check();return archiveRows(storage,RECOVERY_ARCHIVE).map(x=>x.value);},checkpoint,budget:()=>read(storage,BUDGET_KEY),state:()=>({active:active&&current()&&policy()?.state==='active',persisted:policy()?.state??'unbound',busy}),exportLocal:()=>encodeMainBackup(validatePayload(local.read()))};
+ return {inspectApply,resolveApply,reserveListener,inspect,authorize,resume,restoreActive,suspend,pause:stop,logout:stop,sessionChanged:stop,tick,stageRestore,review,resolve,refreshReview,history:()=>{check();return archiveRows(storage,ARCHIVE_KEY).map(x=>x.value);},inspectRecovery,recover,recoveryExport,recoveryHistory:()=>{check();return archiveRows(storage,RECOVERY_ARCHIVE).map(x=>x.value);},checkpoint,budget:()=>read(storage,BUDGET_KEY),state:()=>({active:active&&current()&&policy()?.state==='active',persisted:policy()?.state??'unbound',busy}),exportLocal:()=>encodeMainBackup(validatePayload(local.read()))};
 }
