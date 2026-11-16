@@ -5,6 +5,30 @@ function encodeWorkspaceBackup(db) {
 function decodeWorkspaceBackup(db) {
   return MAIN_WORKSPACE ? cleanWorkspaceStore.decodeBackup(db) : db;
 }
+
+// A linked main bank must use the same reviewed restore as the cloud panel.
+// Never weaken validateRestoreCandidate or write directly to a linked bank.
+function requestFullBackupRestore(envelope, kind) {
+  const decoded = decodeWorkspaceBackup(envelope);
+  if (MAIN_WORKSPACE && localStorage.getItem('raytech_cg_v2_main_sync_v1:raytech_production_v2_device') !== null) {
+    const candidate = validateBackupDatabase(decoded);
+    if (typeof window.productionPrepareBackupRestore !== 'function') throw Error('Banco vinculado. Aguarde a conexão e tente novamente.');
+    const restore = window.productionPrepareBackupRestore(encodeWorkspaceBackup(candidate));
+    showModal('Restaurar backup '+kind+'?', 'A restauração substitui todos os dados financeiros atuais e será sincronizada com seus outros dispositivos. Uma cópia de segurança local será preservada. Os bancos legado e de testes não serão alterados.', () => {
+      // showModal closes synchronously after the callback. Apply only after it closes.
+      Promise.resolve().then(restore).then(result => {
+        showToast(result.synced ? 'Backup '+kind+' restaurado com sucesso e sincronizado!' : 'Backup restaurado neste dispositivo. A sincronização requer atenção.', result.synced ? 'success' : 'info');
+      }).catch(err => showToast('Restauração interrompida: '+err.message, 'error'));
+    });
+    return;
+  }
+  const candidate = validateRestoreCandidate(decoded);
+  showModal('Restaurar backup '+kind+'?', MAIN_WORKSPACE ? 'Somente o banco V2 principal será substituído. Legado e testes serão preservados. Guarde um backup antes de confirmar.' : CLEAN_WORKSPACE ? 'Somente os dados do banco V2 de testes serão substituídos. O banco legado ficará intacto. Guarde um backup antes de confirmar.' : 'Todos os dados financeiros atuais serão substituídos pelo conteúdo do backup. Esta operação não pode ser desfeita sem outro backup.', () => {
+    try { restoreBackupDatabase(candidate); showToast('Backup '+kind+' restaurado com sucesso!', 'success'); }
+    catch (err) { showToast('Falha ao restaurar: '+err.message, 'error'); }
+  });
+}
+
 function exportToExcel() {
   if (typeof XLSX === 'undefined') {
     showToast('Biblioteca do Excel ainda carregando. Aguarde um instante.', 'error');
@@ -155,15 +179,7 @@ function handleExcelImport(event) {
             let fullJson = '';
             rows.forEach(r => { if (r['JSON']) fullJson += r['JSON']; });
             if (fullJson) {
-              const parsedDb = validateRestoreCandidate(decodeWorkspaceBackup(JSON.parse(fullJson)));
-              showModal('Restaurar backup do Excel?', 'Esta operacao substituira todos os dados financeiros atuais pelos dados do arquivo. Confirme somente se possui um backup seguro.', () => {
-                try {
-                  restoreBackupDatabase(parsedDb);
-                  showToast('Backup do Excel restaurado com sucesso!', 'success');
-                } catch (restoreError) {
-                  showToast('Falha ao restaurar: ' + restoreError.message, 'error');
-                }
-              });
+              requestFullBackupRestore(JSON.parse(fullJson), 'Excel');
               restored = true;
             }
           } catch (errJson) {
@@ -308,15 +324,7 @@ function handleJsonImport(event) {
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const candidate = validateRestoreCandidate(decodeWorkspaceBackup(JSON.parse(e.target.result)));
-      showModal('Restaurar backup JSON?', MAIN_WORKSPACE ? 'Somente o banco V2 principal será substituído. Legado e testes serão preservados. Guarde um backup antes de confirmar.' : CLEAN_WORKSPACE ? 'Somente os dados do banco V2 de testes serão substituídos. O banco legado ficará intacto. Guarde um backup antes de confirmar.' : 'Todos os dados financeiros atuais serão substituídos pelo conteúdo do backup. Esta operação não pode ser desfeita sem outro backup.', () => {
-        try {
-          restoreBackupDatabase(candidate);
-          showToast('Backup JSON restaurado com sucesso!', 'success');
-        } catch (err) {
-          showToast('Falha ao restaurar: ' + err.message, 'error');
-        }
-      });
+      requestFullBackupRestore(JSON.parse(e.target.result), 'JSON');
     } catch (err) {
       showToast('Arquivo JSON invalido: ' + err.message, 'error');
     } finally {
