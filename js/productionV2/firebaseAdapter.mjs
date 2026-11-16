@@ -25,6 +25,7 @@ export async function openProductionCloud(config=PRODUCTION_CONFIG){
   currentUid, onSession:fn=>authSdk.onAuthStateChanged(auth,fn),
   signIn:()=>authSdk.signInWithPopup(auth,new authSdk.GoogleAuthProvider()),
   signOut:()=>authSdk.signOut(auth),approved,
+  watchHead(uid,notify,onError){verifyUid(uid);if(!canTransfer(config,globalThis.location?.search??''))throw Error('PRODUCTION_TRANSFER_DISABLED');if(typeof fire.onSnapshot!=='function')return ()=>{};let count=0,off=null,closed=false;const stop=()=>{closed=true;off?.();};off=fire.onSnapshot(headRef(uid),{includeMetadataChanges:true},snap=>{if(closed||currentUid()!==uid||snap.metadata?.fromCache||snap.metadata?.hasPendingWrites)return;if(++count>12){stop();onError?.(Error('PRODUCTION_LISTENER_WINDOW'));return;}const data=snap.exists()?snap.data():null;notify(data?.revision??0);},onError);if(closed)off();return stop;},
   async read(uid){await approved(uid);const result=await fire.runTransaction(db,async tx=>{
     verifyUid(uid);const s=await tx.get(headRef(uid));if(!s.exists())return null;
     const head=validateV2Head(s.data()),r=await tx.get(receiptRef(uid,head.lastOperationId));
