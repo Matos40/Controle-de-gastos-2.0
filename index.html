@@ -455,8 +455,8 @@
   <!-- Header Principal Minimalista & Expansível por Categorias -->
   <div id="cleanWorkspaceGate" class="hidden fixed inset-0 z-[110] bg-slate-950 p-8 flex flex-col items-center justify-center gap-4" role="alert"><p id="cleanWorkspaceGateStatus" class="text-center">Preparando banco V2 separado...</p><form id="mainRecoveryForm" hidden class="hidden flex flex-col gap-3 max-w-md"><label for="mainRecoveryFile">Backup JSON do V2 principal</label><input id="mainRecoveryFile" type="file" accept=".json,application/json" required><input id="mainRecoveryPin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN do aplicativo" autocomplete="off"><label><input id="mainRecoveryConfirm" type="checkbox" required> Confirmo a recuperação do banco principal e a preservação da cópia anterior.</label><button id="mainRecoverySubmit" type="submit" class="bg-emerald-700 rounded p-2">Restaurar banco principal</button></form><a href="./?workspace=legacy" class="text-emerald-300 underline">Abrir banco legado</a><a href="./?workspace=v2-main" class="text-emerald-300 underline">Abrir banco V2 principal</a></div>
   <div id="cleanWorkspaceBanner" class="hidden bg-emerald-950 text-emerald-200 px-4 py-2 text-center text-xs font-bold">BANCO V2 SEPARADO · local · nuvem desativada | Seu histórico legado está preservado</div>
-  <header class="border-b border-slate-800/80 bg-slate-900/75 backdrop-blur-md sticky top-0 z-40">
-    <div class="max-w-6xl mx-auto px-3.5 sm:px-6 py-3">
+  <header class="raytech-header-shell border-b border-slate-800/80 bg-slate-900/75 backdrop-blur-md sticky top-0 z-40">
+    <div class="raytech-header-anchor max-w-6xl mx-auto px-3.5 sm:px-6 py-3">
       
       <!-- Barra Principal Enxuta -->
       <div class="flex items-center justify-between gap-2 raytech-header-row">
@@ -506,7 +506,7 @@
           <!-- Botão Expansor de Ferramentas & Categorias -->
           <button 
             type="button"
-            id="headerToolsToggleBtn"
+            id="headerToolsToggleBtn" aria-expanded="false" aria-controls="headerToolsDrawer"
             onclick="toggleHeaderDrawer(event)" 
             title="Abrir Menu de Ferramentas e Opções" 
             class="h-9 px-2 sm:px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/70 transition flex items-center gap-2 text-xs font-semibold shadow-sm shrink-0"
@@ -519,11 +519,11 @@
       </div>
 
       <!-- Painel Expansível de Ferramentas Organizado por Categorias (Oculto por padrão) -->
-      <div id="headerToolsDrawer" class="hidden pt-3 mt-3 border-t border-slate-800/80 transition-all">
+      <div id="headerToolsDrawer" role="region" aria-label="Opções do aplicativo" class="hidden">
         <!-- Input oculto para o arquivo Excel -->
         <input type="file" id="excelImportInput" accept=".xlsx, .xls, .xlsm" class="sr-only" onchange="handleExcelImport(event)">
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        <div class="raytech-options-grid">
           
           <!-- Categoria 1: Ações do Mês & IA -->
           <div class="bg-slate-950/80 border border-slate-800/90 rounded-xl p-2.5 space-y-2">
