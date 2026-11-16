@@ -13,7 +13,9 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
  const b2=el('productionCloudB2'),planBox=el('productionCloudPlan'),reviewBox=el('productionCloudReview'),historyBox=el('productionCloudHistory'),backupBtn=el('productionCloudBackup'),stageBtn=el('productionCloudStage'),reviewBtn=el('productionCloudResolve'),updateBtn=el('productionCloudUpdateReview'),historyBtn=el('productionCloudShowHistory'),historyExport=el('productionCloudExportHistory'),diagnosticBtn=el('productionCloudDiagnostic');
  const extra=[pauseBtn,resumeBtn,backupBtn,stageBtn,reviewBtn,updateBtn,historyBtn,historyExport,diagnosticBtn];
  if(b2)b2.hidden=!canSync;
- const previewStatus=el('productionV2PreviewStatus');if(canSync&&previewStatus)previewStatus.textContent='Verificação de compatibilidade somente neste dispositivo. Sincronização disponível no painel abaixo.';
+ const technical=el('productionCloudTechnical'),setupPanel=el('productionCloudSetup'),advanced=el('productionCloudAdvanced'),header=el('productionCloudHeader');
+ if(technical)technical.hidden=!canSync;if(header)header.hidden=!canSync;
+ const previewStatus=el('productionV2PreviewStatus');if(canSync&&previewStatus)previewStatus.textContent='Verificação de compatibilidade somente neste dispositivo.';
  if(dbKey===null){for(const button of [connect,login,inspect,seed,logout,refresh,adopt,...extra])if(button)button.disabled=true;status.textContent='Endereço de banco inválido.';return;}
  const CONNECTION_KEY='auto-connect-v1',LAST_KEY='last-sync-v1';
  const connection=()=>{const stored=syncStorage.getItem(CONNECTION_KEY);if(stored!==null)return stored==='signed-out'?null:stored;try{const p=JSON.parse(syncStorage.getItem('experimental-sync-policy-v1')),c=JSON.parse(syncStorage.getItem(DEVICE_KEY));return p?.uid&&p.uid===c?.uid&&['active','paused'].includes(p.state)?p.uid:null;}catch{return null;}};
@@ -30,10 +32,16 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
   let st={active:false,busy:false};try{if(session)st=session.state();}catch{invalid=true;}
   const indicator=el('productionCloudConnection'),last=el('productionCloudLastSync');
   if(indicator)indicator.textContent=!online()?'Sem internet — dados locais preservados':!unlocked()?'Bloqueado pelo PIN':!uid?'Desconectado':invalid||review?'Revisão necessária':st.active?'Conectado · automático':bound?'Conectado · pausado':'Conectado · aguardando vínculo';
+  if(setupPanel)setupPanel.hidden=!canSync||bound||!plan;
+  if(advanced&&review){advanced.open=true;const reviewDetails=reviewBox?.closest('details');if(reviewDetails)reviewDetails.open=true;}
+  if(header){const state=indicator?.textContent||'Desconectado';header.title='Nuvem: '+state;header.setAttribute('aria-label',header.title);header.classList.toggle('text-emerald-400',!!st.active&&online()&&!invalid&&!review);header.classList.toggle('text-amber-400',!!uid&&(!st.active||!online()||invalid||!!review));header.classList.toggle('text-slate-400',!uid);}
+  if(indicator){indicator.classList.toggle('text-emerald-400',!!st.active&&online()&&!invalid&&!review);indicator.classList.toggle('text-amber-400',!!uid&&(!st.active||!online()||invalid||!!review));indicator.classList.toggle('text-slate-400',!uid);}
   if(last){try{const x=JSON.parse(syncStorage.getItem(LAST_KEY));last.textContent=x?.uid===uid?'Última sincronização: '+new Date(x.at).toLocaleString('pt-BR'):'Última sincronização: —';}catch{last.textContent='Última sincronização: —';}}
   const blocked=busy||!canSync||!session||invalid||!ready()||st.busy;
   seed.disabled=blocked||bound||plan?.mode!=='seed'||!writeAllowed;disable(adopt,blocked||bound||plan?.mode!=='adopt'||!writeAllowed);
-  disable(refresh,blocked||!bound||!st.active||!!review||!writeAllowed);disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bound||st.active||!!review||!writeAllowed);
+  disable(refresh,blocked||!bound||!st.active||!!review||!writeAllowed);
+  if(canSync){connect.hidden=!!cloud;login.hidden=!!uid||!cloud;inspect.hidden=bound&&writeAllowed;seed.hidden=bound||plan?.mode!=='seed';if(adopt)adopt.hidden=bound||plan?.mode!=='adopt';if(refresh)refresh.hidden=!bound;logout.hidden=!uid;}
+disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bound||st.active||!!review||!writeAllowed);
   disable(backupBtn,blocked);disable(stageBtn,blocked||!bound||st.active||!!review||!writeAllowed);disable(reviewBtn,blocked||st.active||!review||!writeAllowed);disable(updateBtn,blocked||st.active||!review||!writeAllowed);
   for(const e of [historyBtn,historyExport,diagnosticBtn])disable(e,blocked);
  }
