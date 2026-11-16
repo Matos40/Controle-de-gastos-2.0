@@ -31,7 +31,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
  const error=e=>{attention=true;verifiedSync=false;const code=String(e?.code??e?.message??'PRODUCTION_UNAVAILABLE');say('Operação não concluída ('+(/^[A-Z0-9_/-]+$/i.test(code)?code:'PRODUCTION_UNAVAILABLE')+'). Dados e pendências preservados.');};
  const disable=(e,v)=>{if(e)e.disabled=!!v;};
  function stopWatch(){watchGeneration++;watchStarting=false;watchRevision=null;unsubscribe?.();unsubscribe=null;}
- function watchState(){const allowed=canSync&&uid&&session&&bound&&writeAllowed&&!review&&!invalid&&ready()&&online()&&doc.visibilityState!=='hidden'&&session.state().active;if(!allowed){if(unsubscribe||watchStarting)stopWatch();return;}if(unsubscribe||watchStarting||watchFailed||!cloud?.watchHead||busy||restoring||session.state().busy)return;watchStarting=true;const token=++watchGeneration,who=uid;void session.reserveListener().then(ok=>{if(token!==watchGeneration||who!==uid)return;watchStarting=false;if(!ok){watchFailed=true;return;}unsubscribe=cloud.watchHead(who,revision=>{if(token!==watchGeneration||who!==uid)return;if(watchRevision===revision)return;watchRevision=revision;let base;try{base=JSON.parse(syncStorage.getItem(DEVICE_KEY))?.base?.head?.revision??0;}catch{return;}if(revision!==base){verifiedSync=false;runtime?.signal();}},()=>{if(token===watchGeneration){stopWatch();watchFailed=true;}});}).catch(()=>{if(token===watchGeneration){stopWatch();watchFailed=true;}});}
+ function watchState(){const allowed=canSync&&uid&&session&&bound&&writeAllowed&&!review&&!invalid&&ready()&&online()&&doc.visibilityState!=='hidden'&&session.state().active;if(!allowed){if(unsubscribe||watchStarting)stopWatch();return;}if(unsubscribe||watchStarting||watchFailed||!cloud?.watchHead||busy||restoring||syncing||session.state().busy)return;watchStarting=true;const token=++watchGeneration,who=uid;void session.reserveListener().then(ok=>{if(token!==watchGeneration||who!==uid)return;watchStarting=false;if(!ok){watchFailed=true;return;}unsubscribe=cloud.watchHead(who,revision=>{if(token!==watchGeneration||who!==uid)return;if(watchRevision===revision)return;watchRevision=revision;let base;try{base=JSON.parse(syncStorage.getItem(DEVICE_KEY))?.base?.head?.revision??0;}catch{return;}if(revision!==base){verifiedSync=false;runtime?.signal();}},()=>{if(token===watchGeneration){stopWatch();watchFailed=true;}});}).catch(()=>{if(token===watchGeneration){stopWatch();watchFailed=true;}});}
  function paint(){
   connect.disabled=busy||!!cloud||!config.enabled;login.disabled=busy||!cloud||!!uid;inspect.disabled=busy||!uid;logout.disabled=busy||!uid;
   let st={active:false,busy:false};try{if(session)st=session.state();}catch{invalid=true;}
@@ -42,7 +42,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
   if(advanced&&review&&maintenance){advanced.open=true;if(reviewDetails)reviewDetails.open=true;}
   if(reviewDetails&&reviewHome&&!maintenance){if(review&&reviewExpanded){setupPanel?.after(reviewDetails);reviewDetails.open=true;}else if(reviewDetails.parentElement!==reviewHome){reviewHome.appendChild(reviewDetails);reviewDetails.open=false;}}
   if(reviewOpen)reviewOpen.hidden=maintenance||!review;
-  if(retry){retry.hidden=maintenance||!uid||!!review||invalid||(!attention&&(!bound||st.active));retry.disabled=busy||!online()||!ready();}
+  if(retry){retry.hidden=maintenance||!uid||!!review||invalid||(!attention&&(!bound||st.active));retry.disabled=busy||st.busy||!online()||!ready();}
   if(header&&canSync){
    const kind=!uid?'disconnected':!online()?'offline':invalid||review||attention?'attention':syncing||st.busy?'syncing':st.active&&verifiedSync?'synced':st.active?'online':'paused';
    const icons={disconnected:'fa-cloud',offline:'fa-cloud-arrow-down',attention:'fa-triangle-exclamation',syncing:'fa-arrows-rotate',synced:'fa-cloud-circle-check',online:'fa-cloud',paused:'fa-circle-pause'};
@@ -63,7 +63,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
    if(indicator&&kind==='syncing')indicator.textContent='Sincronizando…';
    if(indicator&&kind==='attention')indicator.textContent='Atenção necessária';
   }
-  if(indicator&&canSync){indicator.classList.toggle('text-emerald-400',!!st.active&&online()&&!invalid&&!review);indicator.classList.toggle('text-amber-400',!!uid&&(!st.active||!online()||invalid||!!review));indicator.classList.toggle('text-slate-400',!uid);}
+  if(indicator&&canSync){indicator.classList.toggle('text-emerald-400',!!st.active&&online()&&!invalid&&!review&&!attention);indicator.classList.toggle('text-amber-400',!!uid&&(!st.active||!online()||invalid||!!review||attention));indicator.classList.toggle('text-slate-400',!uid);}
   if(last){try{const x=JSON.parse(syncStorage.getItem(LAST_KEY));last.textContent=x?.uid===uid?'Última sincronização: '+new Date(x.at).toLocaleString('pt-BR'):'Última sincronização: —';}catch{last.textContent='Última sincronização: —';}}
   const blocked=busy||!canSync||!session||invalid||!ready()||st.busy;
   seed.disabled=blocked||bound||plan?.mode!=='seed'||!writeAllowed;disable(adopt,blocked||bound||plan?.mode!=='adopt'||!writeAllowed);
@@ -75,12 +75,12 @@ disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bou
   if(canSync)try{watchState();}catch{stopWatch();}
  }
  async function details(){if(!session)return;try{bound=!!await session.checkpoint();review=session.review();invalid=false;if(reviewBox)reviewBox.textContent=review?JSON.stringify(review,null,2):'Nenhuma revisão pendente.';const b=session.budget();if(el('productionCloudBudget'))el('productionCloudBudget').textContent='Reserva local: '+(b?.reads??0)+'/'+LIMITS.reads+' leituras; '+(b?.writes??0)+'/'+LIMITS.writes+' escritas. Não é faturamento.';if(syncStorage.getItem(RECOVERY_KEY)!==null)invalid=true;}catch{invalid=true;try{session.pause();}catch{}say('Metadados indisponíveis. Sincronização bloqueada; preserve os dados.');}}
- const action=async fn=>{if(busy||!unlocked())return;busy=true;paint();try{await fn();}catch(e){error(e);}finally{busy=false;await details();paint();runtime?.changed();if(unifiedLogin&&uid&&canSync&&ready()&&online()){void finishExplicitLogin();}}};
+ const action=async fn=>{if(busy||session?.state().busy||!unlocked())return;busy=true;paint();try{await fn();}catch(e){error(e);}finally{busy=false;await details();paint();runtime?.changed();if(unifiedLogin&&uid&&canSync&&ready()&&online()){void finishExplicitLogin();}}};
  function stop(preserve=false){stopWatch();watchFailed=false;runtime?.close();runtime=null;if(session)try{preserve?session.suspend():session.sessionChanged();}catch{}session=null;plan=null;bound=false;review=null;invalid=false;writeAllowed=false;}
  function makeSession(who,g){
   const current=()=>g===generation&&uid===who&&ready();
   const s=createProductionSyncSession({config,location:win.location,search,cloud,storage:syncStorage,uid:who,hash:payloadHash,id:()=>win.crypto.randomUUID(),local:{read:()=>storage.getItem(dbKey),apply:(raw,payload)=>current()&&win.productionV2ApplyLocal?.(raw,payload)===true},unlocked:current,online:()=>win?.navigator?.onLine!==false,visible:()=>doc.visibilityState!=='hidden',lock:(key,fn)=>withQueueLock('main_b2_'+key,fn,win.navigator?.locks)});
-  runtime=createEventRuntime({session:{state:s.state,tick:async opts=>{try{syncing=true;paint();const r=await s.tick(opts);if(g===generation){result(r);if(r.status==='updated')runtime?.signal();}return r;}finally{syncing=false;await details();paint();}},pause:s.pause,sessionChanged:s.sessionChanged},environment:()=>({visible:doc.visibilityState!=='hidden',online:win.navigator?.onLine!==false,unlocked:current()&&!busy&&!review&&!invalid,bound}),setTimer:(fn,ms)=>win.setTimeout(fn,ms),clearTimer:id=>win.clearTimeout(id),onError:()=>{attention=true;verifiedSync=false;say('Consulta automática interrompida. Revise o estado.');paint();}});
+  runtime=createEventRuntime({session:{state:s.state,tick:async opts=>{try{syncing=true;paint();const r=await s.tick(opts);if(g===generation){result(r);if(r.status==='updated')runtime?.signal();}return r;}finally{syncing=false;await details();paint();}},pause:s.pause,sessionChanged:s.sessionChanged},environment:()=>({visible:doc.visibilityState!=='hidden',online:win.navigator?.onLine!==false,unlocked:current()&&!busy&&!review&&!invalid,bound}),setTimer:(fn,ms)=>win.setTimeout(fn,ms),clearTimer:id=>win.clearTimeout(id),onError:code=>{if(g!==generation)return;attention=true;verifiedSync=false;say('Consulta automática interrompida ('+code+'). Dados preservados.');paint();}});
   return s;
  }
  function requireSession(){if(!canSync||!session||!ready()||invalid)throw Error('PRODUCTION_TRANSFER_DISABLED');return session;}
@@ -97,6 +97,7 @@ disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bou
    if(!s.state().active){if(s.state().persisted==='active')await s.restoreActive();else await s.resume(true);}
    if(g!==generation||who!==uid||!ready()||!s.state().active)return;
    syncStorage.setItem(CONNECTION_KEY,who);attention=false;syncing=true;paint();try{const r=await s.tick({manual:true});if(g===generation)result(r);}finally{syncing=false;}
+   runtime?.retry();
   });
  }
  async function restore(){
@@ -119,7 +120,7 @@ disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bou
  el('productionCloudGoogle')?.addEventListener('click',()=>{if(!canSync||!ready()||!online())return;unifiedLogin=true;void action(async()=>{try{await connectCloud();if(!cloud.currentUid())await cloud.signIn();}catch(e){unifiedLogin=false;throw e;}});});
 
  reviewOpen?.addEventListener('click',()=>{reviewExpanded=true;paint();});
- retry?.addEventListener('click',()=>{if(!uid||review||invalid)return;unifiedLogin=true;void finishExplicitLogin();});
+ retry?.addEventListener('click',()=>{if(!uid||review||invalid||busy||session?.state().busy)return;if(session?.state().active){runtime?.retry();return;}unifiedLogin=true;void finishExplicitLogin();});
  login.addEventListener('click',()=>action(async()=>{if(!cloud||uid)return;await cloud.signIn();}));
  async function inspectAccount(){if(!cloud||!uid)return;const who=uid,g=generation;if(!canSync){const remote=await cloud.read(who);if(g!==generation||who!==uid||!unlocked())return;say('UID: '+who+(remote?' • Nuvem existente, revisão '+remote.head.revision:' • Conta autorizada; nuvem vazia.'));return;}const s=requireSession();writeAllowed=false;await authorizeWrite();if(await s.checkpoint()){say('Conta autorizada para escrita. Retomada exige confirmação explícita.');return;}const r=await s.inspect();if(g!==generation||who!==uid)return;plan=r;reset('productionCloudConsent','productionCloudBackupSaved');if(planBox)planBox.textContent=JSON.stringify({uid:r.uid,mode:r.mode,local:r.local,remote:r.remote},null,2);say(r.mode==='seed'?'Conta autorizada; nuvem vazia. Revise e confirme.':'Conta autorizada; nuvem existente. Revise antes de receber.');}
  inspect.addEventListener('click',()=>action(inspectAccount));
