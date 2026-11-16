@@ -1,4 +1,4 @@
-import {canonical,validatePayload,mergeThreeWay,validId} from '../productionV2/model.mjs';
+import {canonical,validatePayload,mergeThreeWay,reviewApplyFields,validId} from '../productionV2/model.mjs';
 import {validateV2Head,validateV2Receipt} from '../productionV2/capacity.mjs';
 import {prepareLocal} from '../productionV2/preview.mjs';
 import {payloadHash} from '../productionV2/initialTransfer.mjs';
@@ -16,7 +16,7 @@ export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,onl
  const expected=async q=>validateV2Receipt({operationId:q.id,revision:q.expectedRevision+1,parentId:q.parentId,hash:await hash(q.payload)});
  function backup(raw){const key=BACKUP+uid;if(storage.getItem(key)===null){storage.setItem(key,raw);if(storage.getItem(key)!==raw)fail('PRODUCTION_BACKUP');}}
  const run=fn=>lock('device_binding',async()=>{check();return fn();});
- async function recoverApply(s,{reconcile=false}={}){if(!s.apply)return s;let j=s.apply;await verified(j.base);validatePayload(j.before);validatePayload(j.target);const raw=local.read();if(raw!==j.target){
+ async function recoverApply(s,{reconcile=false,decision=null}={}){if(!s.apply)return s;let j=s.apply;await verified(j.base);validatePayload(j.before);validatePayload(j.target);const raw=local.read();if(raw!==j.target){
   if(raw!==j.before){
    if(!reconcile)fail('PRODUCTION_RECOVERY_REQUIRED');
    validatePayload(raw);
@@ -25,7 +25,8 @@ export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,onl
    if(!s.base)fail('PRODUCTION_RECOVERY_REQUIRED');
    await continuity(s.base,j.base);
    const remote=await verified(await cloud.read(uid));await continuity(j.base,remote);
-   const m=sameData(raw,j.target)?{payload:raw}:sameData(raw,j.before)?{payload:j.target}:sameData(j.before,j.target)?{payload:raw}:mergeThreeWay(j.before,raw,j.target);
+   if(decision&&(canonical(decision.checkpoint)!==canonical(s)||decision.local!==raw||canonical(decision.remote)!==canonical(remote)))fail('PRODUCTION_REVIEW_CHANGED');
+   const m=decision?reviewApplyFields(j.before,raw,j.target,decision.choices):sameData(raw,j.target)?{payload:raw}:sameData(raw,j.before)?{payload:j.target}:sameData(j.before,j.target)?{payload:raw}:mergeThreeWay(j.before,raw,j.target);
    if(!m.payload)fail('PRODUCTION_RECOVERY_CONFLICT');
    const target=selection(raw,m.payload);validatePayload(target);
    check();if(local.read()!==raw)fail('PRODUCTION_LOCAL_CHANGED');
@@ -94,5 +95,7 @@ export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,onl
   if(s.apply){const j=s.apply;if(j.before!==snapshot.local||j.target!==selected||canonical(j.base)!==canonical(snapshot.remote)||canonical(s.base)!==canonical(snapshot.base))fail('PRODUCTION_REVIEW_PENDING');await continuity(j.base,remote);return recoverApply(s);}
   if(canonical(s.base)===canonical(snapshot.remote)&&local.read()===selected&&snapshot.local!==selected)return s; // previous reviewed apply committed before clearing review
   if(!remote||canonical(remote)!==canonical(snapshot.remote)||local.read()!==snapshot.local||canonical(s.base)!==canonical(snapshot.base))fail('PRODUCTION_REVIEW_CHANGED');return applyLocal(s,snapshot.local,target,remote);});}
- return {bind,tick,review,inspect:read};
+ async function inspectApply(){return run(async()=>{const s=read();if(!s?.base||!s.apply||s.pending)fail('PRODUCTION_RECOVERY_REQUIRED');const raw=local.read(),j=s.apply;await verified(s.base);await verified(j.base);await continuity(s.base,j.base);const remote=await verified(await cloud.read(uid));await continuity(j.base,remote);if(local.read()!==raw)fail('PRODUCTION_LOCAL_CHANGED');const m=reviewApplyFields(j.before,raw,j.target);return {checkpoint:s,local:raw,remote,fields:m.fields,blocked:m.blocked};});}
+ async function resolveApply(decision){return run(async()=>{const s=read();if(!s?.apply||s.pending||!s.base||canonical(decision.checkpoint)!==canonical(s)||decision.local!==local.read())fail('PRODUCTION_REVIEW_CHANGED');const m=reviewApplyFields(s.apply.before,decision.local,s.apply.target,decision.choices);if(!m.payload||m.fields.some(f=>!Object.hasOwn(decision.choices,f.path)))fail('PRODUCTION_RECOVERY_CONFLICT');return recoverApply(s,{reconcile:true,decision});});}
+ return {bind,tick,review,inspect:read,inspectApply,resolveApply};
 }
