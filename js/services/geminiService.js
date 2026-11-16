@@ -303,6 +303,7 @@ Formato exato de cada item:
         // Falhas de credencial, permissão ou cota não devem disparar novas tentativas.
         if ([401, 403, 429].includes(res.status)) break;
       } catch (netErr) {
+        if(controller.signal.aborted || generation !== invoiceGeneration) throw netErr;
         lastErrorText = `Erro de conexão: ${netErr.message}`;
         break;
       }
@@ -370,7 +371,7 @@ Formato exato de cada item:
     // Exibe os lançamentos para revisão; nada é gravado até a confirmação.
     assertCurrent();
     // Do not keep the PDF bytes after extraction, even when the user cancels review.
-    if(pdf){base64InvoiceImage=null;payload.contents[0].parts[1].inlineData.data='';}
+    if(pdf){base64InvoiceImage=null;payload.contents[0].parts[1].inlineData.data='';document.getElementById('invoiceFileInput').value='';}
     await reviewInvoiceItems(formattedNewItems);
 
   } catch (err) {
@@ -389,10 +390,11 @@ Formato exato de cada item:
 function formatPdfInvoiceItem(item,index) {
   const row=item&&typeof item==='object'&&!Array.isArray(item)?item:{};
   const number=v=>typeof v==='number'&&Number.isFinite(v)?v:NaN;
+  const money=v=>{const n=number(v);return n>0&&n<=10000000&&Math.abs(n*100-Math.round(n*100))<0.0001?n:NaN;};
   const title=typeof row.title==='string'?row.title.trim():'';
   const date=typeof row.date==='string'&&/^20\d{2}-\d{2}-\d{2}$/.test(row.date)&&Number.isFinite(Date.parse(row.date+'T00:00:00Z'))&&new Date(row.date+'T00:00:00Z').toISOString().slice(0,10)===row.date?row.date:'';
-  const count=number(row.installments),current=number(row.currentInstallment),amount=number(row.installmentValue);
-  const total=number(row.totalAmount);
+  const count=number(row.installments),current=number(row.currentInstallment),amount=money(row.installmentValue);
+  const total=money(row.totalAmount);
   return {id:'card_ai_'+Date.now()+'_'+index+'_'+Math.random().toString(36).slice(2,6),title,date,category:inferCategoryFromTitle(title),installmentValue:amount,isInstallment:count>1,currentInstallment:current,installments:count,totalAmount:total,paid:false};
 }
 
