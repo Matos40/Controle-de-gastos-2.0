@@ -69,3 +69,16 @@ body {
 .raytech-category-option{display:block;width:100%;text-align:left;padding:10px 9px;font-size:13px;line-height:1.4;color:#e2e8f0;border-radius:8px}
 .raytech-category-option[aria-checked=true]{background:#064e3b;color:#a7f3d0}
 .raytech-category-option:hover{background:#1e293b}
+
+/* Core header geometry must work independently of the Tailwind CDN. */
+.raytech-header-row,.raytech-header-brand,.raytech-header-controls,.raytech-month-nav{display:flex;align-items:center}
+.raytech-header-row{justify-content:space-between;gap:8px}
+.raytech-header-brand>div:first-child{width:36px;height:36px;flex:0 0 36px;overflow:hidden}
+.raytech-header-brand img{display:block;width:100%;height:100%;object-fit:contain}
+.raytech-header-controls{gap:6px}
+.raytech-header-controls>button{flex-shrink:0;min-width:32px;min-height:36px}
+.raytech-month-nav{flex:1 1 auto}
+.raytech-month-nav button{width:28px;height:28px;display:flex;align-items:center;justify-content:center}
+#currentMonthDisplay{display:block;flex:1 1 auto}
+@media(min-width:640px){.raytech-header-brand>div:first-child{width:40px;height:40px;flex-basis:40px}}
+@media(max-width:639px){.raytech-header-row,.raytech-header-controls{gap:4px}.raytech-month-nav button{width:24px}.raytech-header-controls>button{max-width:48px}.raytech-header-controls>button>span{display:none}}
