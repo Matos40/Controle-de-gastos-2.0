@@ -73,10 +73,10 @@ export function validatePayload(payload){
 }
 export function validId(x){return typeof x==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x);}
 export function canonical(x){if(x===null||typeof x!=="object")return JSON.stringify(x);if(Array.isArray(x))return "["+x.map(canonical).join(",")+"]";return "{"+Object.keys(x).sort().map(k=>JSON.stringify(k)+":"+canonical(x[k])).join(",")+"}";}
-export function mergeThreeWay(basePayload,localPayload,remotePayload){
+export function mergeThreeWay(basePayload,localPayload,remotePayload,review=null){
  const b=validatePayload(basePayload),l=validatePayload(localPayload),r=validatePayload(remotePayload),out=JSON.parse(remotePayload),conflicts=[];
  const eq=(a,b)=>canonical(a??null)===canonical(b??null),keys=x=>Object.keys(x).sort(),fail=path=>conflicts.push(path);
- const choose=(a,x,y,path)=>{if(eq(x,a))return y;if(eq(y,a)||eq(x,y))return x;fail(path);return y;};
+ const choose=(a,x,y,path)=>{if(eq(x,a))return y;if(eq(y,a)||eq(x,y))return x;if(review){review.fields.push({path,before:a??null,local:x??null,target:y??null});const v=Object.hasOwn(review.choices,path)?review.choices[path]:null;if(v==='local')return x;if(v==='target')return y;}fail(path);return y;};
  if(!eq(keys(b.months),keys(l.months))||!eq(keys(b.months),keys(r.months)))return {payload:null,conflicts:["Estrutura de meses mudou"]};
  const groups=db=>{const map=new Map();for(const [ym,m] of Object.entries(db.months)){for(const c of m.cardExpenses){if(!c.isInstallment)continue;const k=c.installmentOriginId,arr=map.get(k)??[];arr.push([ym,c]);map.set(k,arr);}for(const t of m.deletedInstallmentOrigins??[]){const k=t.split(":")[0],arr=map.get(k)??[];arr.push([ym,t]);map.set(k,arr);}}for(const arr of map.values())arr.sort((x,y)=>canonical(x).localeCompare(canonical(y)));return map;};
  const [gb,gl,gr]=[b,l,r].map(groups);for(const k of new Set([...gb.keys(),...gl.keys(),...gr.keys()])){const a=gb.get(k)??[],x=gl.get(k)??[],y=gr.get(k)??[];if(!eq(a,x)&&!eq(a,y)&&!eq(x,y))fail("Série de parcelas "+k);}
@@ -102,4 +102,11 @@ export function mergeThreeWay(basePayload,localPayload,remotePayload){
  if(conflicts.length)return {payload:null,conflicts:[...new Set(conflicts)]};
  const payload=JSON.stringify(out);try{validatePayload(payload);}catch{return {payload:null,conflicts:["Limites ou integridade financeira incompatíveis"]};}
  return {payload,conflicts:[]};
+}
+
+ // Recovery-only individual decisions. Structural and installment invariants remain fail-closed.
+export function reviewApplyFields(before,local,target,choices={}){
+ const fields=[],result=mergeThreeWay(before,local,target,{fields,choices});
+ if(Object.keys(choices).some(k=>!fields.some(f=>f.path===k)))throw Error('PRODUCTION_RECOVERY_CHOICE');
+ return {...result,fields,blocked:result.conflicts.filter(p=>!fields.some(f=>f.path===p))};
 }
