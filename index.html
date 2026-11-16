@@ -587,6 +587,7 @@
             </div>
             <p hidden id="productionCloudStatus" role="status" class="text-xs text-slate-400">Login disponível para validação após carregamento.</p>
 
+            <button type="button" id="productionCloudSyncNow" hidden disabled class="w-full p-2 rounded-lg bg-blue-700 text-white text-xs disabled:opacity-40">Sincronizar agora</button>
             <button type="button" id="productionCloudRetry" hidden class="w-full p-2 rounded-lg border border-slate-700 text-xs">Tentar novamente</button>
               <button type="button" hidden id="productionCloudApplyOpen" class="w-full p-2 rounded-lg border border-slate-700 text-sm">Revisar operação pendente</button>
               <section hidden id="productionCloudApplyReview" class="space-y-2 text-sm">
@@ -624,6 +625,7 @@
             <p id="mainCapacityStatus" role="status" class="text-xs text-slate-400"></p>
                 <section id="productionCloudTechnical" hidden class="space-y-2">
               <p id="productionCloudBudget" class="text-xs text-slate-400"></p>
+<p id="productionCloudMetrics" class="text-xs text-slate-400"></p>
               <details id="productionCloudReviewDetails"><summary class="text-sm">Conflitos e restauração revisada (JSON)</summary>
                 <input type="file" id="productionCloudBackupFile" accept=".json" class="text-xs w-full">
                 <button type="button" disabled id="productionCloudStage" class="p-2 rounded-lg text-xs disabled:opacity-40">Preparar restauração</button>
