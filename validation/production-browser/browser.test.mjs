@@ -11,9 +11,9 @@ const root=fileURLToPath(new URL('../../',import.meta.url));
 const base='https://matos40.github.io/Controle-de-gastos-2.0/';
 const contentType={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.ico':'image/x-icon'};
 const appStub="export const initializeApp=(f,n)=>({options:f,name:n});";
-const authStub=`let auth={currentUser:sessionStorage.getItem('fixture-auth')?{uid:'browser-fixture-uid'}:null},cb=()=>{};
+const authStub=`let auth={currentUser:sessionStorage.getItem('fixture-auth')?{uid:'browser-fixture-uid',displayName:'Pessoa Teste'}:null},cb=()=>{};
 export const getAuth=()=>auth;export const onAuthStateChanged=(a,f)=>{cb=f;queueMicrotask(()=>f(a.currentUser));return ()=>{};};
-export class GoogleAuthProvider{};export const signInWithPopup=async a=>{a.currentUser={uid:'browser-fixture-uid'};sessionStorage.setItem('fixture-auth','1');cb(a.currentUser);return {user:a.currentUser};};
+export class GoogleAuthProvider{};export const signInWithPopup=async a=>{a.currentUser={uid:'browser-fixture-uid',displayName:'Pessoa Teste'};sessionStorage.setItem('fixture-auth','1');cb(a.currentUser);return {user:a.currentUser};};
 export const signOut=async a=>{a.currentUser=null;sessionStorage.removeItem('fixture-auth');cb(null);};`;
 const firestoreStub=`export const getFirestore=()=>({});export const doc=(_, ...p)=>p;
 export async function getDocFromServer(p){globalThis.__reads=(globalThis.__reads||0)+1;return {exists:()=>!!globalThis.__allowed,data:()=>({enabled:true})};}
@@ -174,7 +174,9 @@ test('BROWSER20 cloud header opens simple panel; advanced diagnostics and bank s
  const header=page.locator('#productionCloudHeader');assert.equal(await header.getAttribute('aria-label'),'Nuvem: Desconectado');
  await header.click();assert.equal(await page.locator('#productionCloudPanel').isVisible(),true);
  assert.equal(await page.locator('#productionCloudAdvanced').evaluate(e=>e.open),false);assert.equal(await page.locator('#productionCloudBudget').isVisible(),false);assert.equal(await page.locator('#productionCloudSetup').isVisible(),false);
- assert.equal(await page.locator('#productionCloudConnect').isVisible(),true);assert.equal(await page.locator('#productionCloudSeed').isVisible(),false);
+ assert.equal(await page.locator('#productionCloudGoogle').isVisible(),true);assert.equal(await page.locator('#productionCloudSeed').isVisible(),false);
  await page.locator('#productionCloudAdvanced > summary').click();assert.equal(await page.locator('#cleanWorkspaceSwitch').isVisible(),true);assert.equal(await page.locator('#legacyWorkspaceSwitch').isVisible(),true);assert.equal(await page.locator('#productionV2Preview').isVisible(),true);
  assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
 });
+
+test('BROWSER21 unified Google login shows authenticated profile and retains initial consent',async t=>{const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);await page.evaluate(()=>{sessionStorage.setItem('fixture-write','1');});await click(page,'productionCloudHeader');await click(page,'productionCloudGoogle');await textIs(page,'nuvem vazia');assert.equal(await page.locator('#productionCloudName').textContent(),'Pessoa Teste');assert.equal(await page.locator('#productionCloudSetup').isVisible(),true);assert.equal(await page.evaluate(()=>globalThis.__writes??0),0);await click(page,'productionCloudSeed');await textIs(page,'PRODUCTION_CONSENT');assert.equal(await page.evaluate(()=>globalThis.__writes??0),0);await page.evaluate(()=>{document.getElementById('productionCloudConsent').checked=true;document.getElementById('productionCloudBackupSaved').checked=true;});await click(page,'productionCloudSeed');await textIs(page,'Vínculo confirmado');await page.waitForFunction(()=>!document.getElementById('productionCloudRefresh').disabled);await click(page,'productionCloudRefresh');await textIs(page,'revisão 1');await page.waitForFunction(()=>document.getElementById('productionCloudHeader').dataset.syncState==='synced');await page.context().setOffline(true);await page.waitForFunction(()=>document.getElementById('productionCloudHeader').dataset.syncState==='offline');await page.context().setOffline(false);await page.waitForFunction(()=>document.getElementById('productionCloudHeader').dataset.syncState==='synced');});
