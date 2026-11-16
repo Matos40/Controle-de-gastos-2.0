@@ -168,3 +168,13 @@ test('BROWSER19 reconnect after reload, offline online event, durable pause and 
  await click(page,'productionCloudPause');await textIs(page,'Sincronização pausada');await page.reload();await cleanReady(page);await page.waitForFunction(()=>!document.getElementById('productionCloudResume').disabled);assert.equal(await page.locator('#productionCloudRefresh').isDisabled(),true);
  await click(page,'productionCloudLogout');await textIs(page,'Entre com a conta Google');await page.reload();await cleanReady(page);assert.equal(await page.locator('#productionCloudConnect').isDisabled(),false);assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
 });
+
+test('BROWSER20 cloud header opens simple panel; advanced diagnostics and bank selection remain available',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);
+ const header=page.locator('#productionCloudHeader');assert.equal(await header.getAttribute('aria-label'),'Nuvem: Desconectado');
+ await header.click();assert.equal(await page.locator('#productionCloudPanel').isVisible(),true);
+ assert.equal(await page.locator('#productionCloudAdvanced').evaluate(e=>e.open),false);assert.equal(await page.locator('#productionCloudBudget').isVisible(),false);assert.equal(await page.locator('#productionCloudSetup').isVisible(),false);
+ assert.equal(await page.locator('#productionCloudConnect').isVisible(),true);assert.equal(await page.locator('#productionCloudSeed').isVisible(),false);
+ await page.locator('#productionCloudAdvanced > summary').click();assert.equal(await page.locator('#cleanWorkspaceSwitch').isVisible(),true);assert.equal(await page.locator('#legacyWorkspaceSwitch').isVisible(),true);assert.equal(await page.locator('#productionV2Preview').isVisible(),true);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
+});
