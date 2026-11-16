@@ -1,0 +1,33 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const I=require('../js/services/financialRepositoryV11Integrity.js');
+const P=require('./fixtures/financialRepositoryV11ValidatorPhase24Privacy.cjs');
+const base=()=>({selectedMonth:'2026-11',months:{'2026-11':{salary:3000,expenses:[],cardExpenses:[]}}});
+const string=x=>typeof x==='string'?x:JSON.stringify(x);
+async function expect(x,decision,code){
+ const original=string(x),r=await P.inspectSyntheticPrivacy(original);
+ assert.equal(r.decision,decision);
+ assert.equal(r.reviewedByHuman,false);
+ assert.equal(Object.isFrozen(r),true);
+ if(code)assert.ok(r.checks.some(c=>c.code===code&&!c.passed),JSON.stringify(r));
+ assert.ok(!JSON.stringify(r).includes('2026-11'));
+ assert.ok(!JSON.stringify(r).includes('3000'));
+ return r;
+}
+test('PRIV-01 JSON sintetico sem indicadores',async()=>{await expect(base(),'PASS')});
+test('PRIV-02 nome e email ficticios',async()=>{const x=base();x.months['2026-11'].name='Pessoa Ficticia';x.months['2026-11'].email='teste@example.invalid';await expect(x,'REVIEW','PRIVACY_PERSONAL_INDICATORS_ABSENT')});
+test('PRIV-03 CPF sintetico',async()=>{const x=base();x.months['2026-11'].cpf='123.456.789-09';await expect(x,'REVIEW')});
+test('PRIV-04 telefone e endereco ficticios',async()=>{const x=base();x.months['2026-11'].telefone='(71) 99999-0000';x.months['2026-11'].endereco='Rua Exemplo';await expect(x,'REVIEW')});
+test('PRIV-05 campo desconhecido',async()=>{const x=base();x.months['2026-11'].customField='synthetic';await expect(x,'REVIEW','PRIVACY_UNKNOWN_FIELDS_ABSENT')});
+test('PRIV-06 token API ficticio',async()=>{const x=base();x.months['2026-11'].apiKey='FAKE_NOT_A_REAL_KEY';await expect(x,'BLOCKED','PRIVACY_SECRETS_ABSENT')});
+test('PRIV-07 senha e chave privada ficticias',async()=>{const x=base();x.months['2026-11'].password='NOT_REAL';await expect(x,'BLOCKED')});
+test('PRIV-08 credencial em objeto aninhado',async()=>{const x=base();x.months['2026-11'].nested={level:{accessToken:'FAKE'}};await expect(x,'BLOCKED')});
+test('PRIV-09 JSON truncado',async()=>{await expect('{','BLOCKED','JSON_PARSE_FAILED')});
+test('PRIV-10 limite de bytes',async()=>{await expect(' '.repeat(128*1024+1),'BLOCKED','SIZE_LIMIT')});
+test('PRIV-11 profundidade excessiva',async()=>{const x=base();let p=x;for(let i=0;i<35;i++){p.nested={};p=p.nested}await expect(x,'BLOCKED','DEPTH_LIMIT')});
+test('PRIV-12 digest selado divergente',async()=>{const x=await I.seal(base());x.database.months['2026-11'].salary=3001;await expect(x,'BLOCKED','DIGEST_MISMATCH')});
+test('PRIV-13 BLOCKED prevalece sobre REVIEW',async()=>{const x=base();x.months['2026-11'].email='teste@example.invalid';x.months['2026-11'].password='FAKE';await expect(x,'BLOCKED')});
+test('PRIV-14 relatorio nao revela conteudo',async()=>{const x=base();x.months['2026-11'].email='marcador-privado@example.invalid';const r=await expect(x,'REVIEW');assert.ok(!JSON.stringify(r).includes('marcador-privado'))});
+test('PRIV-15 entrada preservada',async()=>{const x=base(),before=JSON.stringify(x);await expect(x,'PASS');assert.equal(JSON.stringify(x),before)});
+test('PRIV-16 padrao ambiguo exige revisao',async()=>{const x=base();x.months['2026-11'].description='teste@example.invalid';await expect(x,'REVIEW')});

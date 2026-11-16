@@ -1,0 +1,14 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {guardLocation,stagingOrigin,stagingPath} from './staging-guard.mjs';
+import {validateStagingConfig} from './staging-auth.mjs';
+const location={origin:'https://raytech-cg-homologacao.firebaseapp.com',pathname:'/staging.html',search:'',hash:''};
+const reject=(v)=>assert.throws(()=>guardLocation({...location,...v}),/STAGING_LOCATION_REJECTED/);
+test('T01 origem e caminho exatos',()=>{assert.equal(stagingOrigin,location.origin);assert.equal(stagingPath,location.pathname);assert.doesNotThrow(()=>guardLocation(location));});
+test('T02 HTTP rejeitado',()=>reject({origin:location.origin.replace('https','http')}));
+test('T03 GitHub Pages antigo rejeitado',()=>reject({origin:'https://matos40.github.io',pathname:'/Controle-de-gastos-homologacao/experimental/firebase/staging.html'}));
+test('T04 produção rejeitada',()=>{reject({origin:'https://matos40.github.io',pathname:'/Controle-de-gastos-2.0/'});reject({origin:'https://raytech-cg.firebaseapp.com'});});
+test('T05 web.app alternativo rejeitado',()=>reject({origin:'https://raytech-cg-homologacao.web.app'}));
+test('T06 caminho divergente rejeitado',()=>{for(const pathname of ['/','/staging.html/','/experimental/firebase/staging.html'])reject({pathname});});
+test('T07 query e fragmento rejeitados',()=>{reject({search:'?enable=true'});reject({hash:'#enable'});});
+test('T08 projeto divergente rejeitado',()=>{const c={projectId:'other',authDomain:'raytech-cg-homologacao.firebaseapp.com',appId:'1:195471491370:web:b7e5a0a5a218d16f7a9e53',apiKey:'synthetic'};assert.throws(()=>validateStagingConfig(c,location.origin),/STAGING_CONFIG_REJECTED/);});

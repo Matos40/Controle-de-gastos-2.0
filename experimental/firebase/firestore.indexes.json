@@ -1,0 +1,10 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "raytechExperimentalAccounts",
+      "fieldPath": "payload",
+      "indexes": []
+    }
+  ]
+}

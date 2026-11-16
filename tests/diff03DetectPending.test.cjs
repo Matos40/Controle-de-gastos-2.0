@@ -1,0 +1,19 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const F=require('./fixtures/diff03SyntheticFixtures.cjs');
+const {createLab,req,mp,write,create,setup,rp,resolve,hist,snapshot,month,card,clone,digest}=F;
+function rejected(result,code){assert.equal(result.status,'rejected');assert.equal(result.code,code);}
+function unchanged(l,before){assert.deepEqual(l.readSnapshot(),before);}
+
+const detect=(l,targetMonth='2027-01')=>l.DETECT_RECONCILIATION_PENDING(req({targetMonth,expectedRevision:l.readSnapshot().revision}));
+test('T21 no artificial gap with consecutive months',()=>{const l=createLab(F.F02());assert.deepEqual(detect(l).pending,[]);});
+test('T22 uncertain salary becomes pending',()=>{const l=createLab(F.F03()),r=detect(l);assert.equal(r.status,'detected');assert.equal(r.pending.length,1);assert.equal(r.pending[0].type,'SALARY_GAP');assert.equal(r.pending[0].sourceId,'salary');});
+test('T23 fixed expenses only, not one-time expenses or extra income',()=>{const s=F.F06();s.financialState.months['2026-11'].expenses.push({id:'one',type:'one-time',amount:25});const r=detect(createLab(s));assert.deepEqual(r.pending.map(p=>p.type).sort(),['FIXED_EXPENSE_GAP','SALARY_GAP']);});
+test('T24 installment gap never infers number',()=>{const p=detect(createLab(F.F07())).pending.find(x=>x.type==='INSTALLMENT_GAP');assert.ok(p);assert.equal(p.sourceId,'synthetic-origin-01');for(const k of ['currentInstallment','installments','installmentValue','paid'])assert.equal(Object.hasOwn(p,k),false);});
+test('T25 previous payment does not settle future installments',()=>{const s=F.F07();assert.equal(s.financialState.months['2026-11'].cardExpenses[0].paid,true);const l=createLab(s);create(l);assert.equal(l.readSnapshot().financialState.months['2027-01'].cardExpenses.length,0);assert.ok(l.readSnapshot().reconciliation.pending.some(p=>p.type==='INSTALLMENT_GAP'&&p.status==='OPEN'));});
+test('T26 excluded origin never reactivated',()=>{const l=createLab(F.F08()),r=detect(l);assert.ok(r.pending.some(x=>x.type==='DELETION_CONFLICT'));assert.ok(!r.pending.some(x=>x.type==='INSTALLMENT_GAP'));create(l);assert.deepEqual(l.readSnapshot().financialState.months['2026-11'].deletedInstallmentOrigins,['synthetic-origin-01']);assert.deepEqual(l.readSnapshot().financialState.months['2027-01'].cardExpenses,[]);const p=l.readSnapshot().reconciliation.pending.find(x=>x.type==='DELETION_CONFLICT');rejected(rp(l,p.pendingId,'CONFIRM_CONTINUITY'),'SOURCE_DELETED');});
+test('T27 ambiguous origin not chosen silently',()=>{const s=F.F07();s.financialState.months['2026-11'].cardExpenses.push(card({id:'synthetic-card-02'}));const l=createLab(s),r=detect(l);assert.equal(r.pending.filter(x=>x.type==='SOURCE_AMBIGUITY').length,1);assert.equal(r.pending.filter(x=>x.type==='INSTALLMENT_GAP').length,0);create(l);const p=l.readSnapshot().reconciliation.pending.find(x=>x.type==='SOURCE_AMBIGUITY');rejected(rp(l,p.pendingId,'CONFIRM_CONTINUITY'),'INVALID_DECISION');});
+test('T28 provenance preserved',()=>{const l=createLab(F.F07()),p=detect(l).pending.find(x=>x.type==='FIXED_EXPENSE_GAP');assert.equal(p.originMonth,'2026-11');assert.equal(p.targetMonth,'2027-01');assert.equal(p.sourceId,'synthetic-fixed-01');assert.equal(p.status,'OPEN');});
+test('T29 repeated detection stable; persistence neither implicit nor duplicated',()=>{const l=createLab(F.F07()),a=detect(l),b=detect(l);assert.deepEqual(a,b);assert.deepEqual(l.readSnapshot().reconciliation.pending,[]);create(l);const pending=l.readSnapshot().reconciliation.pending;assert.equal(new Set(pending.map(x=>x.pendingId)).size,pending.length);assert.deepEqual(detect(l).pending,pending);});
+test('T30 detection leaves all money and state intact',()=>{const l=createLab(F.F07()),b=l.readSnapshot(),balances=l.readBalances();detect(l);unchanged(l,b);assert.deepEqual(l.readBalances(),balances);});
