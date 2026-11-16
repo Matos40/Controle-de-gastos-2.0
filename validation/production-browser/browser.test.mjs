@@ -247,3 +247,17 @@ test('V32.4.4 mobile options fit viewport, scroll internally and preserve every 
  await drawer.getByRole('button',{name:'Senha PIN',exact:true}).click();assert.equal(await drawer.isVisible(),false);
  assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
 });
+
+test('V32.4.4.1 backup grid uses four desktop columns and mobile/tablet 2x2',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);
+ const grid=page.locator('#headerToolsDrawer .raytech-backup-grid'),toggle=page.locator('#headerToolsToggleBtn');
+ for(const [width,columns] of [[1440,4],[768,2],[360,2]]){
+  await page.setViewportSize({width,height:800});if(!await grid.isVisible())await toggle.click();
+  assert.equal(await grid.locator('button').count(),4);assert.equal(await grid.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),columns);
+  const boxes=await grid.locator('button').evaluateAll(els=>els.map(e=>{const b=e.getBoundingClientRect();return {x:b.x,y:b.y,w:b.width,h:b.height};}));
+  assert.equal(new Set(boxes.map(b=>Math.round(b.y))).size,4/columns);
+  const outer=await grid.boundingBox();assert.ok(boxes.every(b=>b.x>=outer.x-1&&b.x+b.w<=outer.x+outer.width+1&&b.w>0));
+ }
+ assert.equal(await grid.locator('#jsonImportInput').isVisible(),false);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
+});

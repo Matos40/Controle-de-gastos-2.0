@@ -102,3 +102,12 @@ body {
  #headerToolsDrawer button:not([hidden]){min-height:44px}
  .raytech-options-grid>div{padding:8px}
 }
+
+/* V32.4.4.1: four backup actions on desktop, two by two on smaller screens. */
+#headerToolsDrawer .raytech-backup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+#headerToolsDrawer .raytech-backup-grid>input[type=file]{display:none}
+@media(min-width:1024px){
+ #headerToolsDrawer .raytech-backup-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+ #headerToolsDrawer .raytech-backup-grid>button{min-width:0;padding:8px 3px;line-height:1.2;overflow-wrap:normal}
+ #headerToolsDrawer .raytech-backup-grid>button>span{white-space:normal;font-size:10px}
+}
