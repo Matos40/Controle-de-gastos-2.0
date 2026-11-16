@@ -108,7 +108,7 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
  async function restore(){
   if(restoring||busy||!canSync||!ready()||!online()||doc.visibilityState==='hidden'||!uid||!session||connection()!==uid)return;
   const s=session,g=generation;restoring=true;busy=true;paint();
-  try{await details();if(g!==generation||!bound||invalid||review)return;if(s.state().budgetWaiting&&s.state().budgetDay===new Date().toISOString().slice(0,10))return;if(s.state().persisted!=='active')return;await authorizeWrite();if(g!==generation)return;
+  try{await details();if(g!==generation||!bound||invalid||review)return;if(s.state().budgetWaiting&&s.state().budgetDay===new Date().toISOString().slice(0,10))return;if(s.state().persisted!=='active'&&writeAllowed)return;await authorizeWrite();if(g!==generation)return;
    if(!s.state().active&&s.state().persisted==='active')await s.restoreActive();
    if(g===generation&&s.state().active){syncing=true;paint();try{const r=await s.tick({manual:true});if(g===generation)result(r);}finally{syncing=false;}}
   }catch(e){if(g===generation)error(e);}finally{restoring=false;busy=false;await details();paint();runtime?.changed();}
