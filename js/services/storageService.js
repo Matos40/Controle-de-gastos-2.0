@@ -267,7 +267,7 @@
         if (!cleanWorkspaceStore || window.productionCleanWorkspaceReady !== true) throw Error('CLEAN_WORKSPACE_NOT_READY');
         try {
           cleanWorkspaceStore.save(JSON.stringify(appDb));
-          if(MAIN_WORKSPACE) window.updateMainCapacity?.();
+          if(MAIN_WORKSPACE) { window.updateMainCapacity?.(); window.dispatchEvent(new Event('raytech-finance-saved')); }
         } catch (err) {
           appDb = cleanWorkspaceStore.snapshot();
           const limit=String(err?.message||'').match(/(?:PAYLOAD_LIMIT|MONTH_LIMIT|ENTRY_LIMIT|DELETION_MARKS)/);
