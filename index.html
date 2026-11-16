@@ -535,7 +535,7 @@
                 onclick="openOcrModal(); closeHeaderDrawer();" 
                 class="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600/90 to-indigo-600/90 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold transition flex items-center justify-between shadow-sm"
               >
-                <span class="flex items-center gap-2"><i class="fa-solid fa-camera"></i> Ler Print da Fatura com IA</span>
+                <span class="flex items-center gap-2"><i class="fa-solid fa-camera"></i> Ler Fatura (Print ou PDF) com IA</span>
                 <i class="fa-solid fa-chevron-right text-[10px] opacity-75"></i>
               </button>
 
@@ -587,6 +587,7 @@
             </div>
             <p hidden id="productionCloudStatus" role="status" class="text-xs text-slate-400">Login disponível para validação após carregamento.</p>
 
+            <button type="button" id="productionCloudSyncNow" hidden disabled class="w-full p-2 rounded-lg bg-blue-700 text-white text-xs disabled:opacity-40">Sincronizar agora</button>
             <button type="button" id="productionCloudRetry" hidden class="w-full p-2 rounded-lg border border-slate-700 text-xs">Tentar novamente</button>
               <button type="button" hidden id="productionCloudApplyOpen" class="w-full p-2 rounded-lg border border-slate-700 text-sm">Revisar operação pendente</button>
               <section hidden id="productionCloudApplyReview" class="space-y-2 text-sm">
@@ -624,10 +625,12 @@
             <p id="mainCapacityStatus" role="status" class="text-xs text-slate-400"></p>
                 <section id="productionCloudTechnical" hidden class="space-y-2">
               <p id="productionCloudBudget" class="text-xs text-slate-400"></p>
+<p id="productionCloudMetrics" class="text-xs text-slate-400"></p>
               <details id="productionCloudReviewDetails"><summary class="text-sm">Conflitos e restauração revisada (JSON)</summary>
                 <input type="file" id="productionCloudBackupFile" accept=".json" class="text-xs w-full">
                 <button type="button" disabled id="productionCloudStage" class="p-2 rounded-lg text-xs disabled:opacity-40">Preparar restauração</button>
-                <pre id="productionCloudReview" class="text-xs whitespace-pre-wrap break-all max-h-64 overflow-auto"></pre>
+                <div id="productionCloudReview" class="text-xs space-y-2 max-h-96 overflow-auto"></div>
+                <button type="button" id="productionCloudExportReview" class="w-full p-2 rounded-lg border border-slate-700 text-xs">Exportar versões em revisão</button>
                 <select id="productionCloudChoice" class="text-xs bg-slate-900"><option value="">Selecione</option><option value="local">Preservar versão local</option><option value="remote">Receber versão da nuvem</option><option value="restore">Aplicar backup revisado</option></select>
                 <label class="block text-xs"><input type="checkbox" id="productionCloudReviewConsent"> Revisei as versões e confirmo</label>
                 <label class="block text-xs"><input type="checkbox" id="productionCloudReviewBackup"> Exportei e guardei as versões</label>
@@ -805,7 +808,7 @@
           </div>
           <div>
             <h3 class="font-bold text-white text-base">Escanear Fatura com IA</h3>
-            <p class="text-xs text-slate-400">Carregue ou cole o print de qualquer fatura ou tabela</p>
+            <p class="text-xs text-slate-400">Selecione uma fatura PDF ou carregue/cole uma imagem.</p>
           </div>
         </div>
         <button onclick="closeOcrModal()" class="text-slate-400 hover:text-white transition">
@@ -822,20 +825,22 @@
           for="invoiceFileInput" 
           class="border-2 border-dashed border-purple-500/40 hover:border-purple-400 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer bg-purple-950/10 hover:bg-purple-950/20 transition group"
         >
-          <input type="file" id="invoiceFileInput" accept="image/*" class="sr-only" onchange="handleInvoiceImageSelected(event)">
+          <input type="file" id="invoiceFileInput" accept="image/*,application/pdf,.pdf" class="sr-only" onchange="handleInvoiceImageSelected(event)">
           <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition pointer-events-none">
             <i class="fa-solid fa-cloud-arrow-up"></i>
           </div>
-          <span class="text-sm font-bold text-slate-200 pointer-events-none">Toque para enviar o print ou arraste a imagem</span>
-          <span class="text-xs text-slate-400 mt-1 pointer-events-none">Aceita PNG, JPG, WEBP ou cole diretamente (Ctrl + V)</span>
+          <span class="text-sm font-bold text-slate-200 pointer-events-none">Toque para selecionar ou arraste a fatura</span>
+          <span class="text-xs text-slate-400 mt-1 pointer-events-none">PDF até 10 MB, PNG, JPG, WEBP ou imagem colada (Ctrl + V)</span>
         </label>
 
         <!-- Preview da Imagem Selecionada -->
         <div id="ocrPreviewContainer" class="hidden flex-col items-center gap-3 p-3 bg-slate-950 rounded-xl border border-slate-800">
           <img id="ocrImagePreview" src="" alt="Print da fatura" class="max-h-56 rounded-lg object-contain border border-slate-800 shadow">
+          <p id="ocrPdfPreview" class="hidden text-sm text-purple-300" role="status"><i class="fa-solid fa-file-pdf"></i> PDF selecionado</p>
           <span id="ocrImageInfo" class="text-xs text-slate-400">Imagem pronta para análise</span>
         </div>
 
+        <p id="ocrPdfPrivacy" class="hidden text-xs text-slate-400">Ao extrair os gastos, o PDF completo será enviado diretamente ao Google Gemini usando sua chave API. O Raytech CG não armazena o PDF no Firebase. Confira as condições de privacidade do Google antes de enviar uma fatura real.</p>
         <!-- Indicador de Carregamento / Progresso -->
         <div id="ocrLoading" class="hidden flex-col items-center justify-center p-6 space-y-3 bg-slate-950/60 rounded-xl border border-purple-500/20">
           <div class="w-8 h-8 border-3 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
