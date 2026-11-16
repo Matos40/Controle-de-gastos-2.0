@@ -332,6 +332,7 @@ Formato exato de cada item:
 
 // Modal independente: não exige alterações no index.html nem em outros módulos.
 function reviewInvoiceItems(items) {
+  const reviewMonth=appDb.selectedMonth;
   return new Promise(resolve => {
     const old = document.getElementById('geminiReviewOverlay');
     if (old) old.remove();
@@ -403,7 +404,16 @@ function reviewInvoiceItems(items) {
       const amount=parseValue(row.amount.value), total=parseValue(row.total.value);
       const current=Number(row.current.value), count=Number(row.installments.value);
       if(!row.title.value.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(row.date.value) || !Number.isFinite(amount) || amount<=0 || !Number.isFinite(total) || total<=0 || !Number.isInteger(current) || !Number.isInteger(count) || current<1 || count<1 || current>count) throw new Error('Confira descrição, data, valores positivos e parcelas (atual não pode superar o total).');
-      return {...row.item,title:row.title.value.trim(),date:row.date.value,installmentValue:amount,currentInstallment:current,installments:count,isInstallment:count>1,totalAmount:total,category:inferCategoryFromTitle(row.title.value.trim())};
+      const title=row.title.value.trim(),date=row.date.value;
+      if(CLEAN_WORKSPACE){
+        if(!/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)throw Error('Data inválida; confira a data da compra.');
+        if(title.length>512||/[\x00-\x1f<>]/.test(title))throw Error('Descrição incompatível; revise o texto.');
+        if(count>120)throw Error('O limite é de 120 parcelas por compra.');
+        if([amount,total].some(n=>n>10000000||Math.abs(n*100-Math.round(n*100))>=0.0001))throw Error('Confira os valores monetários e use até duas casas decimais.');
+        if(Math.abs(total-amount*count)>0.011&&!(count>1&&Math.abs(total-amount)<0.000001))throw Error('Total da compra incompatível com o valor e a quantidade de parcelas. Confira os valores originais; nenhum valor foi ajustado automaticamente.');
+      }
+      const id=row.item.id;
+      return {id,title,date,installmentValue:amount,currentInstallment:current,installments:count,isInstallment:count>1,totalAmount:total,category:inferCategoryFromTitle(title),paid:false,...(count>1?{installmentOriginId:row.item.installmentOriginId||id}:{})};
     };
     const update=()=>{
       const known=new Set(existingAtReview.map(fingerprint));
@@ -469,6 +479,7 @@ function reviewInvoiceItems(items) {
             throw new Error(`Linha ${controls.indexOf(r)+1}: ${err.message}`);
           }
         });
+        if(appDb.selectedMonth!==reviewMonth)throw Error('O mês selecionado mudou. Cancele e revise a fatura novamente.');
         const currentData=getCurrentMonthData();
         if (!currentData || typeof currentData !== 'object') throw new Error('Mês atual não encontrado.');
         const existing=Array.isArray(currentData.cardExpenses)?currentData.cardExpenses:[];
@@ -488,12 +499,19 @@ function reviewInvoiceItems(items) {
         }
         if (typeof saveDatabase !== 'function') throw new Error('Função saveDatabase indisponível.');
         const previous=currentData.cardExpenses;
+        if(CLEAN_WORKSPACE){
+          if(!cleanWorkspaceStore||window.productionCleanWorkspaceReady!==true)throw Error('Banco local indisponível. Reabra o aplicativo.');
+          if(currentData.closed)throw Error('O mês está fechado. Não é permitido importar compras.');
+          const candidate=JSON.parse(JSON.stringify(appDb));
+          candidate.months[reviewMonth].cardExpenses=[...unique,...existing];
+          try{cleanWorkspaceStore.check(JSON.stringify(candidate));}catch(err){const code=String(err.message||err).replace(/^PRODUCTION_CONTRACT:\s*/, '');throw Error('Importação incompatível com o banco V2 ('+code+'). Confira as linhas selecionadas e os limites do banco. Nenhum lançamento foi salvo.');}
+        }
         currentData.cardExpenses=[...unique,...existing];
         try {
           saveDatabase();
         } catch (err) {
           currentData.cardExpenses=previous;
-          throw new Error('Falha ao salvar os dados: '+(err.message||err));
+          throw new Error('Não foi possível gravar a fatura. O último banco válido foi preservado no V2. Atualize a página e revise a importação novamente. ('+(err.message||err)+')');
         }
         overlay.remove();
         resolve();
