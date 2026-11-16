@@ -117,7 +117,7 @@ disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bou
   win.addEventListener('storage',e=>{if(e.key===dbKey||e.key===syncPrefix(search)+DEVICE_KEY||e.key===syncPrefix(search)+REVIEW_KEY){storageChanged=true;stop();say('Alteração em outra aba. Feche as outras abas e reabra; sincronização bloqueada.');paint();}});
   win.addEventListener('pagehide',()=>{generation++;stop(true);},{once:true});
   const observer=new win.MutationObserver(lifecycle);const pin=el('pinLockOverlay');if(pin)observer.observe(pin,{attributes:true,attributeFilter:['class']});
-  const startup=()=>{if(!ready()){win.setTimeout(startup,500);return;}lifecycle();};if(connection())win.setTimeout(startup,0);
+  const startup=()=>{if(!ready()){win.setTimeout(startup,500);return;}lifecycle();};win.setTimeout(startup,0);
  }
  say(config.enabled?(canSync?'Conecte-se para verificar sua conta.':'Login disponível para validação. Transferências financeiras desativadas.'):'Nuvem V2 aguardando liberação. Nenhuma conexão foi iniciada.');paint();
 }
