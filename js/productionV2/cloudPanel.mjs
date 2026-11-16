@@ -155,6 +155,43 @@ disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bou
  diagnosticBtn?.addEventListener('click',()=>action(async()=>{download('raytech-diagnostico-local.json',requireSession().recoveryExport());}));
  logout.addEventListener('click',()=>action(async()=>{if(!uid)return;unifiedLogin=false;syncStorage.setItem(CONNECTION_KEY,'signed-out');generation++;stop();await cloud.signOut();}));
  if(win&&canSync){
+  // Normal import uses the reviewed session, never a direct replacement of a linked bank.
+  win.productionPrepareBackupRestore=backup=>{
+   const checkReady=()=>{
+    if(!session||!uid||!bound||!writeAllowed||invalid||review||!ready()||!online()||doc.visibilityState==='hidden'||busy||session.state().busy||!session.state().active)throw Error('Banco vinculado. Aguarde a sincronização ativa e sem pendências; tente novamente.');
+   };
+   checkReady();
+   const s=session,g=generation,who=uid,expected=storage.getItem(dbKey),checkpoint=syncStorage.getItem(DEVICE_KEY);
+   return async()=>{
+    checkReady();
+    if(s!==session||g!==generation||who!==uid||expected!==storage.getItem(dbKey)||checkpoint!==syncStorage.getItem(DEVICE_KEY))throw Error('Os dados ou a conta mudaram desde a confirmação. Importe novamente.');
+    busy=true;verifiedSync=false;stopWatch();paint();runtime?.changed();
+    let applied=false,paused=false;
+    try{
+     await authorizeWrite();
+     if(s!==session||g!==generation||who!==uid||!ready()||expected!==storage.getItem(dbKey)||checkpoint!==syncStorage.getItem(DEVICE_KEY))throw Error('Os dados mudaram. Importe novamente.');
+     s.pause();paused=true;
+     await s.stageRestore(backup);
+     if(s!==session||g!==generation||who!==uid||!ready()||s.review()?.local!==expected||storage.getItem(dbKey)!==expected)throw Error('Alteração simultânea detectada. Dados preservados; revise a pendência de restauração.');
+     // resolve archives the reviewed local/remote/target snapshot durably before applying.
+     if(doc.activeElement?.id==='jsonImportInput'||doc.activeElement?.id==='excelImportInput')doc.activeElement.blur();
+     await s.resolve({choice:'restore',confirmed:true,backupSaved:true});applied=true;
+     await s.resume(true);paused=false;
+     syncing=true;paint();
+     const r=await s.tick({manual:true});result(r);
+     // An updated/merged result has not necessarily been sent yet.
+     if(r.status!=='synced')runtime?.signal();
+     return {synced:r.status==='synced'};
+    }catch(e){
+     if(s===session&&g===generation&&who===uid){
+      if(paused&&!applied){try{const cp=await s.checkpoint();if(!s.review()&&!cp?.apply&&!cp?.pending&&ready()&&online())await s.resume(true);}catch{}}
+      error(e);
+     }
+     if(applied)return {synced:false};
+     throw Error('Não foi possível concluir com segurança. Dados e cópias de recuperação preservados. Verifique a conexão e possíveis pendências ('+String(e.code??e.message)+').');
+    }finally{syncing=false;busy=false;await details();paint();runtime?.changed();}
+   };
+  };
   win.addEventListener('raytech-finance-saved',()=>{verifiedSync=false;runtime?.signal();paint();});
   const lifecycle=()=>{if(online())watchFailed=false;runtime?.changed();paint();if(!online()||!ready()||doc.visibilityState==='hidden')return;if(!cloud&&connection()&&!busy)void action(connectCloud);else if(unifiedLogin)void finishExplicitLogin();else if(session?.state().active){runtime?.signal();}else void restore();};
   win.addEventListener('online',lifecycle);win.addEventListener('offline',lifecycle);doc.addEventListener?.('visibilitychange',lifecycle);

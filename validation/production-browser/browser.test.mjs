@@ -195,3 +195,39 @@ test('BROWSER25 AI single installment persists with origin and exact values',asy
 test('BROWSER26 AI mixed batch preserves money and exact duplicate protection',async t=>{const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);const rows=[aiFixture('ai-a'),aiFixture('ai-b',{isInstallment:false,currentInstallment:1,installments:1,installmentValue:71.29,totalAmount:71.29}),aiFixture('ai-c',{currentInstallment:3})];await openAI(page,rows);await confirmAI(page);await page.locator('#geminiReviewOverlay').waitFor({state:'detached'});const d=await aiState(page),saved=d.months[d.selectedMonth].cardExpenses;assert.equal(saved.length,3);assert.equal(saved[1].totalAmount,71.29);assert.equal(saved[1].installmentOriginId,undefined);assert.equal(saved[2].installmentOriginId,'ai-c');await openAI(page,rows.map((r,i)=>({...r,id:'retry-'+i})));assert.equal(await page.locator('#geminiReviewOverlay tbody input[type=checkbox]:checked').count(),0);assert.deepEqual(await aiState(page),d);});
 test('BROWSER27 AI invalid amount blocks entire batch without mutation; corrected retry succeeds',async t=>{const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);const before=await aiState(page);await openAI(page,[aiFixture('ai-valid'),aiFixture('ai-invalid',{totalAmount:99})]);await confirmAI(page);await page.waitForFunction(()=>document.getElementById('geminiReviewOverlay').textContent.includes('Total da compra incompatível'));assert.deepEqual(await aiState(page),before);await page.locator('#geminiReviewOverlay tbody tr').nth(1).locator('input').last().fill('100,00');await confirmAI(page);await page.locator('#geminiReviewOverlay').waitFor({state:'detached'});const d=await aiState(page);assert.equal(d.months[d.selectedMonth].cardExpenses.length,2);});
 test('BROWSER28 AI storage rejection leaves previous bank intact',async t=>{const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);const before=await aiState(page);await openAI(page,[aiFixture('ai-quota')]);await page.evaluate(()=>{const orig=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='raytech_cg_v2_main_finance_v1')throw Error('QuotaExceededError');return orig.call(this,k,v);};});await confirmAI(page);await page.waitForFunction(()=>document.getElementById('geminiReviewOverlay').textContent.includes('Não foi possível gravar'));assert.deepEqual(await aiState(page),before);});
+
+async function boundRestoreFixture(t){
+ const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);
+ await page.evaluate(()=>sessionStorage.setItem('fixture-write','1'));
+ await page.locator('#productionCloudHeader').click();await page.locator('#productionCloudGoogle').click();await textIs(page,'nuvem vazia');
+ await page.evaluate(()=>{document.getElementById('productionCloudConsent').checked=true;document.getElementById('productionCloudBackupSaved').checked=true;});
+ await click(page,'productionCloudSeed');await textIs(page,'Vínculo confirmado');
+ await page.waitForFunction(()=>!document.getElementById('productionCloudRefresh').disabled);await click(page,'productionCloudRefresh');await textIs(page,'revisão 1');
+ await page.waitForFunction(()=>document.getElementById('productionCloudHeader').dataset.syncState==='synced');
+ return page;
+}
+const restoredEnvelope=salary=>{const data=JSON.parse(raw);data.months[data.selectedMonth].salary=salary;return {format:'raytech-cg-v2-main-backup-v1',database:data};};
+async function uploadBoundRestore(page,kind,envelope){
+ if(kind==='JSON')await page.locator('#jsonImportInput').setInputFiles({name:'synthetic.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(envelope))});
+ else{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Formato','Versão','Parte','Total','JSON'],['RAYTECH_BACKUP',1,1,1,JSON.stringify(envelope)]]),'Backup restauracao');await page.locator('#excelImportInput').setInputFiles({name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:XLSX.write(wb,{type:'buffer',bookType:'xlsx'})});}
+}
+for(const kind of ['JSON','Excel'])test('V32.4.3 linked '+kind+' restore: confirm, archive previous state, receipt, isolation',async t=>{
+ const page=await boundRestoreFixture(t);const before=await page.evaluate(k=>localStorage.getItem(k),mainKey);const cleanBefore=await page.evaluate(k=>localStorage.getItem(k),cleanKey);
+ const envelope=restoredEnvelope(4321.45);
+ await uploadBoundRestore(page,kind,envelope);await page.waitForFunction(()=>!document.getElementById('confirmModal').classList.contains('hidden'));
+ assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),before);await click(page,'modalCancelBtn');
+ assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),before);
+ await uploadBoundRestore(page,kind,envelope);await page.waitForFunction(()=>!document.getElementById('confirmModal').classList.contains('hidden'));await click(page,'modalConfirmBtn');
+ await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('restaurado com sucesso e sincronizado'));
+ const v=await page.evaluate(k=>{const p='raytech_cg_v2_main_sync_v1:';return {local:JSON.parse(localStorage.getItem(k)),archive:JSON.parse(localStorage.getItem(p+'experimental-sync-review-archive-v1')),cp:JSON.parse(localStorage.getItem(p+'raytech_production_v2_device')),review:localStorage.getItem(p+'experimental-sync-review-v1'),writes:globalThis.__writes,legacy:localStorage.getItem('controle_gastos_multimonth_v3'),remote:JSON.parse(sessionStorage.getItem('fixture-b2-remote:raytechProductionFinanceV2/browser-fixture-uid'))};},mainKey);
+ assert.deepEqual(v.local.months,envelope.database.months);assert.equal(v.archive.local,before);assert.equal(v.review,null);assert.equal(v.cp.pending,null);assert.equal(v.cp.apply,null);assert.equal(v.remote.revision,2);assert.deepEqual(JSON.parse(v.remote.payload).months,envelope.database.months);assert.equal(v.writes,4);assert.equal(v.legacy,raw);assert.equal(await page.evaluate(k=>localStorage.getItem(k),cleanKey),cleanBefore);assert.equal(await page.locator('#productionCloudAdvanced').isVisible(),false);
+});
+test('V32.4.3 rejects linked restore with changed local state after confirmation preview',async t=>{
+ const page=await boundRestoreFixture(t);await uploadBoundRestore(page,'JSON',restoredEnvelope(1234));await page.waitForFunction(()=>!document.getElementById('confirmModal').classList.contains('hidden'));
+ await page.evaluate(()=>{const m=getCurrentMonthData();m.salary=987;saveDatabase();});await click(page,'modalConfirmBtn');
+ await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('Restauração interrompida'));
+ const d=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),mainKey);assert.equal(d.months[d.selectedMonth].salary,987);
+});
+test('V32.4.3 rejects invalid linked backup without confirmation or writes',async t=>{
+ const page=await boundRestoreFixture(t);const before=await page.evaluate(k=>localStorage.getItem(k),mainKey);await uploadBoundRestore(page,'JSON',JSON.parse(raw));await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('somente um backup identificado'));assert.equal(await page.locator('#confirmModal').evaluate(e=>e.classList.contains('hidden')),true);assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),before);assert.equal(await page.evaluate(()=>globalThis.__writes),2);
+});
