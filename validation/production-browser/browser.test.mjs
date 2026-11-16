@@ -231,3 +231,19 @@ test('V32.4.3 rejects linked restore with changed local state after confirmation
 test('V32.4.3 rejects invalid linked backup without confirmation or writes',async t=>{
  const page=await boundRestoreFixture(t);const before=await page.evaluate(k=>localStorage.getItem(k),mainKey);await uploadBoundRestore(page,'JSON',JSON.parse(raw));await page.waitForFunction(()=>document.getElementById('toastMsg').textContent.includes('somente um backup identificado'));assert.equal(await page.locator('#confirmModal').evaluate(e=>e.classList.contains('hidden')),true);assert.equal(await page.evaluate(k=>localStorage.getItem(k),mainKey),before);assert.equal(await page.evaluate(()=>globalThis.__writes),2);
 });
+
+test('V32.4.4 desktop options float at 360px without expanding header and close outside',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);await page.setViewportSize({width:1440,height:900});const drawer=page.locator('#headerToolsDrawer'),toggle=page.locator('#headerToolsToggleBtn'),header=page.locator('.raytech-header-shell');const before=await header.boundingBox();
+ await toggle.click();const p=await drawer.boundingBox(),h=await header.boundingBox(),b=await toggle.boundingBox();assert.ok(p&&h&&b);assert.ok(p.width>=340&&p.width<=380);assert.ok(Math.abs(h.height-before.height)<1);assert.ok(p.y>=h.y+h.height-1);assert.ok(p.x+p.width<=1440&&p.x>=0);assert.ok(Math.abs(p.x+p.width-b.x-b.width)<30);assert.equal(await toggle.getAttribute('aria-expanded'),'true');
+ await page.locator('.raytech-header-brand').click();assert.equal(await drawer.isVisible(),false);assert.equal(await toggle.getAttribute('aria-expanded'),'false');
+ await toggle.click();await page.keyboard.press('Escape');assert.equal(await drawer.isVisible(),false);assert.equal(await toggle.evaluate(el=>document.activeElement===el),true);
+ await page.locator('#productionCloudHeader').click();assert.equal(await drawer.isVisible(),true);assert.equal(await drawer.locator('#productionCloudPanel').count(),1);
+});
+test('V32.4.4 mobile options fit viewport, scroll internally and preserve every action',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);await page.setViewportSize({width:360,height:640});const drawer=page.locator('#headerToolsDrawer'),toggle=page.locator('#headerToolsToggleBtn');await toggle.click();const p=await drawer.boundingBox();assert.ok(p&&p.x>=0&&p.x+p.width<=360&&p.y+p.height<=650);
+ const layout=await drawer.evaluate(el=>({overflow:getComputedStyle(el).overflowY,client:el.clientHeight,scroll:el.scrollHeight}));assert.equal(layout.overflow,'auto');assert.ok(layout.scroll>=layout.client);
+ for(const label of ['Ler Print da Fatura com IA','Sincronizar Mês','Fechar Mês','Tutorial','Primeiros passos','Importar Excel','Exportar Excel','Backup JSON','Restaurar JSON','Senha PIN','Instalar App'])assert.equal(await drawer.getByRole('button',{name:label,exact:true}).count(),1,label);
+ assert.equal(await drawer.locator('#apiKeyBtnLabel').count(),1);assert.equal(await drawer.locator('#productionCloudAdvanced').isVisible(),false);
+ await drawer.getByRole('button',{name:'Senha PIN',exact:true}).click();assert.equal(await drawer.isVisible(),false);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
+});

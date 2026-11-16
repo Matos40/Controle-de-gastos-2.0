@@ -154,6 +154,8 @@ async function triggerNativePwaInstall() {
       const isHidden = drawer.classList.contains('hidden');
       if (isHidden) {
         drawer.classList.remove('hidden');
+        drawer.scrollTop = 0;
+        if (btn) btn.setAttribute('aria-expanded', 'true');
         if (arrow) arrow.classList.add('rotate-180');
         if (btn) btn.classList.add('border-emerald-500/50', 'bg-slate-800');
       } else {
@@ -166,6 +168,7 @@ async function triggerNativePwaInstall() {
       const arrow = document.getElementById('headerToolsArrow');
       const btn = document.getElementById('headerToolsToggleBtn');
       if (drawer) drawer.classList.add('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
       if (arrow) arrow.classList.remove('rotate-180');
       if (btn) btn.classList.remove('border-emerald-500/50');
     }
@@ -182,6 +185,14 @@ async function triggerNativePwaInstall() {
         if (!drawer.contains(e.target) && (!btn || !btn.contains(e.target))) {
           closeHeaderDrawer();
         }
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      const drawer = document.getElementById('headerToolsDrawer');
+      if (e.key === 'Escape' && drawer && !drawer.classList.contains('hidden')) {
+        closeHeaderDrawer();
+        document.getElementById('headerToolsToggleBtn')?.focus();
       }
     });
 
