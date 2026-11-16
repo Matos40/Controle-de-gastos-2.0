@@ -567,20 +567,19 @@
                 <p class="text-xs text-slate-400">Mantenha a mesma conta em seus dispositivos para a sincronização automática.</p>
                 <button type="button" id="productionCloudGoogle" class="w-full rounded-xl bg-white text-slate-900 p-3 text-sm font-semibold disabled:opacity-50"><i class="fa-brands fa-google mr-2"></i>Entrar com Google</button>
               </div>
-              <div id="productionCloudProfile" hidden class="flex items-center gap-3">
+              </section>
+            <div id="productionCloudProfile" hidden class="items-center gap-3">
                 <span id="productionCloudInitial" class="rounded-full bg-slate-800 w-10 h-10 flex items-center justify-center shrink-0">G</span>
                 <img id="productionCloudPhoto" alt="" referrerpolicy="no-referrer" hidden class="rounded-full w-10 h-10 object-cover shrink-0">
                 <div class="min-w-0 flex-1"><p id="productionCloudName" class="text-sm font-semibold truncate"></p><p class="text-xs text-slate-400">Conta Google</p></div>
                 <button type="button" disabled id="productionCloudLogout" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40" title="Sair da conta" aria-label="Sair da conta"><i class="fa-solid fa-right-from-bracket"></i></button>
               </div>
+            <section id="productionCloudState" class="space-y-1">
               <p id="productionCloudConnection" role="status" class="text-sm text-emerald-400">Desconectado</p>
               <p id="productionCloudLastSync" class="text-xs text-slate-400">Última sincronização: —</p>
               
             </section>
-            <div class="grid grid-cols-2 gap-1.5">
-
-
-
+            <div id="productionCloudTransferActions" hidden class="grid-cols-2 gap-1.5">
               <button type="button" disabled id="productionCloudSeed" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Vincular e sincronizar</button>
               <button type="button" disabled id="productionCloudAdopt" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Receber da nuvem</button>
 
