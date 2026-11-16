@@ -10,9 +10,8 @@ function generatePwaIconDataUrl(size = 512) {
   } catch (e) { return ''; }
 }
 function initPwaEnvironment() {
-  const icon192 = generatePwaIconDataUrl(192);
   const appleLink = document.getElementById('appleTouchIconLink');
-  if (appleLink && icon192) appleLink.href = icon192;
+  if (appleLink) appleLink.href = './raytech-icon-192.png?v=32.4';
   const manifestLink = document.getElementById('pwaManifestLink');
   if (manifestLink) manifestLink.href = './manifest.json';
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
