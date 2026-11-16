@@ -588,6 +588,15 @@
             <p hidden id="productionCloudStatus" role="status" class="text-xs text-slate-400">Login disponível para validação após carregamento.</p>
 
             <button type="button" id="productionCloudRetry" hidden class="w-full p-2 rounded-lg border border-slate-700 text-xs">Tentar novamente</button>
+              <button type="button" hidden id="productionCloudApplyOpen" class="w-full p-2 rounded-lg border border-slate-700 text-sm">Revisar operação pendente</button>
+              <section hidden id="productionCloudApplyReview" class="space-y-2 text-sm">
+                <p>Escolha a versão de cada conflito. As demais alterações compatíveis serão preservadas.</p>
+                <div id="productionCloudApplyFields" class="space-y-2"></div>
+                <button type="button" id="productionCloudApplyExport" class="p-2 rounded bg-slate-800">Exportar versões (somente local)</button>
+                <label class="block"><input type="checkbox" id="productionCloudApplyBackup"> Guardei o arquivo de versões</label>
+                <label class="block"><input type="checkbox" id="productionCloudApplyConfirm"> Revisei e autorizo aplicar e sincronizar</label>
+                <button type="button" id="productionCloudApplyResolve" class="p-2 rounded bg-slate-800 disabled:opacity-40">Aplicar decisões e retomar</button>
+              </section>
             <button type="button" id="productionCloudReviewOpen" hidden class="w-full p-2 rounded-lg border border-amber-700 text-xs">Revisar alterações</button>
             <p id="productionCloudNotice" role="status" class="text-xs text-amber-300" hidden></p>
             <div id="productionCloudSetup" hidden class="space-y-2 rounded-lg border border-amber-500/30 p-2">
