@@ -502,7 +502,7 @@
             <i class="fa-solid fa-eye text-emerald-400" id="privacyIcon"></i>
           </button>
 
-          <button type="button" id="productionCloudHeader" title="Nuvem: desconectado" aria-label="Nuvem: desconectado" class="w-8 sm:w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 shrink-0" onclick="if(document.getElementById('headerToolsDrawer').classList.contains('hidden')) document.getElementById('headerToolsToggleBtn').click(); document.getElementById('productionCloudPanel').scrollIntoView({block:'nearest'});"><i class="fa-solid fa-cloud" aria-hidden="true"></i></button>
+          <button type="button" id="productionCloudHeader" title="Nuvem: desconectado" aria-label="Nuvem: desconectado" class="w-8 sm:w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 shrink-0" onclick="event.stopPropagation(); if(document.getElementById('headerToolsDrawer').classList.contains('hidden')) document.getElementById('headerToolsToggleBtn').click(); document.getElementById('productionCloudPanel').scrollIntoView({block:'nearest'});"><i class="fa-solid fa-cloud" aria-hidden="true"></i></button>
           <!-- Botão Expansor de Ferramentas & Categorias -->
           <button 
             type="button"
