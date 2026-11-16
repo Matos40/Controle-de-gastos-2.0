@@ -16,10 +16,31 @@ export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,onl
  const expected=async q=>validateV2Receipt({operationId:q.id,revision:q.expectedRevision+1,parentId:q.parentId,hash:await hash(q.payload)});
  function backup(raw){const key=BACKUP+uid;if(storage.getItem(key)===null){storage.setItem(key,raw);if(storage.getItem(key)!==raw)fail('PRODUCTION_BACKUP');}}
  const run=fn=>lock('device_binding',async()=>{check();return fn();});
- async function recoverApply(s){if(!s.apply)return s;const j=s.apply;await verified(j.base);validatePayload(j.target);const raw=local.read();if(raw!==j.target){
-  if(raw!==j.before)fail('PRODUCTION_RECOVERY_REQUIRED');
-  check();if(!local.apply(raw,j.target))fail('PRODUCTION_LOCAL_BUSY');
- }check();s={...s,base:j.base,apply:null};write(s);return s;}
+ async function recoverApply(s,{reconcile=false}={}){if(!s.apply)return s;let j=s.apply;await verified(j.base);validatePayload(j.before);validatePayload(j.target);const raw=local.read();if(raw!==j.target){
+  if(raw!==j.before){
+   if(!reconcile)fail('PRODUCTION_RECOVERY_REQUIRED');
+   validatePayload(raw);
+   // The interrupted apply was a transaction from before to target. Preserve subsequent independent local changes.
+   // Do not use this path for a user-reviewed restore or initial adoption.
+   if(!s.base)fail('PRODUCTION_RECOVERY_REQUIRED');
+   await continuity(s.base,j.base);
+   const remote=await verified(await cloud.read(uid));await continuity(j.base,remote);
+   const m=sameData(raw,j.target)?{payload:raw}:sameData(raw,j.before)?{payload:j.target}:sameData(j.before,j.target)?{payload:raw}:mergeThreeWay(j.before,raw,j.target);
+   if(!m.payload)fail('PRODUCTION_RECOVERY_CONFLICT');
+   const target=selection(raw,m.payload);validatePayload(target);
+   check();if(local.read()!==raw)fail('PRODUCTION_LOCAL_CHANGED');
+   // Write and verify a separate immutable recovery record before replacing the pending journal.
+   const record=JSON.stringify({checkpoint:s,local:raw,target});
+   const key='raytech_apply_recovery_v1:'+uid+':'+await hash(record);
+   check();if(local.read()!==raw)fail('PRODUCTION_LOCAL_CHANGED');
+   const stored=storage.getItem(key);if(stored!==null&&stored!==record)fail('PRODUCTION_RECOVERY_ARCHIVE');
+   if(stored===null)storage.setItem(key,record);
+   if(storage.getItem(key)!==record)fail('PRODUCTION_RECOVERY_ARCHIVE');
+   j={before:raw,target,base:j.base};s={...s,apply:j};write(s);
+  }
+  check();if(local.read()!==raw)fail('PRODUCTION_LOCAL_CHANGED');
+  if(raw!==j.target&&!local.apply(raw,j.target))fail('PRODUCTION_LOCAL_BUSY');
+ }check();if(local.read()!==j.target)fail('PRODUCTION_LOCAL_CHANGED');s={...s,base:j.base,apply:null};write(s);return s;}
  const selection=(before,target)=>{const a=validatePayload(before),b=validatePayload(target);if(Object.hasOwn(b.months,a.selectedMonth))b.selectedMonth=a.selectedMonth;return JSON.stringify(b);};
  async function applyLocal(s,raw,target,base){target=selection(raw,target);validatePayload(target);if(local.read()!==raw)fail('PRODUCTION_LOCAL_CHANGED');backup(raw);s={...s,apply:{before:raw,target,base}};write(s);return recoverApply(s);}
  async function continuity(base,remote){if(!base)return;if(!remote||remote.head.revision<base.head.revision)fail('PRODUCTION_REVISION_ROLLBACK');
@@ -35,7 +56,7 @@ export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,onl
   return {revision:s.base?.head.revision??0,bound:true};
  });}
  async function tick(){return run(async()=>{let s=read();if(!s)return {status:'unbound'};if(s.base)await verified(s.base);if(!online())return {status:'offline',pending:!!s.pending||!!s.apply||!s.base||!sameData(checkedLocal().payload,s.base.head.payload)};
-  if(s.apply)s=await recoverApply(s);
+  if(s.apply)s=await recoverApply(s,{reconcile:true});
   let remote=await verified(await cloud.read(uid));check();await continuity(s.base,remote);
   if(s.pending){
    const q=s.pending;validatePayload(q.payload);if(!validId(q.id)||q.expectedRevision!==(s.base?.head.revision??0)||q.parentId!==(s.base?.head.lastOperationId??''))fail('PRODUCTION_PENDING_CORRUPT');
