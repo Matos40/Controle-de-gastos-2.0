@@ -242,7 +242,7 @@ test('V32.4.4 desktop options float at 360px without expanding header and close 
 test('V32.4.4 mobile options fit viewport, scroll internally and preserve every action',async t=>{
  const {page}=await setup(t,false,'?workspace=v2-main',true);await cleanReady(page);await page.setViewportSize({width:360,height:640});const drawer=page.locator('#headerToolsDrawer'),toggle=page.locator('#headerToolsToggleBtn');await toggle.click();const p=await drawer.boundingBox();assert.ok(p&&p.x>=0&&p.x+p.width<=360&&p.y+p.height<=650);
  const layout=await drawer.evaluate(el=>({overflow:getComputedStyle(el).overflowY,client:el.clientHeight,scroll:el.scrollHeight}));assert.equal(layout.overflow,'auto');assert.ok(layout.scroll>=layout.client);
- for(const label of ['Ler Print da Fatura com IA','Sincronizar Mês','Fechar Mês','Tutorial','Primeiros passos','Importar Excel','Exportar Excel','Backup JSON','Restaurar JSON','Senha PIN','Instalar App'])assert.equal(await drawer.getByRole('button',{name:label,exact:true}).count(),1,label);
+ for(const label of ['Ler Fatura (Print ou PDF) com IA','Sincronizar Mês','Fechar Mês','Tutorial','Primeiros passos','Importar Excel','Exportar Excel','Backup JSON','Restaurar JSON','Senha PIN','Instalar App'])assert.equal(await drawer.getByRole('button',{name:label,exact:true}).count(),1,label);
  assert.equal(await drawer.locator('#apiKeyBtnLabel').count(),1);assert.equal(await drawer.locator('#productionCloudAdvanced').isVisible(),false);
  await drawer.getByRole('button',{name:'Senha PIN',exact:true}).click();assert.equal(await drawer.isVisible(),false);
  assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
@@ -260,4 +260,28 @@ test('V32.4.4.1 backup grid uses four desktop columns and mobile/tablet 2x2',asy
  }
  assert.equal(await grid.locator('#jsonImportInput').isVisible(),false);
  assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
+});
+
+test('V325 PDF native inlineData uses synthetic document, review and exact duplicate protection',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-clean');await cleanReady(page);
+ const before=await page.evaluate(k=>localStorage.getItem(k),cleanKey);
+ await page.evaluate(()=>{window.getStoredApiKey=()=>'synthetic-key';window.__pdfRequests=[]; const real=window.fetch;window.fetch=async(u,o)=>{if(String(u).startsWith('https://generativelanguage.googleapis.com/')){if(!o?.method)return new Response(JSON.stringify({models:[{name:'models/gemini-2.5-flash',supportedGenerationMethods:['generateContent']}]}));window.__pdfRequests.push(JSON.parse(o.body));return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify([{title:'Compra PDF fictícia',date:'2026-11-12',installmentValue:25,isInstallment:true,currentInstallment:2,installments:4,totalAmount:100}])}]}}]}));}return real(u,o);};openOcrModal();});
+ const file={name:'fatura.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF')};
+ async function extract(){await page.locator('#invoiceFileInput').setInputFiles(file);await page.waitForFunction(()=>!document.getElementById('ocrProcessBtn').disabled);await page.locator('#ocrProcessBtn').click();await page.locator('#geminiReviewOverlay').waitFor();}
+ await extract();assert.equal(await page.evaluate(k=>localStorage.getItem(k),cleanKey),before);
+ const sent=await page.evaluate(()=>window.__pdfRequests[0]);assert.equal(sent.contents[0].parts[1].inlineData.mimeType,'application/pdf');assert.equal(sent.contents[0].parts[1].inlineData.data,file.buffer.toString('base64'));
+ await confirmAI(page);await page.locator('#geminiReviewOverlay').waitFor({state:'detached'});
+ const saved=await page.evaluate(k=>localStorage.getItem(k),cleanKey);const d=JSON.parse(saved),r=d.months[d.selectedMonth].cardExpenses[0];assert.equal(r.installmentValue,25);assert.equal(r.currentInstallment,2);assert.ok(r.installmentOriginId);
+ await page.evaluate(()=>openOcrModal());await extract();assert.equal(await page.locator('#geminiReviewOverlay tbody input[type=checkbox]:checked').count(),0);await page.locator('#geminiReviewOverlay button').filter({hasText:'Cancelar'}).click();assert.equal(await page.evaluate(k=>localStorage.getItem(k),cleanKey),saved);assert.equal(await page.evaluate(()=>globalThis.__reads??0),0);assert.equal(await page.evaluate(()=>globalThis.__writes??0),0);assert.equal(await page.evaluate(()=>localStorage.getItem('controle_gastos_multimonth_v3')),raw);
+});
+test('V325 invalid PDF and cancellation do not mutate data or reach Gemini',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-clean');await cleanReady(page);const before=await page.evaluate(k=>localStorage.getItem(k),cleanKey);
+ await page.evaluate(()=>openOcrModal());await page.locator('#invoiceFileInput').setInputFiles({name:'fake.pdf',mimeType:'application/pdf',buffer:Buffer.from('invalid file')});await page.waitForFunction(()=>document.getElementById('ocrErrorBox').textContent.includes('cabeçalho PDF'));assert.equal(await page.locator('#ocrProcessBtn').isDisabled(),true);
+ await page.locator('#invoiceFileInput').setInputFiles({name:'big.pdf',mimeType:'application/pdf',buffer:Buffer.alloc(10*1024*1024+1)});await page.waitForFunction(()=>document.getElementById('ocrErrorBox').textContent.includes('10 MB'));assert.equal(await page.locator('#ocrProcessBtn').isDisabled(),true);
+ await page.evaluate(()=>closeOcrModal());assert.equal(await page.evaluate(k=>localStorage.getItem(k),cleanKey),before);assert.equal(await page.evaluate(()=>globalThis.__reads??0),0);
+});
+test('V325 unknown PDF fields are not fabricated and cannot be imported without correction',async t=>{
+ const {page}=await setup(t,false,'?workspace=v2-clean');await cleanReady(page);const before=await page.evaluate(k=>localStorage.getItem(k),cleanKey);
+ await page.evaluate(()=>{void reviewInvoiceItems([formatPdfInvoiceItem({title:'Fictícia',date:null,installmentValue:25,currentInstallment:2,installments:4,totalAmount:null},0)]);});
+ await page.locator('#geminiReviewOverlay').waitFor();const row=page.locator('#geminiReviewOverlay tbody tr').first();assert.equal(await row.locator('input[type=date]').inputValue(),'');assert.equal(await row.locator('input').last().inputValue(),'');await confirmAI(page);await page.waitForFunction(()=>document.getElementById('geminiReviewOverlay').textContent.includes('Linha 1'));assert.equal(await page.evaluate(k=>localStorage.getItem(k),cleanKey),before);
 });
