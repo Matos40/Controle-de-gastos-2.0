@@ -232,8 +232,11 @@ async function triggerNativePwaInstall() {
       }
       if(WORKSPACE_MODE==='legacy'&&badge){badge.textContent='BANCO LEGADO · histórico original · nuvem desativada';badge.classList.remove('hidden');}
       if (CLEAN_WORKSPACE) {
-        if (MAIN_WORKSPACE && badge) badge.textContent='BANCO V2 PRINCIPAL · local · nuvem desativada | Legado e testes preservados';
-        badge?.classList.remove('hidden');
+        if (MAIN_WORKSPACE && badge) {
+          const maintenance = new URLSearchParams(location.search).get('maintenance') === '1';
+          badge.textContent = 'BANCO V2 PRINCIPAL · Legado e testes preservados | Consulte o indicador de conexão';
+          badge.classList.toggle('hidden', !maintenance);
+        } else badge?.classList.remove('hidden');
         gate?.classList.remove('hidden');
         let release,workspace;
         try {
