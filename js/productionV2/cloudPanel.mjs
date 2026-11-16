@@ -33,6 +33,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
   const indicator=el('productionCloudConnection'),last=el('productionCloudLastSync');
   if(indicator)indicator.textContent=!online()?'Sem internet — dados locais preservados':!unlocked()?'Bloqueado pelo PIN':!uid?'Desconectado':invalid||review?'Revisão necessária':st.active?'Conectado · automático':bound?'Conectado · pausado':'Conectado · aguardando vínculo';
   if(setupPanel)setupPanel.hidden=!canSync||bound||!plan;
+  const transfers=el('productionCloudTransferActions');if(transfers)transfers.hidden=!canSync||bound||!plan;
   if(advanced&&review){advanced.open=true;const reviewDetails=reviewBox?.closest('details');if(reviewDetails)reviewDetails.open=true;}
   if(header&&canSync){
    const kind=!uid?'disconnected':!online()?'offline':invalid||review||attention?'attention':syncing||st.busy?'syncing':st.active&&verifiedSync?'synced':st.active?'online':'paused';
@@ -43,10 +44,10 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
    header.classList.add(kind==='synced'||kind==='online'?'text-emerald-400':kind==='syncing'?'text-blue-400':kind==='attention'?'text-red-400':kind==='offline'||kind==='paused'?'text-amber-400':'text-slate-400');
    const glyph=header.querySelector('i');if(glyph)glyph.className='fa-solid '+icons[kind]+(kind==='syncing'?' fa-spin':'');
    const guest=el('productionCloudGuest'),person=el('productionCloudProfile'),google=el('productionCloudGoogle'),name=el('productionCloudName'),photo=el('productionCloudPhoto'),initial=el('productionCloudInitial'),notice=el('productionCloudNotice');
-   if(guest)guest.hidden=!!uid;if(person)person.hidden=!uid;if(google)google.disabled=busy||!online()||!ready();
+   if(guest)guest.hidden=!!uid;if(person){person.hidden=!uid;person.classList.toggle('flex',!!uid);}if(google)google.disabled=busy||!online()||!ready();
    if(name)name.textContent=profile?.displayName||profile?.email||'Conta Google';
    if(initial)initial.textContent=(profile?.displayName||profile?.email||'G').trim().slice(0,1).toUpperCase();
-   if(photo){let url=null;try{const u=new URL(profile?.photoURL);if(u.protocol==='https:'&&/(^|\.)googleusercontent\.com$/.test(u.hostname))url=u.href;}catch{}if(url&&photo.getAttribute('src')!==url){photo.hidden=false;if(initial)initial.hidden=true;photo.src=url;}else if(!url){photo.removeAttribute('src');photo.hidden=true;if(initial)initial.hidden=false;}}
+   if(photo){let url=null;try{const u=new URL(profile?.photoURL);if(u.protocol==='https:'&&/(^|\.)googleusercontent\.com$/.test(u.hostname))url=u.href;}catch{}if(url&&photo.getAttribute('src')!==url){photo.hidden=false;if(initial){initial.hidden=true;initial.classList.remove('flex');}photo.src=url;}else if(!url){photo.removeAttribute('src');photo.hidden=true;if(initial){initial.hidden=false;initial.classList.add('flex');}}}
    if(notice){notice.hidden=!review&&!attention&&!invalid;notice.textContent=review?'Existem alterações que precisam ser revisadas em Manutenção e recuperação.':'Verifique sua conexão ou autorização em Manutenção e recuperação.';}
    if(indicator&&kind==='syncing')indicator.textContent='Sincronizando…';
    if(indicator&&kind==='attention')indicator.textContent='Atenção necessária';
@@ -56,7 +57,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
   const blocked=busy||!canSync||!session||invalid||!ready()||st.busy;
   seed.disabled=blocked||bound||plan?.mode!=='seed'||!writeAllowed;disable(adopt,blocked||bound||plan?.mode!=='adopt'||!writeAllowed);
   disable(refresh,blocked||!bound||!st.active||!!review||!writeAllowed);
-  if(canSync){connect.hidden=!!cloud;login.hidden=!!uid||!cloud;inspect.hidden=bound&&writeAllowed;seed.hidden=bound||plan?.mode!=='seed';if(adopt)adopt.hidden=bound||plan?.mode!=='adopt';if(refresh)refresh.hidden=!bound;logout.hidden=!uid;}else if(el('productionCloudProfile'))el('productionCloudProfile').hidden=!uid;
+  if(canSync){connect.hidden=!!cloud;login.hidden=!!uid||!cloud;inspect.hidden=bound&&writeAllowed;seed.hidden=bound||plan?.mode!=='seed';if(adopt)adopt.hidden=bound||plan?.mode!=='adopt';if(refresh)refresh.hidden=!bound;logout.hidden=!uid;}else {const p=el('productionCloudProfile');if(p)p.hidden=!uid;const state=el('productionCloudState');if(state)state.hidden=true;}
 disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bound||st.active||!!review||!writeAllowed);
   disable(backupBtn,blocked);disable(stageBtn,blocked||!bound||st.active||!!review||!writeAllowed);disable(reviewBtn,blocked||st.active||!review||!writeAllowed);disable(updateBtn,blocked||st.active||!review||!writeAllowed);
   for(const e of [historyBtn,historyExport,diagnosticBtn])disable(e,blocked);
@@ -88,10 +89,10 @@ disable(pauseBtn,!canSync||!session||!st.active);disable(resumeBtn,blocked||!bou
   if(historyBox)historyBox.textContent='';if(reviewBox)reviewBox.textContent='';if(planBox)planBox.textContent='';
   reset('productionCloudConsent','productionCloudBackupSaved','productionCloudReviewConsent','productionCloudReviewBackup');
   if(uid){if(canSync)try{session=makeSession(uid,generation);}catch(e){error(e);paint();return;}say('Conta Google conectada. Verifique a autorização da conta.');}else say('Entre com a conta Google desejada.');
-  void details().then(()=>{paint();win.setTimeout(()=>{if(!canSync||!uid||!ready()||!online())return;if(connection()===uid)void restore();else if(unifiedLogin&&!bound&&!invalid){unifiedLogin=false;void action(inspectAccount);}},0);});
+  void details().then(()=>{paint();win.setTimeout(()=>{if(!canSync||!uid||!ready()||!online()||busy)return;if(connection()===uid)void restore();else if(unifiedLogin&&!bound&&!invalid){unifiedLogin=false;void action(inspectAccount);}},0);});
  });}
  connect.addEventListener('click',()=>action(connectCloud));
- const photo=el('productionCloudPhoto');photo?.addEventListener('error',()=>{photo.hidden=true;const initial=el('productionCloudInitial');if(initial)initial.hidden=false;});
+ const photo=el('productionCloudPhoto');photo?.addEventListener('error',()=>{photo.hidden=true;const initial=el('productionCloudInitial');if(initial){initial.hidden=false;initial.classList.add('flex');}});
  el('productionCloudGoogle')?.addEventListener('click',()=>{if(!canSync||!ready()||!online())return;unifiedLogin=true;void action(async()=>{await connectCloud();if(!cloud.currentUid())await cloud.signIn();});});
 
  login.addEventListener('click',()=>action(async()=>{if(!cloud||uid)return;await cloud.signIn();}));
