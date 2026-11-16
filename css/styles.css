@@ -41,3 +41,31 @@ body {
         padding-top: env(safe-area-inset-top);
       }
     }
+
+/* V32.4: layout and locally rendered controls; no financial logic. */
+.raytech-header-brand{flex:1 1 auto;min-width:36px}
+.raytech-header-controls{flex:0 1 auto;min-width:0}
+.raytech-month-nav{flex:1 1 auto;min-width:0}
+.raytech-month-nav button{flex-shrink:0}
+#currentMonthDisplay{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.raytech-cloud-icon{display:block;margin:auto;flex-shrink:0}
+.raytech-sync-spin{animation:raytech-spin 1s linear infinite}
+@keyframes raytech-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.raytech-sync-spin{animation:none}}
+@media(max-width:639px){
+ .raytech-header-row{gap:4px}
+ .raytech-header-brand{flex:0 0 36px}
+ .raytech-header-brand>.truncate{display:none}
+ .raytech-header-controls{flex:1 1 0;gap:4px;justify-content:flex-end}
+ .raytech-month-nav{padding-inline:2px}
+ .raytech-month-nav button{width:24px}
+ #currentMonthDisplay{font-size:11px;padding-inline:2px}
+}
+.raytech-category-wrap{position:relative;width:100%}
+.raytech-category-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:40px;padding:8px 12px;border:1px solid #334155;border-radius:12px;background:#020617;color:#e2e8f0;font-size:13px;text-align:left}
+.raytech-category-trigger:focus-visible,.raytech-category-option:focus-visible{outline:2px solid #34d399;outline-offset:2px}
+.raytech-category-list{position:absolute;left:0;right:0;top:calc(100% + 4px);max-height:min(330px,45vh);overflow:auto;z-index:55;background:#0f172a;border:1px solid #334155;border-radius:12px;padding:4px;box-shadow:0 8px 24px #0008}
+.raytech-category-list[hidden]{display:none}
+.raytech-category-option{display:block;width:100%;text-align:left;padding:10px 9px;font-size:13px;line-height:1.4;color:#e2e8f0;border-radius:8px}
+.raytech-category-option[aria-checked=true]{background:#064e3b;color:#a7f3d0}
+.raytech-category-option:hover{background:#1e293b}
