@@ -1,3 +1,4 @@
+import {mergeInitial} from '../productionV2/smartPremiumInitialMerge.mjs';
 import {canonical,validatePayload,mergeThreeWay,reviewApplyFields,validId} from '../productionV2/model.mjs';
 import {validateV2Head,validateV2Receipt} from '../productionV2/capacity.mjs';
 import {prepareLocal} from '../productionV2/preview.mjs';
@@ -47,12 +48,13 @@ export function createSyncEngine({cloud,storage,local,uid,isCurrent=()=>true,onl
  async function continuity(base,remote){if(!base)return;if(!remote||remote.head.revision<base.head.revision)fail('PRODUCTION_REVISION_ROLLBACK');
   if(remote.head.revision===base.head.revision){if(canonical(remote)!==canonical(base))fail('PRODUCTION_REVISION_DIVERGENCE');}
   else if(!await cloud.confirm(uid,base.receipt))fail('PRODUCTION_RECEIPT_DIVERGENCE');check();}
- async function bind({adopt=false,plan}={}){return run(async()=>{if(read())fail('PRODUCTION_ALREADY_BOUND');if(createQueue(storage,uid).read().length)fail('PRODUCTION_LEGACY_PENDING');if(!online())fail('PRODUCTION_OFFLINE');
+ async function bind({adopt=false,plan,preserveBoth=false}={}){return run(async()=>{if(read())fail('PRODUCTION_ALREADY_BOUND');if(createQueue(storage,uid).read().length)fail('PRODUCTION_LEGACY_PENDING');if(!online())fail('PRODUCTION_OFFLINE');
   const current=checkedLocal(),remote=await verified(await cloud.read(uid));check();if(local.read()!==current.raw)fail('PRODUCTION_LOCAL_CHANGED');
   if(!plan||plan.local!==current.raw||canonical(plan.remote)!==canonical(remote)||adopt!==(remote!==null))fail('PRODUCTION_BIND_CHANGED');
   if(remote&&!sameData(current.payload,remote.head.payload)&&!adopt)fail('PRODUCTION_ADOPTION_REQUIRED');
+  const target=remote&&preserveBoth?mergeInitial(current.raw,remote.head.payload):remote?.head.payload;
   backup(current.raw);let s={format:1,uid,base:null,pending:null,apply:null};
-  if(remote&&!sameData(current.payload,remote.head.payload)){s.apply={before:current.raw,target:selection(current.raw,remote.head.payload),base:remote};write(s);s=await recoverApply(s);}
+  if(remote&&!sameData(current.payload,remote.head.payload)){s.apply={before:current.raw,target:selection(current.raw,target),base:remote};write(s);s=await recoverApply(s);}
   else {s.base=remote;write(s);}
   return {revision:s.base?.head.revision??0,bound:true};
  });}

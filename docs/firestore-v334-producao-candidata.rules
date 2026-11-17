@@ -6,15 +6,20 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
     match /raytechProductionFinanceV2/{uid} {
+      function accessPath() { return /databases/$(database)/documents/raytechProductionAccessV2/$(uid); }
+      function accountPath() { return /databases/$(database)/documents/raytechAccountsV334/$(uid); }
+      function rolePath() { return /databases/$(database)/documents/raytechAdminRolesV334/$(uid); }
+      function owner() { return exists(rolePath()) && get(rolePath()).data.active == true && get(rolePath()).data.role == 'owner'; }
+      function legacyAllowed() { return exists(accessPath()) && get(accessPath()).data.enabled == true; }
+      function activeAccount() { return exists(accountPath()) && get(accountPath()).data.blocked == false; }
       function approved() {
         return request.auth != null && request.auth.uid == uid
-          && exists(/databases/$(database)/documents/raytechProductionAccessV2/$(uid))
-          && get(/databases/$(database)/documents/raytechProductionAccessV2/$(uid)).data.enabled == true
-          && (!exists(/databases/$(database)/documents/raytechAccountsV334/$(uid)) || get(/databases/$(database)/documents/raytechAccountsV334/$(uid)).data.blocked == false);
+          && (!exists(accessPath()) || legacyAllowed())
+          && ((!exists(accountPath()) && legacyAllowed())
+            || (activeAccount() && ((owner() && legacyAllowed()) || get(accountPath()).data.plan == 'premium')));
       }
       function writable() {
-        return approved()
-          && get(/databases/$(database)/documents/raytechProductionAccessV2/$(uid)).data.get('writeEnabled', false) == true;
+        return approved() && (!exists(accessPath()) || get(accessPath()).data.get('writeEnabled', false) == true);
       }
       function uuid(x) { return x is string && x.matches('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'); }
       function validHash(x) { return x is string && x.matches('^[0-9a-f]{64}$'); }

@@ -1,3 +1,4 @@
+import {cloudEntitlement} from './smartPremiumPolicy.mjs';
 import {PRODUCTION_CONFIG,requireProductionConfig} from './config.mjs';
 import {commitV2,validateV2Head,validateV2Receipt} from './capacity.mjs';
 import {canonical} from './model.mjs';
@@ -14,7 +15,7 @@ export async function openProductionCloud(config=PRODUCTION_CONFIG){
  const currentUid=()=>auth.currentUser?.uid??null,verifyUid=uid=>{if(!/^[A-Za-z0-9_-]{1,128}$/.test(uid)||currentUid()!==uid)throw Error('PRODUCTION_UID');};
  const headRef=uid=>fire.doc(db,'raytechProductionFinanceV2',uid);
  const receiptRef=(uid,op)=>fire.doc(db,'raytechProductionFinanceV2',uid,'receipts',op);
- async function approved(uid,{write=false}={}){verifyUid(uid);const access=await fire.getDocFromServer(fire.doc(db,'raytechProductionAccessV2',uid));verifyUid(uid);if(!access.exists()||access.data().enabled!==true)throw Error('PRODUCTION_NOT_APPROVED');if(write&&access.data().writeEnabled!==true)throw Error('PRODUCTION_WRITE_NOT_APPROVED');return {writeEnabled:access.data().writeEnabled===true};}
+ async function approved(uid,{write=false}={}){verifyUid(uid);const read=async name=>(await fire.getDocFromServer(fire.doc(db,name,uid))).data();const [access,account,role]=await Promise.all([read('raytechProductionAccessV2'),read('raytechAccountsV334'),read('raytechAdminRolesV334')]);verifyUid(uid);const grant=cloudEntitlement({plan:account?.plan,role:role?.active===true?role.role:null,access,blocked:account?.blocked===true});if(!grant.eligible)throw Error('PRODUCTION_NOT_APPROVED');if(write&&!grant.writeEnabled)throw Error('PRODUCTION_WRITE_NOT_APPROVED');return {writeEnabled:grant.writeEnabled};}
  const api={currentUid,sha,transaction:fn=>fire.runTransaction(db,tx=>fn({
   getHead:async uid=>{verifyUid(uid);const a=await tx.get(headRef(uid));return a.exists()?a.data():null;},
   getReceipt:async(uid,op)=>{verifyUid(uid);const a=await tx.get(receiptRef(uid,op));return a.exists()?a.data():null;},

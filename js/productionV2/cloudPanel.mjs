@@ -28,6 +28,8 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
  const online=()=>win?.navigator?.onLine!==false;
  let unsubscribe=null,watchGeneration=0,watchStarting=false,watchFailed=false,watchRevision=null,unifiedLogin=false,reviewExpanded=false,profile=null,syncing=false,attention=false,verifiedSync=false,restoring=false,cloud=null,uid=null,busy=false,generation=0,session=null,runtime=null,plan=null,bound=false,review=null,invalid=false,writeAllowed=false,storageChanged=false;
  const unlocked=()=>!el('pinLockOverlay')||el('pinLockOverlay').classList.contains('hidden');
+ const entitlement=()=>win?.raytechCloudEntitlement??{eligible:true,writeEnabled:true};
+ const premium=()=>entitlement().eligible===true&&entitlement().writeEnabled===true;
  const ready=()=>!win?.raytechSessionRevoked&&!storageChanged&&win?.productionCleanWorkspaceReady===true&&unlocked();
  const say=message=>{status.textContent=message;};
  const result=r=>{verifiedSync=['synced','updated'].includes(r.status);attention=r.status==='conflict';const labels={synced:'Sincronizado',updated:'Sincronizado',paused:'Pausado',offline:'Sem internet',conflict:'Conflito: revisão necessária',idle:'Aguardando',throttled:'Aguardando próxima consulta'};if(['synced','updated'].includes(r.status)&&uid){try{syncStorage.setItem(LAST_KEY,JSON.stringify({uid,at:new Date().toISOString()}));}catch{}}say('Nuvem V2 · '+(labels[r.status]??r.status)+(r.revision?' · revisão '+r.revision:''));};
@@ -42,7 +44,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
   connect.disabled=busy||!!cloud||!config.enabled;login.disabled=busy||!cloud||!!uid;inspect.disabled=busy||!uid;logout.disabled=busy||!uid;
   let st={active:false,busy:false};try{if(session)st=session.state();}catch{invalid=true;}
   const indicator=el('productionCloudConnection'),last=el('productionCloudLastSync');const waiting=!!st.budgetWaiting;const renewal=waiting?new Date(Date.parse(st.budgetDay+'T00:00:00Z')+86400000).toLocaleString('pt-BR'):'';
-  if(indicator)indicator.textContent=!online()?'Sem internet — dados locais preservados':!unlocked()?'Bloqueado pelo PIN':!uid?'Desconectado':invalid||review?'Revisão necessária':st.active?'Conectado · automático':bound?'Conectado · pausado':'Conectado · aguardando vínculo';
+  if(indicator)indicator.textContent=!premium()?'Google conectado · '+(entitlement().plan==='free'?'Free · dados locais':'dados locais'):!online()?'Sem internet — dados locais preservados':!unlocked()?'Bloqueado pelo PIN':!uid?'Desconectado':invalid||review?'Revisão necessária':st.active?'Conectado · automático':bound?'Conectado · pausado':'Conectado · aguardando vínculo';
   if(setupPanel)setupPanel.hidden=!canSync||bound||!plan;
   const transfers=el('productionCloudTransferActions');if(transfers)transfers.hidden=!canSync||bound||!plan;
   if(advanced&&review&&maintenance){advanced.open=true;if(reviewDetails)reviewDetails.open=true;}
@@ -52,7 +54,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
   if(manualSync){manualSync.hidden=!canSync||!uid||!bound||!st.active||!!review||invalid;manualSync.disabled=busy||st.busy||waiting||!online()||!ready()||!writeAllowed;}
   if(retry){retry.hidden=maintenance||!uid||!!review||invalid||(!attention&&(!bound||st.active));retry.disabled=busy||st.busy||waiting||!online()||!ready();}
   if(header&&canSync){
-   const kind=!uid?'disconnected':!online()?'offline':invalid||review?'attention':waiting?'paused':attention?'attention':syncing||st.busy?'syncing':st.active&&verifiedSync?'synced':st.active?'online':'paused';
+   const kind=!premium()?'disconnected':!uid?'disconnected':!online()?'offline':invalid||review?'attention':waiting?'paused':attention?'attention':syncing||st.busy?'syncing':st.active&&verifiedSync?'synced':st.active?'online':'paused';
 
    const labels={disconnected:'Desconectado',offline:'Sem internet',attention:'Atenção necessária',syncing:'Sincronizando',synced:'Sincronizado',online:'Conectado',paused:'Pausado'};
    header.title='Nuvem: '+labels[kind];header.setAttribute('aria-label',header.title);header.dataset.syncState=kind;
@@ -66,14 +68,15 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
    if(photo){let url=null;try{const u=new URL(profile?.photoURL);if(u.protocol==='https:'&&/(^|\.)googleusercontent\.com$/.test(u.hostname))url=u.href;}catch{}if(url&&photo.getAttribute('src')!==url){photo.hidden=false;if(initial){initial.hidden=true;initial.classList.remove('flex');}photo.src=url;}else if(!url){photo.removeAttribute('src');photo.hidden=true;if(initial){initial.hidden=false;initial.classList.add('flex');}}}
    if(notice){notice.hidden=!review&&!attention&&!invalid&&!waiting;notice.textContent=waiting&&!review&&!invalid?'Reserva diária esgotada. Retomada automática a partir de '+renewal+'. Dados locais preservados.':review?'Existem alterações que precisam ser revisadas. Seus dados estão preservados.':invalid?'Sincronização protegida. Entre em contato com o suporte.':'Não foi possível sincronizar. Seus dados locais estão preservados.';}
    const view=el('productionCloudState');if(view)view.hidden=!uid;
+   if(indicator&&!premium())indicator.textContent='Google conectado · '+(entitlement().plan==='free'?'Plano Free':'dados locais')+' · sincronização exclusiva Premium';
    if(indicator&&kind==='synced')indicator.textContent='Sincronizado';
    if(indicator&&kind==='online')indicator.textContent='Conectado · automático';
    if(indicator&&kind==='syncing')indicator.textContent='Sincronizando…';
    if(indicator&&kind==='attention')indicator.textContent='Atenção necessária';if(indicator&&waiting&&!review&&!invalid)indicator.textContent='Reserva diária esgotada';
   }
   if(indicator&&canSync){indicator.classList.toggle('text-emerald-400',!!st.active&&online()&&!invalid&&!review&&!attention);indicator.classList.toggle('text-amber-400',!!uid&&(!st.active||!online()||invalid||!!review||attention));indicator.classList.toggle('text-slate-400',!uid);}
-  if(last){try{const x=JSON.parse(syncStorage.getItem(LAST_KEY));last.textContent=x?.uid===uid?'Última sincronização: '+new Date(x.at).toLocaleString('pt-BR'):'Última sincronização: —';}catch{last.textContent='Última sincronização: —';}}
-  const blocked=busy||!canSync||!session||invalid||!ready()||st.busy;
+  if(last){try{const x=JSON.parse(syncStorage.getItem(LAST_KEY));last.textContent=!premium()?'Dados salvos neste dispositivo':x?.uid===uid?'Última sincronização: '+new Date(x.at).toLocaleString('pt-BR'):'Última sincronização: —';}catch{last.textContent='Última sincronização: —';}}
+  const blocked=busy||!premium()||!canSync||!session||invalid||!ready()||st.busy;
   seed.disabled=blocked||bound||plan?.mode!=='seed'||!writeAllowed;disable(adopt,blocked||bound||plan?.mode!=='adopt'||!writeAllowed);
   disable(refresh,blocked||!bound||!st.active||!!review||!writeAllowed);
   if(canSync){connect.hidden=!!cloud;login.hidden=!!uid||!cloud;inspect.hidden=bound&&writeAllowed;seed.hidden=bound||plan?.mode!=='seed';if(adopt)adopt.hidden=bound||plan?.mode!=='adopt';if(refresh)refresh.hidden=!bound;logout.hidden=!uid;}else {const p=el('productionCloudProfile');if(p)p.hidden=!uid;const state=el('productionCloudState');if(state)state.hidden=true;}
@@ -87,7 +90,7 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
  const action=async fn=>{if(busy||session?.state().busy||!unlocked())return;busy=true;paint();try{await fn();}catch(e){error(e);}finally{busy=false;await details();paint();runtime?.changed();if(unifiedLogin&&uid&&canSync&&ready()&&online()){void finishExplicitLogin();}}};
  function stop(preserve=false){clearApply();stopWatch();watchFailed=false;runtime?.close();runtime=null;if(session)try{preserve?session.suspend():session.sessionChanged();}catch{}session=null;plan=null;bound=false;review=null;invalid=false;writeAllowed=false;}
  function makeSession(who,g){
-  const current=()=>g===generation&&uid===who&&ready();
+  const current=()=>g===generation&&uid===who&&ready()&&premium();
   const s=createProductionSyncSession({config,location:win.location,search,cloud,storage:syncStorage,uid:who,hash:payloadHash,id:()=>win.crypto.randomUUID(),local:{read:()=>storage.getItem(dbKey),apply:(raw,payload)=>current()&&win.productionV2ApplyLocal?.(raw,payload)===true},unlocked:current,online:()=>win?.navigator?.onLine!==false,visible:()=>doc.visibilityState!=='hidden',lock:(key,fn)=>withQueueLock('main_b2_'+key,fn,win.navigator?.locks)});
   runtime=createEventRuntime({session:{state:s.state,tick:async opts=>{try{syncing=true;paint();const r=await s.tick(opts);if(g===generation){result(r);if(['updated','synced'].includes(r.status)&&s.hasLocalChanges())runtime?.signal();}return r;}finally{syncing=false;await details();paint();}},pause:s.pause,sessionChanged:s.sessionChanged},environment:()=>({visible:doc.visibilityState!=='hidden',online:win.navigator?.onLine!==false,unlocked:current()&&!busy&&!review&&!invalid,bound}),eventOnly:true,onRenew:async()=>{if(g!==generation||!current()||!bound||review||invalid||!online()||!s.state().budgetWaiting||s.state().budgetDay>=new Date().toISOString().slice(0,10))return false;await authorizeWrite();if(g!==generation||!current())return false;const ok=await s.restoreActive();if(ok){attention=false;watchFailed=false;}await details();paint();return ok;},setTimer:(fn,ms)=>win.setTimeout(fn,ms),clearTimer:id=>win.clearTimeout(id),onError:code=>{if(g!==generation)return;if(code==='EXPERIMENTAL_BUDGET_EXHAUSTED'){attention=false;verifiedSync=false;paint();return;}attention=true;verifiedSync=false;say('Consulta automática interrompida ('+code+'). Dados preservados.');paint();}});
   return s;
@@ -98,10 +101,10 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
  function checked(id){return el(id)?.checked===true;}
  function reset(...ids){for(const id of ids){if(el(id))el(id).checked=false;}}
  async function finishExplicitLogin(){
-  if(!unifiedLogin||busy||restoring||!uid||!session||!ready()||!online())return;
+  if(!premium()||!unifiedLogin||busy||restoring||!uid||!session||!ready()||!online())return;
   unifiedLogin=false;
   return action(async()=>{const s=requireSession(),g=generation,who=uid;await details();if(g!==generation||who!==uid||invalid||review)return;
-   if(!bound){await inspectAccount();return;}
+   if(!bound){await authorizeWrite();if(g!==generation||who!==uid||!ready()||!premium())return;const p=await s.inspect();if(g!==generation||who!==uid||!ready()||!premium())return;await s.authorize({mode:p.mode,confirmed:true,backupSaved:true,preserveBoth:true});syncStorage.setItem(CONNECTION_KEY,who);plan=null;await details();}
    await authorizeWrite();if(g!==generation||who!==uid||!ready())return;
    if(!s.state().active){if(s.state().persisted==='active')await s.restoreActive();else await s.resume(true);}
    if(g!==generation||who!==uid||!ready()||!s.state().active)return;
@@ -110,7 +113,7 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
   });
  }
  async function restore(){
-  if(restoring||busy||!canSync||!ready()||!online()||doc.visibilityState==='hidden'||!uid||!session||connection()!==uid)return;
+  if(!premium()||restoring||busy||!canSync||!ready()||!online()||doc.visibilityState==='hidden'||!uid||!session||connection()!==uid)return;
   const s=session,g=generation;restoring=true;busy=true;paint();
   try{await details();if(g!==generation||!bound||invalid||review)return;if(s.state().budgetWaiting&&s.state().budgetDay===new Date().toISOString().slice(0,10))return;if(s.state().persisted!=='active'&&writeAllowed)return;await authorizeWrite();if(g!==generation)return;
    if(!s.state().active&&s.state().persisted==='active')await s.restoreActive();
@@ -121,12 +124,12 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
   const previous=uid;generation++;stop(!previous||previous===user?.uid);uid=user?.uid??null;profile=user??null;reviewExpanded=false;attention=false;verifiedSync=false;storageChanged=false;
   displayedReview=null;displayedConflict=null;if(historyBox)historyBox.textContent='';if(reviewBox)reviewBox.textContent='';if(planBox)planBox.textContent='';
   reset('productionCloudConsent','productionCloudBackupSaved','productionCloudReviewConsent','productionCloudReviewBackup');
-  if(uid){if(canSync)try{session=makeSession(uid,generation);}catch(e){error(e);paint();return;}say('Conta Google conectada. Verifique a autorização da conta.');}else say('Entre com a conta Google desejada.');
-  void details().then(()=>{paint();win.setTimeout(()=>{if(!canSync||!uid||!ready()||!online()||busy)return;if(unifiedLogin)void finishExplicitLogin();else if(connection()===uid)void restore();},0);});
+  if(uid){if(canSync&&premium())try{session=makeSession(uid,generation);}catch(e){error(e);paint();return;}say('Conta Google conectada. Verifique a autorização da conta.');}else say('Entre com a conta Google desejada.');
+  void details().then(()=>{paint();win.setTimeout(()=>{if(!canSync||!uid||!ready()||!online()||busy)return;if(!premium())return;if(unifiedLogin||!bound){unifiedLogin=true;void finishExplicitLogin();}else if(connection()===uid)void restore();},0);});
  });}
  connect.addEventListener('click',()=>action(connectCloud));
  const photo=el('productionCloudPhoto');photo?.addEventListener('error',()=>{photo.hidden=true;const initial=el('productionCloudInitial');if(initial){initial.hidden=false;initial.classList.add('flex');}});
- el('productionCloudGoogle')?.addEventListener('click',()=>{if(!canSync||!ready()||!online())return;unifiedLogin=true;void action(async()=>{try{await connectCloud();if(!cloud.currentUid())throw Error('SESSION_REQUIRED');}catch(e){unifiedLogin=false;throw e;}});});
+ el('productionCloudGoogle')?.addEventListener('click',()=>{if(!premium()||!canSync||!ready()||!online())return;unifiedLogin=true;void action(async()=>{try{await connectCloud();if(!cloud.currentUid())throw Error('SESSION_REQUIRED');}catch(e){unifiedLogin=false;throw e;}});});
 
  applyOpen?.addEventListener('click',()=>action(async()=>{const s=requireSession();clearApply();await authorizeWrite();const p=await s.inspectApply();applyReview=p;applyFields.textContent='';for(const f of p.fields){const row=doc.createElement('label');row.className='block text-xs space-y-1';const title=doc.createElement('p');const record=f.local??f.target??f.before;const isRecord=record&&typeof record==='object';const month=f.path.split(' · ')[0];title.textContent=month+' · '+(isRecord?(record.title??record.description??'Lançamento'):(f.path.includes('budgetLimit')?'Limite do orçamento':'Salário'));title.className='font-semibold text-sm';row.appendChild(title);
  const fmt=(v,k)=>v==null?'Ausente':typeof v==='boolean'?(v?'Sim':'Não'):typeof v==='number'&&['amount','salary','budgetLimit','installmentValue','totalAmount'].includes(k)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v):k==='date'?String(v).split('-').reverse().join('/'):String(v);
@@ -199,7 +202,8 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
    };
   };
   win.addEventListener('raytech-finance-saved',()=>{try{if(session&&!session.hasLocalChanges())return;}catch{}verifiedSync=false;runtime?.signal({local:true});paint();});
-  const lifecycle=()=>{if(online()&&doc.visibilityState!=='hidden')watchFailed=false;runtime?.changed();paint();if(!online()||!ready()||doc.visibilityState==='hidden')return;if(!cloud&&(connection()||win.raytechStorage)&&!busy)void action(connectCloud);else if(unifiedLogin)void finishExplicitLogin();else if(session?.state().active){runtime?.signal();}else if(!session?.state().budgetWaiting)void restore();};
+  const lifecycle=()=>{if(online()&&doc.visibilityState!=='hidden')watchFailed=false;runtime?.changed();paint();if(!online()||!ready()||doc.visibilityState==='hidden')return;if(!cloud&&(connection()||win.raytechStorage)&&!busy)void action(connectCloud);else if(!premium())return;else if(unifiedLogin||session&&!bound){unifiedLogin=true;void finishExplicitLogin();}else if(session?.state().active){runtime?.signal();}else if(!session?.state().budgetWaiting)void restore();};
+  win.addEventListener('raytech-plan-changed',()=>{generation++;stop(true);attention=false;verifiedSync=false;if(uid&&premium()&&canSync){session=makeSession(uid,generation);unifiedLogin=true;}paint();if(premium())void details().then(()=>{if(unifiedLogin)void finishExplicitLogin();});});
   win.addEventListener('online',lifecycle);win.addEventListener('offline',lifecycle);doc.addEventListener?.('visibilitychange',lifecycle);
   win.addEventListener('storage',e=>{if(e.key===dbKey||e.key===syncPrefix(search)+DEVICE_KEY||e.key===syncPrefix(search)+REVIEW_KEY){storageChanged=true;stop();say('Alteração em outra aba. Feche as outras abas e reabra; sincronização bloqueada.');paint();}});
   win.addEventListener('pagehide',()=>{generation++;stop(true);},{once:true});

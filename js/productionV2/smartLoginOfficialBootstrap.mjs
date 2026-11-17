@@ -1,3 +1,4 @@
+import {cloudEntitlement} from './smartPremiumPolicy.mjs';
 import {mountSmartLoginView} from './smartLoginView.mjs';
 import {mountAdmin} from './smartAdminView.mjs';
 import {openSmartLoginAuth} from './smartLoginOfficialAuth.mjs';
@@ -15,8 +16,8 @@ async function observe(user){
  if(!user){view.paint({phase:'signed-out'});return;}
  view.paint({phase:'checking-workspace'});
  try{
- const uid=user.uid,offlineStartup=navigator.onLine===false;let role=null,access=null;
- if(!offlineStartup){try{await auth.profile(uid);role=await auth.role(uid);access=await auth.access(uid);}catch(error){try{revokeOfflineGrant(raw,uid);}catch{}throw error;}}
+ const uid=user.uid,offlineStartup=navigator.onLine===false;let role=null,access=null,accountPlan=null;
+ if(!offlineStartup){try{accountPlan=await auth.profile(uid);role=await auth.role(uid);access=await auth.access(uid);}catch(error){try{revokeOfflineGrant(raw,uid);}catch{}throw error;}}
  if(token!==generation||auth.currentUid()!==uid)return;
  const checkpoint=raw.getItem('raytech_cg_v2_main_sync_v1:raytech_production_v2_device');
  const checkpointUid=checkpoint===null?null:JSON.parse(checkpoint).uid;
@@ -26,11 +27,12 @@ async function observe(user){
  if(identity.original&&!storedOwnerUid){if(!checkpointUid&&!window.confirm('Vincular os bancos originais deste dispositivo à sua conta Google? Nenhum dado será copiado.'))throw Error('OWNER_CONFIRMATION_REQUIRED');if(raw.getItem(OWNER_KEY)!==null)throw Error('OWNER_BINDING_CHANGED');raw.setItem(OWNER_KEY,uid);}
  if(!offlineStartup){try{cacheOfflineGrant(raw,identity);}catch{console.warn('[V33.4] local offline grant unavailable');}}
  if(offlineStartup){window.addEventListener('online',()=>{if(active===uid){generation++;lock();location.reload();}},{once:true,capture:true});if(navigator.onLine){location.reload();return;}}
+ const entitlement=cloudEntitlement({plan:accountPlan,role,access,verified:!offlineStartup});window.raytechCloudEntitlement=entitlement;
  active=uid;window.raytechSessionRevoked=false;window.raytechStorage=scopedStorage(raw,identity,who=>active===who&&auth.currentUid()===who);
  started=true;await loadScripts();if(token!==generation||active!==uid)return;
  await import('./preview.mjs');await import('./cloudPanel.mjs');
  if(token!==generation||active!==uid)return;
- if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
+ if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}else if(a.plan!==accountPlan){window.raytechCloudEntitlement=cloudEntitlement({plan:a.plan,role,access});window.dispatchEvent(new Event('raytech-plan-changed'));accountPlan=a.plan;}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
  if(role){stopAdmin=mountAdmin({api:auth.admin(uid),role,uid});stopRole=auth.watchRole(uid,next=>{if(next!==role){try{revokeOfflineGrant(raw,uid);}catch{}lock();location.reload();}},()=>stopAdmin());}
  const logout=document.getElementById('productionCloudLogout');
  const exit=document.createElement('button');exit.type='button';exit.id='smartOfficialLogout';exit.className='admin-action';exit.textContent='Sair da conta';panel.prepend(exit);
