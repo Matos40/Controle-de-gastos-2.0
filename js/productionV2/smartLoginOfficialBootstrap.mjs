@@ -29,7 +29,10 @@ async function observe(user){
  if(token!==generation||active!==uid)return;
  stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}},()=>{generation++;lock();view.paint({phase:'error'});});
  if(role){stopAdmin=mountAdmin({api:auth.admin(uid),role,uid});stopRole=auth.watchRole(uid,next=>{if(next!==role){lock();location.reload();}},()=>stopAdmin());}
- const logout=document.getElementById('productionCloudLogout');logout?.addEventListener('click',event=>{event.stopImmediatePropagation();lock();void auth.signOut().catch(()=>location.reload());},{capture:true});
+ const logout=document.getElementById('productionCloudLogout');
+ const exit=document.createElement('button');exit.type='button';exit.id='smartOfficialLogout';exit.className='admin-action';exit.textContent='Sair da conta';panel.prepend(exit);
+ const signOut=async event=>{event?.stopImmediatePropagation();generation++;lock();try{await auth.signOut();location.reload();}catch{view.paint({phase:'workspace-blocked',message:'Não foi possível encerrar a sessão. Tente novamente.'});}};
+ exit.addEventListener('click',signOut);logout?.addEventListener('click',signOut,{capture:true});
  window.dispatchEvent(new Event('raytech-account-start'));document.dispatchEvent(new Event('raytech-account-start'));
  if(token!==generation||active!==uid)return;
  panel.hidden=false;panel.inert=false;view.paint({phase:'ready'});
