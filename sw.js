@@ -1,4 +1,4 @@
-const CACHE_NAME = 'controle-gastos-shell-v33-4-4-smart-navigation';
+const CACHE_NAME = 'controle-gastos-shell-v33-4-5-compact-ui';
 const APP_SHELL = [
   './js/productionV2/smartPremiumPolicy.mjs','./js/productionV2/smartPremiumInitialMerge.mjs',
   "./css/smart-login.css","./css/smart-login.css?v=neon3","./assets/neon-scene.svg","./js/productionV2/smartLoginOfficialBootstrap.mjs","./js/productionV2/smartLoginOfficialAuth.mjs","./js/productionV2/smartLoginOfficialIdentity.mjs","./js/productionV2/smartLoginView.mjs","./js/productionV2/smartLoginProfiles.mjs","./js/productionV2/smartAdminIdentity.mjs","./js/productionV2/smartAdminPolicy.mjs","./js/productionV2/smartAdminView.mjs",
