@@ -12,6 +12,10 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/raytechProductionAccessV2/$(uid)).data.enabled == true
           && (!exists(/databases/$(database)/documents/raytechAccountsV334/$(uid)) || get(/databases/$(database)/documents/raytechAccountsV334/$(uid)).data.blocked == false);
       }
+      function writable() {
+        return approved()
+          && get(/databases/$(database)/documents/raytechProductionAccessV2/$(uid)).data.get('writeEnabled', false) == true;
+      }
       function uuid(x) { return x is string && x.matches('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'); }
       function validHash(x) { return x is string && x.matches('^[0-9a-f]{64}$'); }
       function validHead(h) {
@@ -38,8 +42,8 @@ service cloud.firestore {
       }
       allow get: if approved();
       allow list, delete: if false;
-      allow create: if approved() && validHead(request.resource.data) && request.resource.data.revision == 1 && paired(request.resource.data,'');
-      allow update: if approved() && validHead(request.resource.data)
+      allow create: if writable() && validHead(request.resource.data) && request.resource.data.revision == 1 && paired(request.resource.data,'');
+      allow update: if writable() && validHead(request.resource.data)
         && request.resource.data.revision == resource.data.revision + 1
         && paired(request.resource.data,resource.data.lastOperationId);
       match /receipts/{op} {
@@ -51,7 +55,7 @@ service cloud.firestore {
                 (exists(p) && r.revision == get(p).data.revision + 1 && r.parentId == get(p).data.lastOperationId));
         }
         allow get: if approved();
-        allow create: if approved() && validReceipt(request.resource.data,op) && pairedHead(request.resource.data);
+        allow create: if writable() && validReceipt(request.resource.data,op) && pairedHead(request.resource.data);
         allow list, update, delete: if false;
       }
     }
