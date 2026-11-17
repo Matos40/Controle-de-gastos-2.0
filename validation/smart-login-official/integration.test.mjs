@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL('../../'+p,import.meta.url),'utf8');
+test('initial shell hides finance and only loads auth bootstrap',()=>{const s=read('index.html');assert.match(s,/id="smartAccountApp" hidden inert/);assert.match(s,/smartLoginOfficialBootstrap\.mjs/);assert.doesNotMatch(s,/<script src="\.\/js\/app\.js"/);});
+test('bootstrap verifies profile before loading finance',()=>{const s=read('js/productionV2/smartLoginOfficialBootstrap.mjs');assert.ok(s.indexOf('await auth.profile(uid)')<s.indexOf('started=true;await loadScripts()'));assert.ok(s.indexOf('window.raytechStorage=scopedStorage')<s.indexOf('started=true;await loadScripts()'));});
+test('PWA caches all new authentication modules',()=>{const s=read('sw.js');for(const p of ['smartLoginOfficialBootstrap','smartLoginOfficialAuth','smartLoginOfficialIdentity','smartAdminView'])assert.ok(s.includes(p+'.mjs'));});
+test('production rules candidate keeps receipt protocol and adds admin audit',()=>{const s=read('docs/firestore-v334-producao-candidata.rules');for(const p of ['raytechProductionFinanceV2','pairedHead','raytechAccountsV334','raytechAdminAuditV334','raytechAdminRolesV334'])assert.ok(s.includes(p));assert.ok(!s.includes('raytechSmartCloudV333'));});

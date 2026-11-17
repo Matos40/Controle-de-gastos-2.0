@@ -13,4 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test validation/smart-login-official/identity.test.mjs
+      - run: node --test validation/smart-login-official/*.test.mjs
+
+      - run: find js -type f -name '*.mjs' -exec node --check {} \\;
+      - run: node --check sw.js
