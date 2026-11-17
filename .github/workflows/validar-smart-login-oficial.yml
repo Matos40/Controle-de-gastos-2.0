@@ -15,5 +15,5 @@ jobs:
           node-version: '22'
       - run: node --test validation/smart-login-official/*.test.mjs
 
-      - run: find js -type f -name '*.mjs' -exec node --check {} \\;
+      - run: find js -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
       - run: node --check sw.js
