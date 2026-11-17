@@ -33,11 +33,16 @@ async function observe(user){
  await import('./preview.mjs');await import('./cloudPanel.mjs');
  if(token!==generation||active!==uid)return;
  if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}else if(a.plan!==accountPlan){window.raytechCloudEntitlement=cloudEntitlement({plan:a.plan,role,access});window.dispatchEvent(new Event('raytech-plan-changed'));accountPlan=a.plan;}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
- if(role){stopAdmin=mountAdmin({api:auth.admin(uid),role,uid});stopRole=auth.watchRole(uid,next=>{if(next!==role){try{revokeOfflineGrant(raw,uid);}catch{}lock();location.reload();}},()=>stopAdmin());}
  const logout=document.getElementById('productionCloudLogout');
- const exit=document.createElement('button');exit.type='button';exit.id='smartOfficialLogout';exit.className='admin-action';exit.textContent='Sair da conta';panel.prepend(exit);
  const signOut=async event=>{event?.stopImmediatePropagation();try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();try{await auth.signOut();location.reload();}catch{view.paint({phase:'workspace-blocked',message:'Não foi possível encerrar a sessão. Tente novamente.'});}};
- exit.addEventListener('click',signOut);logout?.addEventListener('click',signOut,{capture:true});
+ logout?.addEventListener('click',signOut,{capture:true});
+ // An upper logout control exists only for a verified administrative role.
+ if(!offlineStartup&&['owner','admin'].includes(role)){
+   const exit=document.createElement('button');exit.type='button';exit.id='smartOfficialLogout';exit.className='admin-action';exit.textContent='Sair da conta';exit.addEventListener('click',signOut);panel.prepend(exit);
+   stopAdmin=mountAdmin({api:auth.admin(uid),role,uid});
+   const removeAdmin=()=>{exit.remove();stopAdmin();};
+   stopRole=auth.watchRole(uid,next=>{if(next!==role){removeAdmin();try{revokeOfflineGrant(raw,uid);}catch{}lock();location.reload();}},removeAdmin);
+ }
  window.dispatchEvent(new Event('raytech-account-start'));document.dispatchEvent(new Event('raytech-account-start'));
  if(token!==generation||active!==uid)return;
  panel.hidden=false;panel.inert=false;view.paint({phase:'ready'});
