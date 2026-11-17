@@ -10,7 +10,7 @@ export async function openProductionCloud(config=PRODUCTION_CONFIG){
   import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js'),
   import('https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js')
  ]);
- const app=appSdk.initializeApp(f,'raytech-production-v2'),auth=authSdk.getAuth(app),db=fire.getFirestore(app);
+ const app=(appSdk.getApps().find(a=>a.name==='raytech-production-v2')??appSdk.initializeApp(f,'raytech-production-v2')),auth=authSdk.getAuth(app),db=fire.getFirestore(app);
  const currentUid=()=>auth.currentUser?.uid??null,verifyUid=uid=>{if(!/^[A-Za-z0-9_-]{1,128}$/.test(uid)||currentUid()!==uid)throw Error('PRODUCTION_UID');};
  const headRef=uid=>fire.doc(db,'raytechProductionFinanceV2',uid);
  const receiptRef=(uid,op)=>fire.doc(db,'raytechProductionFinanceV2',uid,'receipts',op);
