@@ -1,0 +1,9 @@
+// Add this match inside the existing homologation firestore service database match.
+// Do not replace existing rules. Production must not be changed.
+match /raytechSmartLoginProfilesV331/{uid} {
+ function owner(){return request.auth != null && request.auth.uid == uid;}
+ allow get: if owner();
+ allow list, delete: if false;
+ allow create: if owner() && request.resource.data.keys().hasOnly(['uid','plan','createdAt','lastAccess']) && request.resource.data.keys().hasAll(['uid','plan','createdAt','lastAccess']) && request.resource.data.uid == uid && request.resource.data.plan == 'free' && request.resource.data.createdAt == request.time && request.resource.data.lastAccess == request.time;
+ allow update: if owner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastAccess']) && request.resource.data.lastAccess == request.time;
+}
