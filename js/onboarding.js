@@ -4,7 +4,7 @@
   const KEY = 'controle_gastos_onboarding_v1';
   const DB_KEY = typeof STORAGE_DATABASE_KEY==='string' ? STORAGE_DATABASE_KEY : 'controle_gastos_multimonth_v3';
   const PIN_KEY = 'controle_gastos_pin_lock';
-  const hadDatabaseBeforeStartup = (typeof CLEAN_WORKSPACE!=='undefined'&&CLEAN_WORKSPACE)||localStorage.getItem(DB_KEY) !== null;
+  const hadDatabaseBeforeStartup = (typeof CLEAN_WORKSPACE!=='undefined'&&CLEAN_WORKSPACE)||(globalThis.raytechStorage??globalThis.localStorage).getItem(DB_KEY) !== null;
   const steps = [
     { icon: 'fa-wallet', title: 'Bem-vindo ao Raytech CG', body: 'Organize seu dinheiro, acompanhe seus gastos e planeje seus próximos meses com tranquilidade.' },
     { icon: 'fa-money-bill-wave', title: 'Comece pelas receitas', body: 'Na aba Contas, informe seu salário mensal e registre outras receitas. Você pode fazer isso depois.' },
@@ -20,8 +20,8 @@
   let highlightedElement = null;
   const CHECK_KEY = 'controle_gastos_checklist_v1';
   const ELIGIBLE_KEY = 'controle_gastos_checklist_eligible_v1';
-  function saved() { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { return {}; } }
-  function store(data) { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (_) {} }
+  function saved() { try { return JSON.parse((globalThis.raytechStorage??globalThis.localStorage).getItem(KEY) || '{}') || {}; } catch (_) { return {}; } }
+  function store(data) { try { (globalThis.raytechStorage??globalThis.localStorage).setItem(KEY, JSON.stringify(data)); } catch (_) {} }
   function highlightTarget(element) {
     if (!element) return;
     if (highlightedElement) highlightedElement.classList.remove('onboarding-target-pulse');
@@ -44,7 +44,7 @@
     if (main && main.parentNode) main.parentNode.insertBefore(checklist, main);
     else document.body.appendChild(checklist);
     document.getElementById('onboardingChecklistHide').addEventListener('click', () => {
-      try { localStorage.setItem(CHECK_KEY, 'hidden'); } catch (_) {}
+      try { (globalThis.raytechStorage??globalThis.localStorage).setItem(CHECK_KEY, 'hidden'); } catch (_) {}
       forceChecklist = false;
       checklist.classList.add('hidden');
     });
@@ -131,9 +131,9 @@
     if (!checklist) return;
     const state = saved();
     let checkState = '';
-    try { checkState = localStorage.getItem(CHECK_KEY) || ''; } catch (_) {}
+    try { checkState = (globalThis.raytechStorage??globalThis.localStorage).getItem(CHECK_KEY) || ''; } catch (_) {}
     let eligible = false;
-    try { eligible = localStorage.getItem(ELIGIBLE_KEY) === 'yes'; } catch (_) {}
+    try { eligible = (globalThis.raytechStorage??globalThis.localStorage).getItem(ELIGIBLE_KEY) === 'yes'; } catch (_) {}
     if (!forceChecklist && (!eligible || !state.completed || checkState === 'hidden')) {
       checklist.classList.add('hidden');
       return;
@@ -181,13 +181,13 @@
     renderChecklist();
     checklist?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('raytech-account-start', () => {
     build();
     if (!hadDatabaseBeforeStartup) {
-      try { localStorage.setItem(ELIGIBLE_KEY, 'yes'); } catch (_) {}
+      try { (globalThis.raytechStorage??globalThis.localStorage).setItem(ELIGIBLE_KEY, 'yes'); } catch (_) {}
     }
     // Bancos preexistentes não recebem tutorial automático; não interferir no bloqueio por PIN.
-    if (!hadDatabaseBeforeStartup && !saved().completed && !localStorage.getItem(PIN_KEY)) open(0);
+    if (!hadDatabaseBeforeStartup && !saved().completed && !(globalThis.raytechStorage??globalThis.localStorage).getItem(PIN_KEY)) open(0);
     renderChecklist();
     document.addEventListener('input', () => setTimeout(renderChecklist, 0));
     document.addEventListener('click', () => setTimeout(renderChecklist, 0));

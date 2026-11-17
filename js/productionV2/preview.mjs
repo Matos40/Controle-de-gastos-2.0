@@ -122,4 +122,4 @@ export function bindPreview(document,storage,key=databaseKey(globalThis.location
   }catch{status.textContent='Não foi possível ler o banco local. Nenhuma alteração realizada.';}
  });
 }
-if(typeof document!=='undefined')bindPreview(document,localStorage);
+if(typeof document!=='undefined')bindPreview(document,(globalThis.raytechStorage??globalThis.localStorage));

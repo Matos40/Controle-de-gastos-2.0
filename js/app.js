@@ -45,7 +45,7 @@ async function triggerNativePwaInstall() {
 
     // Funções de Bloqueio por PIN
     function checkPinLockOnStartup() {
-      const savedPin = localStorage.getItem(STORAGE_PIN_KEY);
+      const savedPin = (globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_PIN_KEY);
       const pinIcon = document.getElementById('pinHeaderIcon');
       if (savedPin && savedPin.length === 4) {
         document.getElementById('pinLockOverlay').classList.remove('hidden');
@@ -59,7 +59,7 @@ async function triggerNativePwaInstall() {
     function handleUnlockPin(e) {
       e.preventDefault();
       const typed = document.getElementById('unlockPinInput').value.trim();
-      const savedPin = localStorage.getItem(STORAGE_PIN_KEY);
+      const savedPin = (globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_PIN_KEY);
       if (typed === savedPin) {
         document.getElementById('pinLockOverlay').classList.add('hidden');
         document.getElementById('unlockPinInput').value = '';
@@ -71,7 +71,7 @@ async function triggerNativePwaInstall() {
     }
 
     function openPinModal() {
-      const savedPin = localStorage.getItem(STORAGE_PIN_KEY);
+      const savedPin = (globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_PIN_KEY);
       document.getElementById('newPinInput').value = savedPin || '';
       const removeBtn = document.getElementById('removePinBtn');
       if (savedPin) {
@@ -92,7 +92,7 @@ async function triggerNativePwaInstall() {
         showToast('Digite exatamente 4 números para o PIN!', 'error');
         return;
       }
-      localStorage.setItem(STORAGE_PIN_KEY, val);
+      (globalThis.raytechStorage??globalThis.localStorage).setItem(STORAGE_PIN_KEY, val);
       const pinIcon = document.getElementById('pinHeaderIcon');
       if (pinIcon) pinIcon.className = 'fa-solid fa-lock text-emerald-400 text-sm';
       closePinModal();
@@ -100,7 +100,7 @@ async function triggerNativePwaInstall() {
     }
 
     function removePinLock() {
-      localStorage.removeItem(STORAGE_PIN_KEY);
+      (globalThis.raytechStorage??globalThis.localStorage).removeItem(STORAGE_PIN_KEY);
       const pinIcon = document.getElementById('pinHeaderIcon');
       if (pinIcon) pinIcon.className = 'fa-solid fa-lock-open text-slate-400 text-sm';
       closePinModal();
@@ -211,9 +211,9 @@ async function triggerNativePwaInstall() {
     }
 
     // Inicialização
-    window.addEventListener('DOMContentLoaded', async () => {
-      if (DEFAULT_API_KEY && !localStorage.getItem(STORAGE_GEMINI_KEY)) {
-        localStorage.setItem(STORAGE_GEMINI_KEY, DEFAULT_API_KEY);
+    window.addEventListener('raytech-account-start', async () => {
+      if (DEFAULT_API_KEY && !(globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_GEMINI_KEY)) {
+        (globalThis.raytechStorage??globalThis.localStorage).setItem(STORAGE_GEMINI_KEY, DEFAULT_API_KEY);
       }
 
       initPwaEnvironment();
@@ -254,8 +254,8 @@ async function triggerNativePwaInstall() {
           workspace = await import('./productionV2/cleanWorkspace.mjs');
           const {openCleanStore,acquireCleanLease} = workspace;
           release = await acquireCleanLease(navigator.locks,location.search);
-          cleanWorkspaceStore = openCleanStore(localStorage,getTodayYM(),location.search);
-          if(workspace.databaseKey(location.search)!==STORAGE_DATABASE_KEY||cleanWorkspaceStore.readCurrent()!==localStorage.getItem(STORAGE_DATABASE_KEY)) throw Error('CLEAN_WORKSPACE_SELECTION');
+          cleanWorkspaceStore = openCleanStore((globalThis.raytechStorage??globalThis.localStorage),getTodayYM(),location.search);
+          if(workspace.databaseKey(location.search)!==STORAGE_DATABASE_KEY||cleanWorkspaceStore.readCurrent()!==(globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_DATABASE_KEY)) throw Error('CLEAN_WORKSPACE_SELECTION');
           window.productionCleanWorkspaceReady = true;
           window.addEventListener('pagehide', () => { window.productionCleanWorkspaceReady=false; release(); }, {once:true});
           window.addEventListener('pageshow', event => { if(event.persisted) location.reload(); });
@@ -263,12 +263,12 @@ async function triggerNativePwaInstall() {
           gate?.classList.add('hidden');
         } catch (err) {
           if(MAIN_WORKSPACE && release && workspace && err?.message==='CLEAN_RECOVERY_REQUIRED'){
-            const expected=workspace.recoveryState(localStorage);
+            const expected=workspace.recoveryState((globalThis.raytechStorage??globalThis.localStorage));
             if(expected.available){
               const form=document.getElementById('mainRecoveryForm'),status=document.getElementById('cleanWorkspaceGateStatus');
               status.textContent='Banco V2 principal indisponível. Restaure somente um backup JSON identificado do principal. Legado e testes permanecem intactos.';
               form.classList.remove('hidden');form.hidden=false;
-              const pin=document.getElementById('mainRecoveryPin'),requiresPin=localStorage.getItem(STORAGE_PIN_KEY)!==null;
+              const pin=document.getElementById('mainRecoveryPin'),requiresPin=(globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_PIN_KEY)!==null;
               pin.hidden=!requiresPin;pin.required=requiresPin;
               let active=true;
               window.addEventListener('pagehide',()=>{active=false;release();},{once:true});
@@ -280,7 +280,7 @@ async function triggerNativePwaInstall() {
                   if(!file||file.size>2000000)throw Error('RECOVERY_FILE');
                   const backup=JSON.parse(await file.text());
                   if(!active)return;
-                  workspace.recoverMainStore(localStorage,{expected,backup,pin:pin.value,confirmed:document.getElementById('mainRecoveryConfirm').checked});
+                  workspace.recoverMainStore((globalThis.raytechStorage??globalThis.localStorage),{expected,backup,pin:pin.value,confirmed:document.getElementById('mainRecoveryConfirm').checked});
                   pin.value='';status.textContent='Recuperação concluída. Reabrindo o banco principal.';
                   active=false;release();location.reload();
                 }catch(e){

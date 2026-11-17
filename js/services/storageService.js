@@ -197,7 +197,7 @@
     }
 
     function validateRestoreCandidate(candidate) {
-      if (MAIN_WORKSPACE && localStorage.getItem('raytech_cg_v2_main_sync_v1:raytech_production_v2_device') !== null) throw Error('Banco vinculado. Prepare a restauração revisada pelo painel Nuvem V2. Nenhum dado foi alterado.');
+      if (MAIN_WORKSPACE && (globalThis.raytechStorage??globalThis.localStorage).getItem('raytech_cg_v2_main_sync_v1:raytech_production_v2_device') !== null) throw Error('Banco vinculado. Prepare a restauração revisada pelo painel Nuvem V2. Nenhum dado foi alterado.');
       const validated = validateBackupDatabase(candidate);
       if (CLEAN_WORKSPACE) {
         if (!cleanWorkspaceStore || window.productionCleanWorkspaceReady !== true) throw Error('Banco V2 não está pronto. Abra novamente o banco separado.');
@@ -228,7 +228,7 @@
         return;
       }
       try {
-        const saved = localStorage.getItem(STORAGE_DATABASE_KEY);
+        const saved = (globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_DATABASE_KEY);
         if (saved) {
           appDb = JSON.parse(saved);
           if (!appDb.selectedMonth) appDb.selectedMonth = getTodayYM();
@@ -276,7 +276,7 @@
         }
         return;
       }
-      localStorage.setItem(STORAGE_DATABASE_KEY, JSON.stringify(appDb));
+      (globalThis.raytechStorage??globalThis.localStorage).setItem(STORAGE_DATABASE_KEY, JSON.stringify(appDb));
     }
 
     function changeMonth(delta) {
@@ -329,7 +329,7 @@
     function productionV2ApplyLocal(expected, payload) {
       if (typeof document === 'undefined' || document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden')) return false;
       if (document.querySelector('[id$="Modal"]:not(.hidden)') || document.activeElement?.matches('input,textarea,select,[contenteditable="true"]')) return false;
-      if (localStorage.getItem(STORAGE_DATABASE_KEY) !== expected || JSON.stringify(appDb) !== expected) return false;
+      if ((globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_DATABASE_KEY) !== expected || JSON.stringify(appDb) !== expected) return false;
       if (!MAIN_WORKSPACE || window.productionCleanWorkspaceReady !== true || !cleanWorkspaceStore) return false;
       const candidate = validateBackupDatabase(JSON.parse(payload));
       try { cleanWorkspaceStore.replace(expected, payload); } catch { return false; }

@@ -73,12 +73,12 @@ function setupPasteAndDropEvents() {
 }
 
 function getStoredApiKey() {
-  return (localStorage.getItem(STORAGE_GEMINI_KEY) || DEFAULT_API_KEY).trim();
+  return ((globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_GEMINI_KEY) || DEFAULT_API_KEY).trim();
 }
 
 function openApiKeyModal() {
   const input = document.getElementById('geminiApiKeyInput');
-  input.value = localStorage.getItem(STORAGE_GEMINI_KEY) || DEFAULT_API_KEY;
+  input.value = (globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_GEMINI_KEY) || DEFAULT_API_KEY;
   document.getElementById('apiKeyModal').classList.remove('hidden');
 }
 
@@ -89,10 +89,10 @@ function closeApiKeyModal() {
 function saveApiKey() {
   const keyVal = document.getElementById('geminiApiKeyInput').value.trim();
   if (!keyVal) {
-    localStorage.removeItem(STORAGE_GEMINI_KEY);
+    (globalThis.raytechStorage??globalThis.localStorage).removeItem(STORAGE_GEMINI_KEY);
     showToast('Chave de API removida.', 'info');
   } else {
-    localStorage.setItem(STORAGE_GEMINI_KEY, keyVal);
+    (globalThis.raytechStorage??globalThis.localStorage).setItem(STORAGE_GEMINI_KEY, keyVal);
     showToast('Chave da Gemini API salva com sucesso!', 'success');
   }
   closeApiKeyModal();
@@ -100,7 +100,7 @@ function saveApiKey() {
 }
 
 function updateApiKeyStatusBadge() {
-  const savedKey = localStorage.getItem(STORAGE_GEMINI_KEY);
+  const savedKey = (globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_GEMINI_KEY);
   const btnLabel = document.getElementById('apiKeyBtnLabel');
   if (savedKey && savedKey.length > 5) {
     if (btnLabel) btnLabel.textContent = 'API Ativa';

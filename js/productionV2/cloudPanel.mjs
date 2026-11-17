@@ -28,7 +28,7 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
  const online=()=>win?.navigator?.onLine!==false;
  let unsubscribe=null,watchGeneration=0,watchStarting=false,watchFailed=false,watchRevision=null,unifiedLogin=false,reviewExpanded=false,profile=null,syncing=false,attention=false,verifiedSync=false,restoring=false,cloud=null,uid=null,busy=false,generation=0,session=null,runtime=null,plan=null,bound=false,review=null,invalid=false,writeAllowed=false,storageChanged=false;
  const unlocked=()=>!el('pinLockOverlay')||el('pinLockOverlay').classList.contains('hidden');
- const ready=()=>!storageChanged&&win?.productionCleanWorkspaceReady===true&&unlocked();
+ const ready=()=>!win?.raytechSessionRevoked&&!storageChanged&&win?.productionCleanWorkspaceReady===true&&unlocked();
  const say=message=>{status.textContent=message;};
  const result=r=>{verifiedSync=['synced','updated'].includes(r.status);attention=r.status==='conflict';const labels={synced:'Sincronizado',updated:'Sincronizado',paused:'Pausado',offline:'Sem internet',conflict:'Conflito: revisão necessária',idle:'Aguardando',throttled:'Aguardando próxima consulta'};if(['synced','updated'].includes(r.status)&&uid){try{syncStorage.setItem(LAST_KEY,JSON.stringify({uid,at:new Date().toISOString()}));}catch{}}say('Nuvem V2 · '+(labels[r.status]??r.status)+(r.revision?' · revisão '+r.revision:''));};
  const error=e=>{if(e?.message==='EXPERIMENTAL_BUDGET_EXHAUSTED'){attention=false;verifiedSync=false;say('Reserva diária esgotada. Dados locais preservados.');return;}attention=true;verifiedSync=false;const code=String(e?.code??e?.message??'PRODUCTION_UNAVAILABLE');say('Operação não concluída ('+(/^[A-Z0-9_/-]+$/i.test(code)?code:'PRODUCTION_UNAVAILABLE')+'). Dados e pendências preservados.');};
@@ -126,7 +126,7 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
  });}
  connect.addEventListener('click',()=>action(connectCloud));
  const photo=el('productionCloudPhoto');photo?.addEventListener('error',()=>{photo.hidden=true;const initial=el('productionCloudInitial');if(initial){initial.hidden=false;initial.classList.add('flex');}});
- el('productionCloudGoogle')?.addEventListener('click',()=>{if(!canSync||!ready()||!online())return;unifiedLogin=true;void action(async()=>{try{await connectCloud();if(!cloud.currentUid())await cloud.signIn();}catch(e){unifiedLogin=false;throw e;}});});
+ el('productionCloudGoogle')?.addEventListener('click',()=>{if(!canSync||!ready()||!online())return;unifiedLogin=true;void action(async()=>{try{await connectCloud();if(!cloud.currentUid())throw Error('SESSION_REQUIRED');}catch(e){unifiedLogin=false;throw e;}});});
 
  applyOpen?.addEventListener('click',()=>action(async()=>{const s=requireSession();clearApply();await authorizeWrite();const p=await s.inspectApply();applyReview=p;applyFields.textContent='';for(const f of p.fields){const row=doc.createElement('label');row.className='block text-xs space-y-1';const title=doc.createElement('p');const record=f.local??f.target??f.before;const isRecord=record&&typeof record==='object';const month=f.path.split(' · ')[0];title.textContent=month+' · '+(isRecord?(record.title??record.description??'Lançamento'):(f.path.includes('budgetLimit')?'Limite do orçamento':'Salário'));title.className='font-semibold text-sm';row.appendChild(title);
  const fmt=(v,k)=>v==null?'Ausente':typeof v==='boolean'?(v?'Sim':'Não'):typeof v==='number'&&['amount','salary','budgetLimit','installmentValue','totalAmount'].includes(k)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v):k==='date'?String(v).split('-').reverse().join('/'):String(v);
@@ -143,7 +143,7 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
  reviewOpen?.addEventListener('click',()=>{reviewExpanded=true;paint();});
  manualSync?.addEventListener('click',()=>{if(!manualSync.disabled&&session?.state().active)runtime?.retry();});
  retry?.addEventListener('click',()=>{if(!uid||review||invalid||busy||session?.state().busy)return;if(session?.state().active){runtime?.retry();return;}unifiedLogin=true;void finishExplicitLogin();});
- login.addEventListener('click',()=>action(async()=>{if(!cloud||uid)return;await cloud.signIn();}));
+ login.addEventListener('click',()=>action(async()=>{if(!cloud||uid)return;throw Error('SESSION_REQUIRED');}));
  async function inspectAccount(){if(!cloud||!uid)return;const who=uid,g=generation;if(!canSync){const remote=await cloud.read(who);if(g!==generation||who!==uid||!unlocked())return;say('UID: '+who+(remote?' • Nuvem existente, revisão '+remote.head.revision:' • Conta autorizada; nuvem vazia.'));return;}const s=requireSession();writeAllowed=false;await authorizeWrite();if(await s.checkpoint()){say('Conta autorizada para escrita. Retomada exige confirmação explícita.');return;}const r=await s.inspect();if(g!==generation||who!==uid)return;plan=r;reset('productionCloudConsent','productionCloudBackupSaved');if(planBox)planBox.textContent=JSON.stringify({uid:r.uid,mode:r.mode,local:r.local,remote:r.remote},null,2);say(r.mode==='seed'?'Conta autorizada; nuvem vazia. Revise e confirme.':'Conta autorizada; nuvem existente. Revise antes de receber.');}
  inspect.addEventListener('click',()=>action(inspectAccount));
  function link(mode){return action(async()=>{const s=requireSession();if(plan?.mode!==mode||!checked('productionCloudConsent')||!checked('productionCloudBackupSaved'))throw Error('PRODUCTION_CONSENT');await authorizeWrite();await s.authorize({mode,confirmed:true,backupSaved:true});syncStorage.setItem(CONNECTION_KEY,uid);plan=null;reset('productionCloudConsent','productionCloudBackupSaved');if(planBox)planBox.textContent='';say('Vínculo confirmado. Sincronização automática ativa.');runtime?.signal();});}
@@ -199,7 +199,7 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
    };
   };
   win.addEventListener('raytech-finance-saved',()=>{try{if(session&&!session.hasLocalChanges())return;}catch{}verifiedSync=false;runtime?.signal({local:true});paint();});
-  const lifecycle=()=>{if(online()&&doc.visibilityState!=='hidden')watchFailed=false;runtime?.changed();paint();if(!online()||!ready()||doc.visibilityState==='hidden')return;if(!cloud&&connection()&&!busy)void action(connectCloud);else if(unifiedLogin)void finishExplicitLogin();else if(session?.state().active){runtime?.signal();}else if(!session?.state().budgetWaiting)void restore();};
+  const lifecycle=()=>{if(online()&&doc.visibilityState!=='hidden')watchFailed=false;runtime?.changed();paint();if(!online()||!ready()||doc.visibilityState==='hidden')return;if(!cloud&&(connection()||win.raytechStorage)&&!busy)void action(connectCloud);else if(unifiedLogin)void finishExplicitLogin();else if(session?.state().active){runtime?.signal();}else if(!session?.state().budgetWaiting)void restore();};
   win.addEventListener('online',lifecycle);win.addEventListener('offline',lifecycle);doc.addEventListener?.('visibilitychange',lifecycle);
   win.addEventListener('storage',e=>{if(e.key===dbKey||e.key===syncPrefix(search)+DEVICE_KEY||e.key===syncPrefix(search)+REVIEW_KEY){storageChanged=true;stop();say('Alteração em outra aba. Feche as outras abas e reabra; sincronização bloqueada.');paint();}});
   win.addEventListener('pagehide',()=>{generation++;stop(true);},{once:true});
@@ -208,4 +208,4 @@ disable(pauseBtn,!canSync||!session||(!st.active&&!waiting));disable(resumeBtn,b
  }
  say(config.enabled?(canSync?'Conecte-se para verificar sua conta.':'Login disponível para validação. Transferências financeiras desativadas.'):'Nuvem V2 aguardando liberação. Nenhuma conexão foi iniciada.');paint();
 }
-if(typeof document!=='undefined')bindCloudPanel(document,localStorage);
+if(typeof document!=='undefined')bindCloudPanel(document,(globalThis.raytechStorage??globalThis.localStorage));
