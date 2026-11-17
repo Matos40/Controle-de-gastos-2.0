@@ -533,11 +533,11 @@
             </div>
             <div class="grid grid-cols-1 gap-1.5">
               <button 
-                onclick="openOcrModal(); closeHeaderDrawer();" 
+                id="premiumInvoiceButton" onclick="openOcrModal(); closeHeaderDrawer();" 
                 class="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600/90 to-indigo-600/90 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold transition flex items-center justify-between shadow-sm"
               >
                 <span class="flex items-center gap-2"><i class="fa-solid fa-camera"></i> Ler Fatura (Print ou PDF) com IA</span>
-                <i class="fa-solid fa-chevron-right text-[10px] opacity-75"></i>
+                <i id="premiumInvoiceIndicator" class="fa-solid fa-lock text-amber-400" aria-hidden="true"></i>
               </button>
 
               <div class="grid grid-cols-2 gap-1.5">
@@ -713,10 +713,10 @@
             <div class="grid grid-cols-3 gap-1.5">
               <button 
                 type="button"
-                onclick="openApiKeyModal(); closeHeaderDrawer();"
+                id="premiumApiKeyButton" onclick="openApiKeyModal(); closeHeaderDrawer();"
                 class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition flex flex-col items-center justify-center gap-1 text-center"
               >
-                <i class="fa-solid fa-key text-amber-400 text-sm"></i>
+                <i id="premiumApiKeyIndicator" class="fa-solid fa-lock text-amber-400 text-sm" aria-hidden="true"></i>
                 <span id="apiKeyBtnLabel" class="text-[10px] font-semibold leading-tight">Chave API</span>
               </button>
 
@@ -796,6 +796,17 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div id="premiumAiNotice" role="dialog" aria-modal="true" aria-labelledby="premiumAiTitle" class="hidden fixed inset-0 z-[110] bg-slate-950/90 flex items-center justify-center p-4">
+    <section class="w-full max-w-sm bg-slate-900 border border-amber-500/40 rounded-2xl p-6 text-center space-y-4">
+      <i class="fa-solid fa-crown text-amber-400 text-3xl" aria-hidden="true"></i>
+      <h2 id="premiumAiTitle" class="text-lg font-bold text-amber-400">Recurso exclusivo Premium</h2>
+      <p class="text-sm text-slate-300">Extraia os gastos de imagens e PDFs com IA e configure sua chave Gemini no plano Premium.</p>
+      <p id="premiumAiOfflineNote" class="hidden text-xs text-slate-400">Conecte-se à internet para verificar sua permissão.</p>
+      <p class="text-xs text-slate-400">A ativação do Premium é realizada pela administração do aplicativo.</p>
+      <button type="button" id="premiumAiNoticeClose" onclick="closePremiumAiNotice()" class="w-full p-3 rounded-xl bg-amber-900/50 border border-amber-500/40 text-amber-200 font-bold">Entendi</button>
+    </section>
   </div>
 
   <!-- Modal IA Leitor de Fatura por Print -->

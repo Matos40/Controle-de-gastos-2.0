@@ -5,7 +5,10 @@ import {openSmartLoginAuth} from './smartLoginOfficialAuth.mjs';
 import {resolveWorkspaceIdentity,scopedStorage,OWNER_KEY,ORIGINAL_KEYS,resolveOfflineIdentity,cacheOfflineGrant,revokeOfflineGrant} from './smartLoginOfficialIdentity.mjs';
 const root=document.getElementById('smartLogin'),panel=document.getElementById('smartAccountApp'),raw=window.localStorage;
 let auth,active=null,generation=0,started=false,stopAccount=()=>{},stopRole=()=>{},stopAdmin=()=>{};
-const lock=()=>{active=null;window.raytechSessionRevoked=true;window.productionCleanWorkspaceReady=false;panel.hidden=true;panel.inert=true;root.hidden=false;stopAccount();stopRole();stopAdmin();};
+let aiGrant=false;
+Object.defineProperty(window,'raytechCanUseInvoiceAI',{value:()=>aiGrant&&!!active&&auth?.currentUid()===active&&!window.raytechSessionRevoked&&navigator.onLine!==false});
+const notifyAI=()=>window.dispatchEvent(new Event('raytech-ai-entitlement-changed'));
+const lock=()=>{aiGrant=false;active=null;notifyAI();window.raytechSessionRevoked=true;window.productionCleanWorkspaceReady=false;panel.hidden=true;panel.inert=true;root.hidden=false;stopAccount();stopRole();stopAdmin();};
 const view=mountSmartLoginView(root,{signIn:()=>auth.signIn(),signOut:()=>auth.signOut(),onRetry:()=>location.reload()});
 const scripts=["./js/state.js","./js/services/storageService.js","./js/services/geminiService.js","./js/services/excelService.js","./js/ui/renderSummary.js","./js/ui/renderExpenses.js","./js/ui/renderCards.js","./js/ui/renderAnalytics.js","./js/ui/renderHistory.js","./js/app.js","./js/onboarding.js","./js/ui/categoryPicker.js"];
 async function loadScripts(){for(const path of scripts)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=path;s.onload=resolve;s.onerror=reject;document.body.appendChild(s);});}
@@ -28,11 +31,12 @@ async function observe(user){
  if(!offlineStartup){try{cacheOfflineGrant(raw,identity);}catch{console.warn('[V33.4] local offline grant unavailable');}}
  if(offlineStartup){window.addEventListener('online',()=>{if(active===uid){generation++;lock();location.reload();}},{once:true,capture:true});if(navigator.onLine){location.reload();return;}}
  const entitlement=cloudEntitlement({plan:accountPlan,role,access,verified:!offlineStartup});window.raytechCloudEntitlement=entitlement;
+ aiGrant=!offlineStartup&&(accountPlan==='premium'||['owner','admin'].includes(role));
  active=uid;window.raytechSessionRevoked=false;window.raytechStorage=scopedStorage(raw,identity,who=>active===who&&auth.currentUid()===who);
  started=true;await loadScripts();if(token!==generation||active!==uid)return;
  await import('./preview.mjs');await import('./cloudPanel.mjs');
  if(token!==generation||active!==uid)return;
- if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}else if(a.plan!==accountPlan){window.raytechCloudEntitlement=cloudEntitlement({plan:a.plan,role,access});window.dispatchEvent(new Event('raytech-plan-changed'));accountPlan=a.plan;}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
+ if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}else if(a.plan!==accountPlan){aiGrant=a.plan==='premium'||['owner','admin'].includes(role);notifyAI();window.raytechCloudEntitlement=cloudEntitlement({plan:a.plan,role,access});window.dispatchEvent(new Event('raytech-plan-changed'));accountPlan=a.plan;}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
  const logout=document.getElementById('productionCloudLogout');
  const signOut=async event=>{event?.stopImmediatePropagation();try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();try{await auth.signOut();location.reload();}catch{view.paint({phase:'workspace-blocked',message:'Não foi possível encerrar a sessão. Tente novamente.'});}};
  logout?.addEventListener('click',signOut,{capture:true});
@@ -40,12 +44,12 @@ async function observe(user){
  if(!offlineStartup&&['owner','admin'].includes(role)){
    const exit=document.createElement('button');exit.type='button';exit.id='smartOfficialLogout';exit.className='admin-action';exit.textContent='Sair da conta';exit.addEventListener('click',signOut);panel.prepend(exit);
    stopAdmin=mountAdmin({api:auth.admin(uid),role,uid});
-   const removeAdmin=()=>{exit.remove();stopAdmin();};
+   const removeAdmin=()=>{exit.remove();stopAdmin();aiGrant=accountPlan==='premium';notifyAI();};
    stopRole=auth.watchRole(uid,next=>{if(next!==role){removeAdmin();try{revokeOfflineGrant(raw,uid);}catch{}lock();location.reload();}},removeAdmin);
  }
  window.dispatchEvent(new Event('raytech-account-start'));document.dispatchEvent(new Event('raytech-account-start'));
  if(token!==generation||active!==uid)return;
- panel.hidden=false;panel.inert=false;view.paint({phase:'ready'});
+ panel.hidden=false;panel.inert=false;view.paint({phase:'ready'});notifyAI();
  }catch(e){lock();console.error('[V33.4]',e);view.paint({phase:'workspace-blocked',message:'Acesso protegido. Verifique a conexão, autorização e vínculo da conta. Nenhum banco foi apagado.'});}
 }
 try{auth=await openSmartLoginAuth();auth.onSession(user=>void observe(user),()=>{lock();view.paint({phase:'error'});});}catch{view.paint({phase:'error'});}

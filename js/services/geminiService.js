@@ -2,6 +2,36 @@
 let invoiceImageMimeType = "image/png";
 let invoiceGeneration = 0, invoiceBusy = false, invoiceAbort = null;
 const PDF_LIMIT = 10 * 1024 * 1024;
+let cancelInvoiceReview = null;
+function canUseInvoiceAI(){return globalThis.raytechCanUseInvoiceAI?.()===true;}
+function closePremiumAiNotice(){document.getElementById('premiumAiNotice')?.classList.add('hidden');}
+function requireInvoiceAI(notify=true){
+  if(canUseInvoiceAI())return true;
+  if(notify&&!window.raytechSessionRevoked&&!document.getElementById('smartAccountApp')?.hidden){
+    document.getElementById('premiumAiOfflineNote')?.classList.toggle('hidden',navigator.onLine!==false);
+    document.getElementById('premiumAiNotice')?.classList.remove('hidden');
+    document.getElementById('premiumAiNoticeClose')?.focus();
+  }
+  return false;
+}
+function refreshInvoiceAIPermission(){
+  const allowed=canUseInvoiceAI();
+  const scan=document.getElementById('premiumInvoiceIndicator'),key=document.getElementById('premiumApiKeyIndicator');
+  if(scan)scan.className=allowed?'fa-solid fa-chevron-right text-[10px] opacity-75':'fa-solid fa-lock text-amber-400';
+  if(key)key.className=allowed?'fa-solid fa-key text-amber-400 text-sm':'fa-solid fa-lock text-amber-400 text-sm';
+  for(const id of ['premiumInvoiceButton','premiumApiKeyButton']){
+    const button=document.getElementById(id);if(button)button.title=allowed?'':'Recurso exclusivo Premium';
+  }
+  if(!allowed){
+    cancelInvoiceReview?.();
+    closeOcrModal();
+    closeApiKeyModal();
+    const input=document.getElementById('geminiApiKeyInput');if(input)input.value='';
+    closePremiumAiNotice();
+  }else closePremiumAiNotice();
+  if(!window.raytechSessionRevoked)updateApiKeyStatusBadge();
+}
+
 function isInvoicePdf(file) {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
 }
@@ -19,6 +49,8 @@ function invalidateInvoiceRequest() {
 }
 
 function setupPasteAndDropEvents() {
+  for(const event of ['raytech-ai-entitlement-changed','online','offline'])window.addEventListener(event,refreshInvoiceAIPermission);
+  refreshInvoiceAIPermission();
   window.addEventListener('paste', (event) => {
     const clipboardItems = (event.clipboardData || window.clipboardData)?.items;
     if (!clipboardItems) return;
@@ -28,6 +60,7 @@ function setupPasteAndDropEvents() {
         const blob = item.getAsFile();
         if (blob) {
           event.preventDefault();
+          if(!requireInvoiceAI())return;
           openOcrModal();
           loadAndPreviewImage(blob);
           showToast('Print colado com sucesso!', 'info');
@@ -43,6 +76,7 @@ function setupPasteAndDropEvents() {
       dropZone.addEventListener(eventName, (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if(!canUseInvoiceAI())return;
         dropZone.classList.add('border-purple-400', 'bg-purple-900/30', 'scale-[1.01]');
       });
     });
@@ -73,10 +107,12 @@ function setupPasteAndDropEvents() {
 }
 
 function getStoredApiKey() {
+  if(!requireInvoiceAI(false))return '';
   return ((globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_GEMINI_KEY) || DEFAULT_API_KEY).trim();
 }
 
 function openApiKeyModal() {
+  if(!requireInvoiceAI())return;
   const input = document.getElementById('geminiApiKeyInput');
   input.value = (globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_GEMINI_KEY) || DEFAULT_API_KEY;
   document.getElementById('apiKeyModal').classList.remove('hidden');
@@ -87,6 +123,7 @@ function closeApiKeyModal() {
 }
 
 function saveApiKey() {
+  if(!requireInvoiceAI())return;
   const keyVal = document.getElementById('geminiApiKeyInput').value.trim();
   if (!keyVal) {
     (globalThis.raytechStorage??globalThis.localStorage).removeItem(STORAGE_GEMINI_KEY);
@@ -100,6 +137,7 @@ function saveApiKey() {
 }
 
 function updateApiKeyStatusBadge() {
+  if(!canUseInvoiceAI()){const label=document.getElementById('apiKeyBtnLabel');if(label)label.textContent='Chave API';return;}
   const savedKey = (globalThis.raytechStorage??globalThis.localStorage).getItem(STORAGE_GEMINI_KEY);
   const btnLabel = document.getElementById('apiKeyBtnLabel');
   if (savedKey && savedKey.length > 5) {
@@ -110,6 +148,7 @@ function updateApiKeyStatusBadge() {
 }
 
 function openOcrModal() {
+  if(!requireInvoiceAI())return;
   document.getElementById('ocrModal').classList.remove('hidden');
   updateApiKeyStatusBadge();
 }
@@ -134,19 +173,21 @@ function clearOcrState() {
 }
 
 function handleInvoiceImageSelected(event) {
+  if(!requireInvoiceAI()){event.target.value='';return;}
   const file = event.target.files?.[0];
   if (file) void loadAndPreviewInvoice(file);
 }
 
 function loadAndPreviewImage(file) { return loadAndPreviewInvoice(file); }
 async function loadAndPreviewInvoice(file) {
+  if(!requireInvoiceAI())return;
   clearOcrState();
   const generation = invoiceGeneration;
   const pdf = isInvoicePdf(file);
   try {
     if (pdf) await validateInvoicePdf(file);
     else if (!file.type.startsWith('image/')) throw Error('Selecione uma imagem ou um PDF.');
-    if (generation !== invoiceGeneration) return;
+    if (generation !== invoiceGeneration || !canUseInvoiceAI()) return;
     const fullBase64 = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result));
@@ -154,7 +195,7 @@ async function loadAndPreviewInvoice(file) {
       reader.onabort = () => reject(Error('Leitura cancelada.'));
       reader.readAsDataURL(file);
     });
-    if (generation !== invoiceGeneration) return;
+    if (generation !== invoiceGeneration || !canUseInvoiceAI()) return;
     base64InvoiceImage = fullBase64.split(',')[1];
     invoiceImageMimeType = pdf ? 'application/pdf' : file.type === 'image/jpeg' || file.type === 'image/webp' ? file.type : 'image/png';
     const previewImg = document.getElementById('ocrImagePreview');
@@ -166,7 +207,7 @@ async function loadAndPreviewInvoice(file) {
     document.getElementById('ocrProcessBtn').disabled = false;
     document.getElementById('ocrImageInfo').textContent = `${file.name || 'Imagem colada'} (${Math.round(file.size / 1024)} KB)`;
   } catch (err) {
-    if (generation !== invoiceGeneration) return;
+    if (generation !== invoiceGeneration || !canUseInvoiceAI()) return;
     const box = document.getElementById('ocrErrorBox');
     box.textContent = err.message;
     box.classList.remove('hidden');
@@ -174,6 +215,7 @@ async function loadAndPreviewInvoice(file) {
 }
 
 async function processInvoiceWithGemini() {
+  if(!requireInvoiceAI())return;
   if (invoiceBusy) return;
   if (!base64InvoiceImage) {
     showToast('Por favor, carregue uma imagem ou PDF primeiro!', 'error');
@@ -200,7 +242,7 @@ async function processInvoiceWithGemini() {
   const pdf = invoiceImageMimeType === 'application/pdf';
   const requestMonth = appDb.selectedMonth;
   const assertCurrent = () => {
-    if (generation !== invoiceGeneration || controller.signal.aborted) throw Error('Leitura cancelada.');
+    if (!canUseInvoiceAI() || generation !== invoiceGeneration || controller.signal.aborted) throw Error('Leitura cancelada.');
     if (appDb.selectedMonth !== requestMonth) throw Error('O mês selecionado mudou. Selecione a fatura novamente.');
   };
   ocrLoading.classList.remove('hidden');
@@ -249,6 +291,7 @@ Formato exato de cada item:
     for (let page = 0; page < 5; page++) {
       const params = new URLSearchParams({ pageSize: '100' });
       if (pageToken) params.set('pageToken', pageToken);
+      assertCurrent();
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?${params}`, {
         headers: { 'x-goog-api-key': apiKey }, signal: controller.signal
       });
@@ -288,6 +331,7 @@ Formato exato de cada item:
       ocrLoadingText.textContent = `Analisando com ${modelName}...`;
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent`;
       try {
+        assertCurrent();
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -400,6 +444,8 @@ function formatPdfInvoiceItem(item,index) {
 
 // Shared review flow for image and PDF.
 function reviewInvoiceItems(items) {
+  if(!requireInvoiceAI())return Promise.resolve();
+  cancelInvoiceReview?.();
   const reviewMonth=appDb.selectedMonth;
   return new Promise(resolve => {
     const old = document.getElementById('geminiReviewOverlay');
@@ -525,11 +571,13 @@ function reviewInvoiceItems(items) {
       confirm.title=invalid ? `${invalid} linha(s) precisam de correção` : '';
     };
     controls.forEach(r=>[r.checked,r.date,r.title,r.amount,r.current,r.installments,r.total].forEach(el=>el.addEventListener('input',update)));
-    const finish=()=>{overlay.remove();resolve();};
+    const finish=()=>{overlay.remove();if(cancelInvoiceReview===finish)cancelInvoiceReview=null;resolve();};
+    cancelInvoiceReview=finish;
     cancel.addEventListener('click',finish);
     confirm.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if(!requireInvoiceAI()){finish();return;}
       if (confirm.disabled) return;
       status.style.color='#93c5fd';
       status.textContent='Validando lançamentos selecionados...';
@@ -574,6 +622,7 @@ function reviewInvoiceItems(items) {
           candidate.months[reviewMonth].cardExpenses=[...unique,...existing];
           try{cleanWorkspaceStore.check(JSON.stringify(candidate));}catch(err){const code=String(err.message||err).replace(/^PRODUCTION_CONTRACT:\s*/, '');throw Error('Importação incompatível com o banco V2 ('+code+'). Confira as linhas selecionadas e os limites do banco. Nenhum lançamento foi salvo.');}
         }
+        if(!canUseInvoiceAI())throw Error('Recurso exclusivo Premium.');
         currentData.cardExpenses=[...unique,...existing];
         try {
           saveDatabase();
@@ -581,8 +630,7 @@ function reviewInvoiceItems(items) {
           currentData.cardExpenses=previous;
           throw new Error('Não foi possível gravar a fatura. O último banco válido foi preservado no V2. Atualize a página e revise a importação novamente. ('+(err.message||err)+')');
         }
-        overlay.remove();
-        resolve();
+        finish();
         try { closeOcrModal(); } catch(e) { console.warn('Fechar modal:',e); }
         try { switchTab('card'); } catch(e) { console.warn('Mudar aba:',e); }
         try { renderAll(); } catch(e) { console.warn('Renderizar:',e); }
