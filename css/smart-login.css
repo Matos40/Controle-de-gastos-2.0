@@ -1,0 +1,9 @@
+[hidden]{display:none!important}
+.smart-login{min-height:100svh;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:radial-gradient(ellipse at 15% 15%,#123b43 0,transparent 45%),radial-gradient(ellipse at 90% 90%,#302254 0,transparent 45%),#080f1e;color:#f1f5f9;font:500 16px/1.5 "Plus Jakarta Sans",system-ui,sans-serif}
+.smart-login__card{width:min(100%,420px);box-sizing:border-box;padding:clamp(24px,6vw,48px);border:1px solid #344458;border-radius:28px;background:#101c2dee;box-shadow:0 24px 80px #0006;text-align:center}
+.smart-login__logo{width:84px;height:84px;object-fit:contain;border-radius:20px}
+.smart-login h1{font-size:clamp(28px,5vw,36px);letter-spacing:-.05em;margin:12px 0 4px}
+.smart-login h1 span{color:#48dfb8}.smart-login p{color:#b4c4d8;margin:12px 0 20px}
+.smart-login button{width:100%;padding:14px;margin:8px 0;border:1px solid #5b728d;border-radius:12px;background:#f8fafc;color:#101827;font:inherit;font-weight:700;cursor:pointer}
+.smart-login button:focus-visible{outline:3px solid #48dfb8;outline-offset:4px}.smart-login button:disabled{opacity:.55;cursor:wait}
+.smart-login small{display:block;color:#a9bbce;margin-top:20px;font-size:12px}
