@@ -1,0 +1,22 @@
+import {cpSync,mkdirSync,readFileSync,writeFileSync,readdirSync,rmSync} from 'node:fs';
+import {resolve,join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=fileURLToPath(new URL('../../',import.meta.url)),out=resolve(root,'dist-v334-demo');
+rmSync(out,{recursive:true,force:true});mkdirSync(out);
+for(const p of ['index.html','sw.js','manifest.json','favicon.ico','raytech-icon-192.png','raytech-icon-512.png','css','assets','js'])cpSync(join(root,p),join(out,p),{recursive:true});
+const put=(p,s)=>writeFileSync(join(out,p),s),get=p=>readFileSync(join(out,p),'utf8');
+const test=readFileSync(join(root,'validation/production-browser/browser-v334.test.mjs'),'utf8');
+const extract=n=>{const start=test.indexOf('const '+n+'='+String.fromCharCode(96))+('const '+n+'='+String.fromCharCode(96)).length;return test.slice(start,test.indexOf(String.fromCharCode(96)+';',start));};
+let auth=extract('authMock').replace("current=sessionStorage.getItem('fixture-next')||'owner'","current=confirm('OK = proprietário fictício; Cancelar = cliente fictício')?'owner':'client'");
+put('js/productionV2/smartLoginOfficialAuth.mjs',auth);
+put('js/productionV2/firebaseAdapter.mjs',extract('adapterMock'));
+put('js/productionV2/config.mjs',"export const PRODUCTION_CONFIG=Object.freeze({enabled:false,syncEnabled:false,firebase:null}); export function requireProductionConfig(){throw Error('DEMO_NETWORK_DISABLED');}");
+let html=get('index.html').replace('<head>','<head><meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data: blob:; font-src \'self\'; connect-src \'none\'; object-src \'none\'; frame-src \'none\'; form-action \'none\'; base-uri \'none\'">').replaceAll('Raytech CG | Controle de Gastos','Raytech CG DEMO | Dados fictícios').replace('Entrar com Google','Entrar em conta fictícia').replace('Sua vida financeira começa aqui','DEMONSTRAÇÃO ISOLADA · NÃO USE DADOS REAIS');
+const urls=[...new Set([...html.matchAll(/https:\/\/[^"'\s<>]+/g)].map(m=>m[0]))];for(const u of urls){if(u.includes('tailwindcss.com'))html=html.replaceAll(u,'./demo-tailwind.js');else if(u.includes('xlsx.full.min.js'))html=html.replaceAll(u,'./demo-xlsx.js');else if(u.includes('chart.umd.min.js'))html=html.replaceAll(u,'./demo-chart.js');else if(u.includes('fonts.')||u.includes('cdnjs.'))html=html.replaceAll(u,'./demo-empty.css');}
+html=html.replace('</head>','<script src="./demo-init.js"></script></head>');put('index.html',html);
+put('demo-tailwind.js',"window.tailwind={};document.head.insertAdjacentHTML('beforeend','<style>.hidden{display:none!important}</style>');");
+put('demo-xlsx.js','window.XLSX={};');put('demo-chart.js','window.Chart=class{destroy(){}update(){}};');put('demo-empty.css','');
+put('demo-init.js',"if(location.origin!=='http://127.0.0.1:8344'){document.documentElement.textContent='Abra exclusivamente em http://127.0.0.1:8344';throw Error('DEMO_ORIGIN_REQUIRED');}if(!localStorage.getItem('fixture-initialized')){localStorage.setItem('raytech_v334_original_workspace_owner','owner');localStorage.setItem('fixture-initialized','1');}");
+let sw=get('sw.js').replace(/const CDN_ASSETS = \[[\s\S]*?\];/,"const CDN_ASSETS = ['./demo-tailwind.js','./demo-xlsx.js','./demo-chart.js','./demo-empty.css','./demo-init.js'];").replace('controle-gastos-shell-v33-4-candidate','raytech-demo-v334-local');put('sw.js',sw);
+let manifest=JSON.parse(get('manifest.json'));manifest.name='Raytech CG DEMO V33.4';manifest.short_name='Raytech DEMO';manifest.id='./';put('manifest.json',JSON.stringify(manifest));
+put('LEIA-ME.txt','DEMONSTRAÇÃO ISOLADA. Extraia o ZIP, abra o terminal na pasta e execute py -m http.server 8344 --bind 127.0.0.1. Abra http://127.0.0.1:8344 no navegador. Login fictício: OK proprietário; Cancelar cliente. Não use dados reais. Nuvem real, IA, gráficos e XLSX não estão disponíveis neste pacote. Não é a versão de produção.');

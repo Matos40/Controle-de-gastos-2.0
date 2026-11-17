@@ -20,3 +20,11 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: node --test browser-v334.test.mjs
+
+      - name: Build offline isolated demonstration
+        run: node build-v334-demo.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raytech-v334-demo-isolado
+          path: dist-v334-demo/
+          if-no-files-found: error
