@@ -54,12 +54,12 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
   if(manualSync){manualSync.hidden=!canSync||!uid||!bound||!st.active||!!review||invalid;manualSync.disabled=busy||st.busy||waiting||!online()||!ready()||!writeAllowed;}
   if(retry){retry.hidden=maintenance||!uid||!!review||invalid||(!attention&&(!bound||st.active));retry.disabled=busy||st.busy||waiting||!online()||!ready();}
   if(header&&canSync){
-   const kind=!premium()?'disconnected':!uid?'disconnected':!online()?'offline':invalid||review?'attention':waiting?'paused':attention?'attention':syncing||st.busy?'syncing':st.active&&verifiedSync?'synced':st.active?'online':'paused';
+   const kind=uid&&entitlement().plan==='free'&&!premium()?'free':!premium()?'disconnected':!uid?'disconnected':!online()?'offline':invalid||review?'attention':waiting?'paused':attention?'attention':syncing||st.busy?'syncing':st.active&&verifiedSync?'synced':st.active?'online':'paused';
 
-   const labels={disconnected:'Desconectado',offline:'Sem internet',attention:'Atenção necessária',syncing:'Sincronizando',synced:'Sincronizado',online:'Conectado',paused:'Pausado'};
+   const labels={free:'Google conectado · Plano Free (dados locais)',disconnected:'Desconectado',offline:'Sem internet',attention:'Atenção necessária',syncing:'Sincronizando',synced:'Sincronizado',online:'Conectado',paused:'Pausado'};
    header.title='Nuvem: '+labels[kind];header.setAttribute('aria-label',header.title);header.dataset.syncState=kind;
    header.classList.remove('text-emerald-400','text-amber-400','text-slate-400','text-blue-400','text-red-400');
-   header.classList.add(kind==='synced'||kind==='online'?'text-emerald-400':kind==='syncing'?'text-blue-400':kind==='attention'?'text-red-400':kind==='offline'||kind==='paused'?'text-amber-400':'text-slate-400');
+   header.classList.add(kind==='free'||kind==='synced'||kind==='online'?'text-emerald-400':kind==='syncing'?'text-blue-400':kind==='attention'?'text-red-400':kind==='offline'||kind==='paused'?'text-amber-400':'text-slate-400');
    const glyph=header.querySelector('svg');if(glyph){for(const g of glyph.querySelectorAll('[data-cloud-glyph]'))g.style.display=g.dataset.cloudGlyph===kind?'':'none';glyph.classList.toggle('raytech-sync-spin',kind==='syncing');}
    const guest=el('productionCloudGuest'),person=el('productionCloudProfile'),google=el('productionCloudGoogle'),name=el('productionCloudName'),photo=el('productionCloudPhoto'),initial=el('productionCloudInitial'),notice=el('productionCloudNotice');
    if(guest)guest.hidden=!!uid;if(person){person.hidden=!uid;person.classList.toggle('flex',!!uid);}if(google)google.disabled=busy||!online()||!ready();
@@ -68,13 +68,13 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
    if(photo){let url=null;try{const u=new URL(profile?.photoURL);if(u.protocol==='https:'&&/(^|\.)googleusercontent\.com$/.test(u.hostname))url=u.href;}catch{}if(url&&photo.getAttribute('src')!==url){photo.hidden=false;if(initial){initial.hidden=true;initial.classList.remove('flex');}photo.src=url;}else if(!url){photo.removeAttribute('src');photo.hidden=true;if(initial){initial.hidden=false;initial.classList.add('flex');}}}
    if(notice){notice.hidden=!review&&!attention&&!invalid&&!waiting;notice.textContent=waiting&&!review&&!invalid?'Reserva diária esgotada. Retomada automática a partir de '+renewal+'. Dados locais preservados.':review?'Existem alterações que precisam ser revisadas. Seus dados estão preservados.':invalid?'Sincronização protegida. Entre em contato com o suporte.':'Não foi possível sincronizar. Seus dados locais estão preservados.';}
    const view=el('productionCloudState');if(view)view.hidden=!uid;
-   if(indicator&&!premium())indicator.textContent='Google conectado · '+(entitlement().plan==='free'?'Plano Free':'dados locais')+' · sincronização exclusiva Premium';
+   if(indicator&&!premium())indicator.textContent=kind==='free'?'Google conectado · Plano Free\nSincronização exclusiva Premium':'Google conectado · dados locais';
    if(indicator&&kind==='synced')indicator.textContent='Sincronizado';
    if(indicator&&kind==='online')indicator.textContent='Conectado · automático';
    if(indicator&&kind==='syncing')indicator.textContent='Sincronizando…';
    if(indicator&&kind==='attention')indicator.textContent='Atenção necessária';if(indicator&&waiting&&!review&&!invalid)indicator.textContent='Reserva diária esgotada';
   }
-  if(indicator&&canSync){indicator.classList.toggle('text-emerald-400',!!st.active&&online()&&!invalid&&!review&&!attention);indicator.classList.toggle('text-amber-400',!!uid&&(!st.active||!online()||invalid||!!review||attention));indicator.classList.toggle('text-slate-400',!uid);}
+  if(indicator&&canSync){const free=!!uid&&entitlement().plan==='free'&&!premium();indicator.classList.toggle('text-emerald-400',free||!!st.active&&online()&&!invalid&&!review&&!attention);indicator.classList.toggle('text-amber-400',!free&&!!uid&&(!st.active||!online()||invalid||!!review||attention));indicator.classList.toggle('text-slate-400',!uid);}
   if(last){try{const x=JSON.parse(syncStorage.getItem(LAST_KEY));last.textContent=!premium()?'Dados salvos neste dispositivo':x?.uid===uid?'Última sincronização: '+new Date(x.at).toLocaleString('pt-BR'):'Última sincronização: —';}catch{last.textContent='Última sincronização: —';}}
   const blocked=busy||!premium()||!canSync||!session||invalid||!ready()||st.busy;
   seed.disabled=blocked||bound||plan?.mode!=='seed'||!writeAllowed;disable(adopt,blocked||bound||plan?.mode!=='adopt'||!writeAllowed);
