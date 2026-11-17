@@ -111,3 +111,11 @@ body {
  #headerToolsDrawer .raytech-backup-grid>button{min-width:0;padding:8px 3px;line-height:1.2;overflow-wrap:normal}
  #headerToolsDrawer .raytech-backup-grid>button>span{white-space:normal;font-size:10px}
 }
+
+/* V33.4.4: accessible summary shortcuts, no layout shifts. */
+.raytech-summary-shortcut{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .15s ease,box-shadow .18s ease,border-color .18s ease}
+@media(hover:hover){.raytech-summary-shortcut:hover{border-color:#64748b;box-shadow:0 0 0 1px #64748b55,0 8px 20px #0003}}
+.raytech-summary-shortcut:active{transform:scale(.98)}
+.raytech-summary-shortcut:focus-visible{outline:2px solid #38bdf8;outline-offset:3px}
+.raytech-summary-destination-active{outline:2px solid var(--raytech-shortcut-color,#34d399);outline-offset:-2px;box-shadow:0 0 22px -8px var(--raytech-shortcut-color,#34d399)}
+@media(prefers-reduced-motion:reduce){.raytech-summary-shortcut{transition:none}.raytech-summary-shortcut:active{transform:none}}

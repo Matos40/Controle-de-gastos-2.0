@@ -875,7 +875,7 @@
   <main class="max-w-6xl w-full mx-auto px-3.5 sm:px-6 py-5 sm:py-8 flex-1 flex flex-col gap-5 sm:gap-8">
     
     <!-- Configuração do Salário -->
-    <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/80 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
+    <section id="summaryIncomeDestination" tabindex="-1" class="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/80 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
       <div class="absolute -top-12 -right-12 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
       
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
@@ -978,7 +978,7 @@
     <section class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
       
       <!-- Card: Salário Total & Saldo Anterior -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-lg">
+      <div role="button" tabindex="0" data-summary-shortcut="income" aria-label="Ir para salário e entradas extras" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-lg raytech-summary-shortcut">
         <div class="flex items-center justify-between text-slate-400 mb-1.5 sm:mb-2">
           <span class="text-[11px] sm:text-xs font-medium uppercase tracking-wider">Renda Total</span>
           <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs">
@@ -997,7 +997,7 @@
       </div>
 
       <!-- Card: Gastos Fixos -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-lg">
+      <div role="button" tabindex="0" data-summary-shortcut="fixed" aria-label="Ver despesas fixas" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-lg raytech-summary-shortcut">
         <div class="flex items-center justify-between text-slate-400 mb-1.5 sm:mb-2">
           <span class="text-[11px] sm:text-xs font-medium uppercase tracking-wider">Fixas</span>
           <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs">
@@ -1011,7 +1011,7 @@
       </div>
 
       <!-- Card: Gastos Únicos -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-lg">
+      <div role="button" tabindex="0" data-summary-shortcut="one-time" aria-label="Ver despesas únicas" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-lg raytech-summary-shortcut">
         <div class="flex items-center justify-between text-slate-400 mb-1.5 sm:mb-2">
           <span class="text-[11px] sm:text-xs font-medium uppercase tracking-wider">Únicas</span>
           <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-xs">
@@ -1025,7 +1025,7 @@
       </div>
 
       <!-- Card: Cartão de Crédito -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-lg">
+      <div role="button" tabindex="0" data-summary-shortcut="card" aria-label="Ver extrato do cartão de crédito" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-lg raytech-summary-shortcut">
         <div class="flex items-center justify-between text-slate-400 mb-1.5 sm:mb-2">
           <span class="text-[11px] sm:text-xs font-medium uppercase tracking-wider">Cartão</span>
           <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-xs">
@@ -1226,7 +1226,7 @@
       </section>
 
       <!-- Tabela em Linhas -->
-      <section class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col min-h-[460px]">
+      <section id="summaryExpensesDestination" tabindex="-1" class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col min-h-[460px]">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-3">
           <div>
             <h3 class="font-bold text-white text-base flex items-center gap-2">
@@ -1465,7 +1465,7 @@
       </section>
 
       <!-- Lista de Compras do Cartão -->
-      <section class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col min-h-[460px]">
+      <section id="summaryCardDestination" tabindex="-1" class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col min-h-[460px]">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-3">
           <div>
             <h3 class="font-bold text-white text-base flex items-center gap-2">

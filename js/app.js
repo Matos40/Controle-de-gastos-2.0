@@ -303,6 +303,7 @@ async function triggerNativePwaInstall() {
       window.updateMainCapacity?.();
       updateMonthHeader();
       renderAll();
+      bindSummaryNavigation();
       setupPasteAndDropEvents();
       updateApiKeyStatusBadge();
       checkPinLockOnStartup();
@@ -413,6 +414,56 @@ async function triggerNativePwaInstall() {
         }
       );
     }
+    // Summary shortcuts are UI only; they never modify the selected month or financial data.
+    function bindSummaryNavigation() {
+      let highlighted = null, highlightTimer = null, navigationToken = 0;
+      const routes = {
+        income: { id: 'summaryIncomeDestination', color: '#34d399' },
+        fixed: { id: 'summaryExpensesDestination', tab: 'general', filter: 'fixed', color: '#a5b4fc' },
+        'one-time': { id: 'summaryExpensesDestination', tab: 'general', filter: 'one-time', color: '#facc15' },
+        card: { id: 'summaryCardDestination', tab: 'card', filter: 'all', color: '#d8b4fe' }
+      };
+      function navigate(key) {
+        const route = routes[key], destination = route && document.getElementById(route.id);
+        if (!destination || window.raytechSessionRevoked || document.getElementById('smartAccountApp')?.hidden || (document.getElementById('pinLockOverlay') && !document.getElementById('pinLockOverlay').classList.contains('hidden'))) return;
+        if (route.tab) switchTab(route.tab);
+        if (route.tab === 'general') {
+          const search = document.getElementById('generalSearchInput');
+          if (search) search.value = '';
+          setFilter(route.filter);
+          const rows = document.getElementById('expensesContainer');
+          if (rows) rows.scrollTop = 0;
+        } else if (route.tab === 'card') {
+          const search = document.getElementById('cardSearchInput');
+          if (search) search.value = '';
+          setCardFilter('all');
+          const rows = document.getElementById('cardExpensesContainer');
+          if (rows) rows.scrollTop = 0;
+        }
+        clearTimeout(highlightTimer);
+        highlighted?.classList.remove('raytech-summary-destination-active');
+        highlighted = destination;
+        destination.style.setProperty('--raytech-shortcut-color',route.color);
+        const token = ++navigationToken;
+        requestAnimationFrame(() => {
+          if (token !== navigationToken || window.raytechSessionRevoked) return;
+          const header = document.querySelector('.raytech-header-shell');
+          const offset = Math.max(0,header?.getBoundingClientRect().height || 0) + 12;
+          destination.style.scrollMarginTop = offset + 'px';
+          destination.classList.add('raytech-summary-destination-active');
+          destination.focus({preventScroll:true});
+          destination.scrollIntoView({block:'start',inline:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+          highlightTimer = setTimeout(()=>destination.classList.remove('raytech-summary-destination-active'),2200);
+        });
+      }
+      for (const card of document.querySelectorAll('[data-summary-shortcut]')) {
+        card.addEventListener('click',()=>navigate(card.dataset.summaryShortcut));
+        card.addEventListener('keydown',event=>{
+          if(event.key==='Enter'||event.key===' '){event.preventDefault();if(!event.repeat)navigate(card.dataset.summaryShortcut);}
+        });
+      }
+    }
+
     function switchTab(tab) {
       currentTab = tab;
       const tabBtnGeneral = document.getElementById('tabBtnGeneral');
