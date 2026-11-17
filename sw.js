@@ -1,6 +1,6 @@
-const CACHE_NAME = 'controle-gastos-shell-v33-4-candidate';
+const CACHE_NAME = 'controle-gastos-shell-v33-4-official-r1';
 const APP_SHELL = [
-  "./css/smart-login.css","./assets/neon-scene.svg","./js/productionV2/smartLoginOfficialBootstrap.mjs","./js/productionV2/smartLoginOfficialAuth.mjs","./js/productionV2/smartLoginOfficialIdentity.mjs","./js/productionV2/smartLoginView.mjs","./js/productionV2/smartLoginProfiles.mjs","./js/productionV2/smartAdminIdentity.mjs","./js/productionV2/smartAdminPolicy.mjs","./js/productionV2/smartAdminView.mjs",
+  "./css/smart-login.css","./css/smart-login.css?v=neon3","./assets/neon-scene.svg","./js/productionV2/smartLoginOfficialBootstrap.mjs","./js/productionV2/smartLoginOfficialAuth.mjs","./js/productionV2/smartLoginOfficialIdentity.mjs","./js/productionV2/smartLoginView.mjs","./js/productionV2/smartLoginProfiles.mjs","./js/productionV2/smartAdminIdentity.mjs","./js/productionV2/smartAdminPolicy.mjs","./js/productionV2/smartAdminView.mjs",
   './', './index.html', './manifest.json', './favicon.ico', './raytech-icon-192.png', './raytech-icon-512.png', './css/styles.css',
   './js/state.js', './js/app.js', './js/onboarding.js', './js/ui/categoryPicker.js', './js/productionV2/preview.mjs', './js/productionV2/legacyPhase2.mjs', './js/productionV2/cleanWorkspace.mjs', './js/productionV2/model.mjs', './js/productionV2/cloudPanel.mjs', './js/productionV2/eventRuntime.mjs', './js/productionV2/initialTransfer.mjs', './js/productionV2/config.mjs', './js/productionV2/queue.mjs', './js/productionV2/capacity.mjs', './js/productionV2/firebaseAdapter.mjs', './js/productionV2/syncEngine.mjs', './js/experimentalSync/session.mjs', './js/experimentalSync/engine.mjs', './js/experimentalSync/history.mjs', './js/experimentalSync/runtime.mjs', './js/experimentalSync/backupFiles.mjs',
   './js/services/storageService.js', './js/services/geminiService.js', './js/services/excelService.js',
@@ -8,6 +8,10 @@ const APP_SHELL = [
   './js/ui/renderAnalytics.js', './js/ui/renderHistory.js'
 ];
 const CDN_ASSETS = [
+  'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js',
+  'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js',
+  'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js',
+  'https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&display=swap',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
@@ -52,7 +56,7 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin && !CDN_ASSETS.some(asset => request.url.startsWith(asset.split('?')[0]))) return;
+  if (url.origin !== self.location.origin && !CDN_ASSETS.some(asset => request.url.startsWith(asset.split('?')[0])) && !(url.origin==='https://www.gstatic.com' && url.pathname.startsWith('/firebasejs/11.10.0/'))) return;
   if (url.origin === self.location.origin && !url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
   if (request.mode === 'navigate') {
     event.respondWith(navigateShell(request));
