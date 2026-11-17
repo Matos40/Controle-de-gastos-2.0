@@ -61,6 +61,10 @@ export function bindCloudPanel(doc,storage,{config=PRODUCTION_CONFIG,open=async(
    header.classList.remove('text-emerald-400','text-amber-400','text-slate-400','text-blue-400','text-red-400');
    header.classList.add(kind==='free'||kind==='synced'||kind==='online'?'text-emerald-400':kind==='syncing'?'text-blue-400':kind==='attention'?'text-red-400':kind==='offline'||kind==='paused'?'text-amber-400':'text-slate-400');
    const glyph=header.querySelector('svg');if(glyph){for(const g of glyph.querySelectorAll('[data-cloud-glyph]'))g.style.display=g.dataset.cloudGlyph===kind?'':'none';glyph.classList.toggle('raytech-sync-spin',kind==='syncing');}
+   const panelIcon=el('productionCloudPanelIcon'),panelCheck=el('productionCloudPanelCheck'),greeting=el('productionCloudPremiumGreeting');
+   if(panelIcon){panelIcon.classList.remove('text-emerald-400','text-amber-400','text-slate-400','text-blue-400','text-red-400');panelIcon.classList.add(kind==='free'||kind==='synced'||kind==='online'?'text-emerald-400':kind==='syncing'?'text-blue-400':kind==='attention'?'text-red-400':kind==='offline'||kind==='paused'?'text-amber-400':'text-slate-400');}
+   if(panelCheck)panelCheck.style.display=kind==='synced'?'':'none';
+   if(greeting)greeting.hidden=!(uid&&entitlement().plan==='premium');
    const guest=el('productionCloudGuest'),person=el('productionCloudProfile'),google=el('productionCloudGoogle'),name=el('productionCloudName'),photo=el('productionCloudPhoto'),initial=el('productionCloudInitial'),notice=el('productionCloudNotice');
    if(guest)guest.hidden=!!uid;if(person){person.hidden=!uid;person.classList.toggle('flex',!!uid);}if(google)google.disabled=busy||!online()||!ready();
    if(name)name.textContent=profile?.displayName||profile?.email||'Conta Google';
