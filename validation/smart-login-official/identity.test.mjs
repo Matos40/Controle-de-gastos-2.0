@@ -1,0 +1,11 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {resolveWorkspaceIdentity as resolve,scopedStorage,OWNER_KEY} from '../../js/productionV2/smartLoginOfficialIdentity.mjs';
+const base={verifiedOwnerUid:'owner',storedOwnerUid:null,checkpointUid:'owner',hasOriginalData:true};
+test('verified original owner retains keys',()=>assert.equal(resolve({...base,uid:'owner'}).prefix,''));
+test('new account isolated',()=>assert.equal(resolve({...base,uid:'other'}).prefix,'raytech_v334_uid:other:'));
+test('anonymous denied',()=>assert.throws(()=>resolve({...base,uid:null})));
+test('unverified owner denied',()=>assert.throws(()=>resolve({...base,uid:'owner',verifiedOwnerUid:null})));
+test('conflicting checkpoint denied',()=>assert.throws(()=>resolve({...base,uid:'owner',storedOwnerUid:'other'})));
+test('unresolved legacy owner denied',()=>assert.throws(()=>resolve({uid:'other',verifiedOwnerUid:null,storedOwnerUid:null,checkpointUid:null,hasOriginalData:true})));
+test('scope protects original and other accounts',()=>{const map=new Map([['finance','original']]);const raw={getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};let active=true;const s=scopedStorage(raw,resolve({...base,uid:'other'}),()=>active);assert.equal(s.getItem('finance'),null);s.setItem('finance','new');assert.equal(map.get('finance'),'original');assert.throws(()=>s.getItem(OWNER_KEY));assert.throws(()=>s.getItem('raytech_v334_uid:owner:finance'));active=false;assert.throws(()=>s.setItem('finance','bad'));assert.equal(map.get('raytech_v334_uid:other:finance'),'new');});
+test('rollback leaves original intact',()=>{const map=new Map([['finance','original']]);const raw={getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};scopedStorage(raw,resolve({...base,uid:'other'}),()=>true).setItem('finance','new');assert.equal(raw.getItem('finance'),'original');});
