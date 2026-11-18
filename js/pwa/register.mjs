@@ -1,5 +1,5 @@
 let installEvent,registration,phase='preparing';
-const snapshot=()=>Object.freeze({version:'34.6.7',phase,canInstall:!!installEvent,standalone:matchMedia('(display-mode: standalone)').matches||navigator.standalone===true});
+const snapshot=()=>Object.freeze({version:'34.6.8',phase,canInstall:!!installEvent,standalone:matchMedia('(display-mode: standalone)').matches||navigator.standalone===true});
 const publish=next=>{phase=next;window.dispatchEvent(new CustomEvent('raytech-pwa-state',{detail:snapshot()}));};
 window.raytechPwa=Object.freeze({state:snapshot,async install(){if(!installEvent)return {outcome:'unavailable'};const event=installEvent;installEvent=null;try{await event.prompt();return await event.userChoice;}finally{publish(phase);}},async checkUpdate(){if(registration&&navigator.onLine)await registration.update();return snapshot();}});
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installEvent=event;publish(phase);});

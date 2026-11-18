@@ -8,7 +8,9 @@ let auth,active=null,generation=0,started=false,stopAccount=()=>{},stopRole=()=>
 let aiGrant=false;
 Object.defineProperty(window,'raytechCanUseInvoiceAI',{value:()=>aiGrant&&!!active&&auth?.currentUid()===active&&!window.raytechSessionRevoked&&navigator.onLine!==false});
 const notifyAI=()=>window.dispatchEvent(new Event('raytech-ai-entitlement-changed'));
-const lock=()=>{document.querySelector('.v345-profile')?.removeAttribute('open');document.getElementById('v345Identity').textContent='';document.getElementById('v345Avatar').replaceChildren();aiGrant=false;active=null;notifyAI();window.raytechSessionRevoked=true;window.productionCleanWorkspaceReady=false;panel.hidden=true;panel.inert=true;root.hidden=false;stopAccount();stopRole();stopAdmin();};
+const accountBar=document.querySelector('.v345-account'),commonLogout=document.getElementById('v3468Logout');
+const paintAccountChrome=role=>{const privileged=['owner','admin'].includes(role)&&navigator.onLine!==false;accountBar.hidden=!privileged;commonLogout.hidden=privileged;};
+const lock=()=>{accountBar.hidden=true;commonLogout.hidden=true;document.querySelector('.v345-profile')?.removeAttribute('open');document.getElementById('v345Identity').textContent='';document.getElementById('v345Avatar').replaceChildren();aiGrant=false;active=null;notifyAI();window.raytechSessionRevoked=true;window.productionCleanWorkspaceReady=false;panel.hidden=true;panel.inert=true;root.hidden=false;stopAccount();stopRole();stopAdmin();};
 const view=mountSmartLoginView(root,{signIn:()=>auth.signIn(),signOut:()=>auth.signOut(),onRetry:()=>location.reload()});
 const scripts=["./js/state.js","./js/services/storageService.js","./js/services/geminiService.js","./js/services/excelService.js","./js/ui/renderSummary.js","./js/ui/renderExpenses.js","./js/ui/renderCards.js","./js/ui/renderAnalytics.js","./js/ui/renderHistory.js","./js/app.js","./js/onboarding.js","./js/ui/categoryPicker.js"];
 async function loadScripts(){for(const path of scripts)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=path;s.onload=resolve;s.onerror=reject;document.body.appendChild(s);});}
@@ -35,8 +37,8 @@ async function observe(user){
  active=uid;window.raytechSessionRevoked=false;window.raytechStorage=scopedStorage(raw,identity,who=>active===who&&auth.currentUid()===who);
  const avatar=document.getElementById('v345Avatar'),label=(user.displayName||user.email||'Minha conta').trim()||'Minha conta';
  const paintProfile=()=>{document.getElementById('v345Identity').textContent=label+' · '+(offlineStartup?'Offline':role==='owner'?'Owner':role==='admin'?'Admin':accountPlan==='premium'?'Premium':'Free');};
- paintProfile();avatar.textContent=label.split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase();
- if(!offlineStartup&&user.photoURL){try{const url=new URL(user.photoURL);if(url.protocol==='https:'&&/(^|\.)googleusercontent\.com$/.test(url.hostname)&&!url.username&&!url.password){const img=document.createElement('img');img.alt='';img.referrerPolicy='no-referrer';img.onload=()=>{if(active===uid&&auth.currentUid()===uid)avatar.replaceChildren(img);};img.src=url.href;}}catch{}}
+ paintAccountChrome(offlineStartup?null:role);paintProfile();avatar.textContent=label.split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+ if(!offlineStartup&&['owner','admin'].includes(role)&&user.photoURL){try{const url=new URL(user.photoURL);if(url.protocol==='https:'&&/(^|\.)googleusercontent\.com$/.test(url.hostname)&&!url.username&&!url.password){const img=document.createElement('img');img.alt='';img.referrerPolicy='no-referrer';img.onload=()=>{if(active===uid&&auth.currentUid()===uid)avatar.replaceChildren(img);};img.src=url.href;}}catch{}}
  started=true;await loadScripts();if(token!==generation||active!==uid)return;
  await import('./preview.mjs');await import('./cloudPanel.mjs');
  if(token!==generation||active!==uid)return;
@@ -46,11 +48,14 @@ async function observe(user){
  logout?.addEventListener('click',signOut,{capture:true});
  const profile=document.querySelector('.v345-profile');
  document.getElementById('v345Logout').addEventListener('click',signOut);
+ commonLogout.addEventListener('click',signOut);
+ window.addEventListener('offline',()=>{accountBar.hidden=true;commonLogout.hidden=false;profile.open=false;stopAdmin();});
+ window.addEventListener('online',()=>{if(active===uid&&!offlineStartup&&['owner','admin'].includes(role)){generation++;lock();location.reload();}});
  document.addEventListener('click',event=>{if(!profile.contains(event.target))profile.open=false;});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&profile.open){profile.open=false;profile.querySelector('summary').focus();}});
  if(!offlineStartup&&['owner','admin'].includes(role)){
    stopAdmin=mountAdmin({api:auth.admin(uid),role,uid});
-   const removeAdmin=()=>{stopAdmin();role=null;paintProfile();aiGrant=accountPlan==='premium';notifyAI();};
+   const removeAdmin=()=>{stopAdmin();role=null;paintAccountChrome(null);paintProfile();aiGrant=accountPlan==='premium';notifyAI();};
    stopRole=auth.watchRole(uid,next=>{if(next!==role){removeAdmin();try{revokeOfflineGrant(raw,uid);}catch{}lock();location.reload();}},removeAdmin);
  }
  window.dispatchEvent(new Event('raytech-account-start'));document.dispatchEvent(new Event('raytech-account-start'));
