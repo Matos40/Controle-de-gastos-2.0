@@ -1,5 +1,6 @@
-const CACHE_NAME = 'controle-gastos-shell-v34-6-3-production';
+const CACHE_NAME = 'controle-gastos-shell-v34-6-4-production';
 const APP_SHELL = [
+ './css/smart-interface.css',
   './raytech-app-192.png','./raytech-app-512.png','./js/pwa/register.mjs','./js/pwa/visual.mjs','./js/ui/drawer-viewport.mjs','./css/pwa-visual.css',
   './js/productionV2/smartPremiumPolicy.mjs','./js/productionV2/smartPremiumInitialMerge.mjs',
   "./css/smart-login.css","./css/smart-login.css?v=neon3","./assets/neon-scene.svg","./js/productionV2/smartLoginOfficialBootstrap.mjs","./js/productionV2/smartLoginOfficialAuth.mjs","./js/productionV2/smartLoginOfficialIdentity.mjs","./js/productionV2/smartLoginView.mjs","./js/productionV2/smartLoginProfiles.mjs","./js/productionV2/smartAdminIdentity.mjs","./js/productionV2/smartAdminPolicy.mjs","./js/productionV2/smartAdminView.mjs",
