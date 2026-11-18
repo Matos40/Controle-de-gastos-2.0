@@ -1,0 +1,41 @@
+name: V34.6.6 display correction candidate only
+on:
+  push:
+    branches: [release-candidate/v34.6.6-production]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    if: github.repository == 'Matos40/Controle-de-gastos-2.0' && github.ref == 'refs/heads/release-candidate/v34.6.6-production'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preserve original financial code and local resources
+        run: |
+          git diff --exit-code f0ff0f8f786fb4df948c7d10b579f3736949968d -- js ':!js/pwa/register.mjs' css vendor assets manifest.json raytech-app-192.png raytech-app-512.png
+          node validation/v3466/build.mjs
+          node --check candidate/sw.js
+      - name: Install Chromium
+        working-directory: validation/v3466
+        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: Filled finance dashboard online and offline, real Chromium and local libraries
+        working-directory: validation/v3466
+        run: node --test display.test.mjs
+      - name: Package approved files
+        run: |
+          (cd candidate && find . -type f -print0 | sort -z | xargs -0 sha256sum > ../candidate-sha256.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raytech-v3466-production-candidate
+          path: |
+            candidate/
+            candidate-sha256.txt
+          if-no-files-found: error
