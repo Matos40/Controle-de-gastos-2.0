@@ -1,0 +1,54 @@
+name: Materialize approved V34.6.5 artifact
+on:
+  push:
+    branches: [release-preparation/v34.6.5-approved-artifact]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Copy verified candidate bytes onto the current production parent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$RUNNER_TEMP/raytech-approved.zip"
+          curl --fail --silent --show-error --location -H "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/Matos40/Controle-de-gastos-2.0/actions/artifacts/14435844350/zip -o "$ZIP"
+          test "$(wc -c < "$ZIP")" -eq 3289374
+          echo "c57c09085c812336682c9ed8cc43082ee5f9fb1e6c3d9cc519049d7a428414e0  $ZIP" | sha256sum -c -
+          git checkout --detach 99961a8e3ff6018419ed3bdbffcb417e8edb4c03
+          python3 - "$ZIP" <<'PY'
+          import hashlib, pathlib, re, subprocess, sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              files = {}
+              for line in z.read("candidate-sha256.txt").decode().splitlines():
+                  match = re.fullmatch(r"([0-9a-f]{64}) [ *]\./(.+)", line)
+                  assert match, line
+                  digest, name = match.groups()
+                  p = pathlib.PurePosixPath(name)
+                  assert not p.is_absolute() and not ({"..", ".git", ".github"} & set(p.parts)) and name not in files
+                  data = z.read("candidate/" + name)
+                  assert hashlib.sha256(data).hexdigest() == digest, name
+                  files[name] = data
+              assert len(files) == 326
+              assert sum(k.startswith("vendor/") for k in files) == 271
+              assert set(n for n in z.namelist() if n.startswith("candidate/") and not n.endswith("/")) == {"candidate/" + k for k in files}
+              for name, data in files.items():
+                  p = pathlib.Path(name)
+                  p.parent.mkdir(parents=True, exist_ok=True)
+                  p.write_bytes(data)
+                  subprocess.run(["git", "-c", "core.autocrlf=false", "add", "-f", "--", name], check=True)
+              for name, data in files.items():
+                  assert subprocess.check_output(["git", "show", ":" + name]) == data, name
+          PY
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Publish approved Raytech CG V34.6.5 static release'
+          git push origin HEAD:refs/heads/release-materialized/v34.6.5-production
+          git log -1 --format='Commit %H Tree %T Parent %P'
