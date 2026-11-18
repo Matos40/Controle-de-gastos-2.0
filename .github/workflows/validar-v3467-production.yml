@@ -1,0 +1,41 @@
+name: V34.6.7 display correction candidate only
+on:
+  push:
+    branches: [release-candidate/v34.6.7-production]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    if: github.repository == 'Matos40/Controle-de-gastos-2.0' && github.ref == 'refs/heads/release-candidate/v34.6.7-production'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preserve original financial code and local resources
+        run: |
+          git diff --exit-code 8bbae539588cbcfdf00ad9effd488b02918edfd2 -- js ':!js/pwa/register.mjs' ':!js/productionV2/smartAdminView.mjs' css ':!css/smart-interface.css' vendor assets manifest.json raytech-app-192.png raytech-app-512.png
+          node validation/v3467/build.mjs
+          node --check candidate/sw.js
+      - name: Install Chromium
+        working-directory: validation/v3467
+        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: Filled finance dashboard online and offline, real Chromium and local libraries
+        working-directory: validation/v3467
+        run: node --test display.test.mjs admin.test.mjs
+      - name: Package approved files
+        run: |
+          (cd candidate && find . -type f -print0 | sort -z | xargs -0 sha256sum > ../candidate-sha256.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raytech-v3467-production-candidate
+          path: |
+            candidate/
+            candidate-sha256.txt
+          if-no-files-found: error
