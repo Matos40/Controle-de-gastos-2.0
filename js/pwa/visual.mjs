@@ -8,6 +8,7 @@ if(typeof window!=='undefined'){
  const dialog=by('smartPwaDialog'), status=by('smartPwaStatus'), install=by('smartPwaInstall'), help=by('smartPwaHelp'), notice=by('smartPwaNotice'), check=by('smartPwaCheck'), feedback=by('smartPwaFeedback');
  let dismissed=false, previousPhase='', busy=false;
  const render=state=>{
+  if(state?.version){by('raytechHeaderVersion').textContent='v'+state.version;by('raytechInstallVersion').textContent='V'+state.version;}
   const ui=pwaPresentation(state);
   if(previousPhase!==state?.phase){dismissed=false;previousPhase=state?.phase;feedback.textContent='';}
   status.textContent=(ui.installed?'Aplicativo instalado. ':'')+ui.status;
