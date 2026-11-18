@@ -7,9 +7,9 @@ const sha=async p=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256
 export async function openProductionCloud(config=PRODUCTION_CONFIG){
  const f=requireProductionConfig(config,globalThis.location);
  const [appSdk,authSdk,fire]=await Promise.all([
-  import('https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js'),
-  import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js'),
-  import('https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js')
+  import('../../vendor/firebase/app.mjs'),
+  import('../../vendor/firebase/auth.mjs'),
+  import('../../vendor/firebase/firestore.mjs')
  ]);
  const app=(appSdk.getApps().find(a=>a.name==='raytech-production-v2')??appSdk.initializeApp(f,'raytech-production-v2')),auth=authSdk.getAuth(app),db=fire.getFirestore(app);
  const currentUid=()=>auth.currentUser?.uid??null,verifyUid=uid=>{if(!/^[A-Za-z0-9_-]{1,128}$/.test(uid)||currentUid()!==uid)throw Error('PRODUCTION_UID');};
