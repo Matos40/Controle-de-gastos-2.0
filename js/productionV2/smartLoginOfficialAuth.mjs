@@ -1,5 +1,5 @@
 // Authentication only. No finance database access or writes.
-export async function openSmartLoginAuth({location=globalThis.location,load=()=>import('./config.mjs'),sdk=()=>Promise.all([import('https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js')])}={}){
+export async function openSmartLoginAuth({location=globalThis.location,load=()=>import('./config.mjs'),sdk=()=>Promise.all([import('../../vendor/firebase/app.mjs'),import('../../vendor/firebase/auth.mjs')])}={}){
  const {PRODUCTION_CONFIG,requireProductionConfig}=await load();
  const f=requireProductionConfig(PRODUCTION_CONFIG,location);
  const [appSdk,authSdk]=await sdk();
@@ -7,7 +7,7 @@ export async function openSmartLoginAuth({location=globalThis.location,load=()=>
  const app=appSdk.getApps().find(a=>a.name===name)??appSdk.initializeApp(f,name);
  const auth=authSdk.getAuth(app);
  await authSdk.setPersistence(auth,authSdk.browserLocalPersistence);
- const fire=await import('https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js');
+ const fire=await import('../../vendor/firebase/firestore.mjs');
  const db=fire.getFirestore(app);
  const {registerFree}=await import('./smartLoginProfiles.mjs');
  const {identityFromClaims}=await import('./smartAdminIdentity.mjs');
