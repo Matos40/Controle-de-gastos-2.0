@@ -24,7 +24,7 @@ jobs:
         run: |
           git diff --exit-code fee3d5d25bcbed204a776298869e5e8d21191b16 -- js/productionV2 js/experimentalSync js/services js/state.js js/ui/renderSummary.js js/ui/renderExpenses.js js/ui/renderCards.js js/ui/renderAnalytics.js js/ui/renderHistory.js raytech-icon-192.png raytech-icon-512.png
           node --check sw.js
-          find js -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check
+          find js -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -n1 node --check
       - name: Existing financial and identity regressions
         run: node --test tests/*.test.cjs validation/smart-login-official/*.test.mjs validation/v3463/identity.test.mjs
       - name: Install isolated browser tooling
