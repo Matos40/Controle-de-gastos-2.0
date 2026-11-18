@@ -14,15 +14,15 @@ function boot({online=true,network=async()=>new Response('fresh'),hit='current',
  return {dispatch,calls,listeners};
 }
 test('offline navigation uses current cache exclusively',async()=>{
- const w=boot({online:false});assert.equal(await(await w.dispatch().response).text(),'current');assert.deepEqual(w.calls.open,['controle-gastos-shell-v32-6-smart-sync-conflicts']);assert.equal(w.calls.network,0);assert.equal(w.calls.global,0);
+ const w=boot({online:false});assert.equal(await(await w.dispatch().response).text(),'current');assert.deepEqual(w.calls.open,['controle-gastos-shell-v34-6-3-production']);assert.equal(w.calls.network,0);assert.equal(w.calls.global,0);
 });
-test('stalled connection uses current shell within deadline',async()=>{
- let signal,ms;const w=boot({network:(_,opts)=>{signal=opts.signal;return new Promise(()=>{});},timer:(fn,d)=>{ms=d;queueMicrotask(fn);return 1;},cancel:()=>{}});
- assert.equal(await(await w.dispatch().response).text(),'current');assert.equal(ms,3500);assert.equal(signal.aborted,true);
+test('online navigation stays pinned to active cached shell without a network race',async()=>{
+ const w=boot({network:()=>new Promise(()=>{}),timer:()=>{throw Error('unexpected network deadline');}});
+ assert.equal(await(await w.dispatch().response).text(),'current');assert.equal(w.calls.network,0);assert.equal(w.calls.global,0);
 });
 test('asset cache clone is made before body consumption',async()=>{
  let resolveCache,saved;const gate=new Promise(r=>resolveCache=r),response=new Response('fresh');
- const w=boot({network:async()=>response,open:()=>gate});const e=w.dispatch('https://example.test/app/css/styles.css','cors');
+ const w=boot({network:async()=>response,open:()=>gate});const e=w.dispatch('https://cdn.tailwindcss.com','cors');
  await Promise.resolve();await Promise.resolve();assert.equal(await response.text(),'fresh');resolveCache({match:async()=>undefined,put:async(_,copy)=>{saved=await copy.text();}});
  assert.equal(await e.response,response);await e.lifetime;assert.equal(saved,'fresh');
 });
@@ -36,3 +36,5 @@ test('scope isolation and activation never delete other caches',async()=>{
 test('failed network does not mix old HTML versions',async()=>{
  const w=boot({hit:null,network:async()=>{throw Error('offline');}});assert.equal((await w.dispatch().response).type,'error');assert.equal(w.calls.global,0);
 });
+
+test('same-origin cached assets are not overwritten by a newer deployment',async()=>{const w=boot({network:async()=>new Response('new version'),put:async()=>{throw Error('unexpected cache write');}});const e=w.dispatch('https://example.test/app/css/styles.css','cors');assert.equal(await(await e.response).text(),'current');assert.equal(w.calls.network,0);assert.equal(w.calls.global,0);});
