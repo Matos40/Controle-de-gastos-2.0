@@ -11,7 +11,7 @@ function generatePwaIconDataUrl(size = 512) {
 }
 function initPwaEnvironment() {
   const appleLink = document.getElementById('appleTouchIconLink');
-  if (appleLink) appleLink.href = './raytech-icon-192.png?v=32.4';
+  if (appleLink) appleLink.href = './raytech-app-192.png';
   const manifestLink = document.getElementById('pwaManifestLink');
   if (manifestLink) manifestLink.href = './manifest.json';
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -25,7 +25,7 @@ function initPwaEnvironment() {
     closePwaModal(); showToast('Aplicativo instalado com sucesso na sua Tela Inicial!', 'success');
   });
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Falha ao registrar Service Worker:', err));
+    // Registration is owned by the Smart Update module.
   }
   const updateOnlineStatus = () => {
     const banner = document.getElementById('offlineBanner'); if (!banner) return;

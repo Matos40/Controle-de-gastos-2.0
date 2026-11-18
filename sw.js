@@ -1,5 +1,6 @@
-const CACHE_NAME = 'controle-gastos-shell-v33-4-7-premium-protection';
+const CACHE_NAME = 'controle-gastos-shell-v34-6-3-production';
 const APP_SHELL = [
+  './raytech-app-192.png','./raytech-app-512.png','./js/pwa/register.mjs','./js/pwa/visual.mjs','./js/ui/drawer-viewport.mjs','./css/pwa-visual.css',
   './js/productionV2/smartPremiumPolicy.mjs','./js/productionV2/smartPremiumInitialMerge.mjs',
   "./css/smart-login.css","./css/smart-login.css?v=neon3","./assets/neon-scene.svg","./js/productionV2/smartLoginOfficialBootstrap.mjs","./js/productionV2/smartLoginOfficialAuth.mjs","./js/productionV2/smartLoginOfficialIdentity.mjs","./js/productionV2/smartLoginView.mjs","./js/productionV2/smartLoginProfiles.mjs","./js/productionV2/smartAdminIdentity.mjs","./js/productionV2/smartAdminPolicy.mjs","./js/productionV2/smartAdminView.mjs",
   './', './index.html', './manifest.json', './favicon.ico', './raytech-icon-192.png', './raytech-icon-512.png', './css/styles.css',
@@ -24,7 +25,7 @@ self.addEventListener('install', event => {
     const cache = await caches.open(CACHE_NAME);
     await Promise.all(APP_SHELL.map(url => cache.add(new Request(url,{cache:'reload'}))));
     await Promise.allSettled(CDN_ASSETS.map(url => cache.add(url)));
-    await self.skipWaiting();
+    // Wait for all clients of the previous worker to close.
   })());
 });
 self.addEventListener('activate', event => {
@@ -38,20 +39,7 @@ async function navigateShell(request) {
   const cache = await caches.open(CACHE_NAME).catch(() => null);
   const shell = () => cache ? cache.match('./index.html').catch(() => undefined) : Promise.resolve(undefined);
   if (self.navigator?.onLine === false) return (await shell()) || Response.error();
-  const controller = new AbortController();
-  let timer;
-  try {
-    const fresh = await Promise.race([
-      fetch(request,{cache:'no-store',signal:controller.signal}),
-      new Promise((_,reject) => { timer=setTimeout(() => { reject(Error('NAVIGATION_TIMEOUT'));controller.abort(); },3500); })
-    ]);
-    if(fresh.ok)return fresh;
-    return (await shell()) || fresh;
-  } catch {
-    return (await shell()) || Response.error();
-  } finally {
-    if(timer!==undefined)clearTimeout(timer);
-  }
+  return (await shell()) || Response.error();
 }
 self.addEventListener('fetch', event => {
   const request = event.request;
@@ -65,6 +53,7 @@ self.addEventListener('fetch', event => {
   }
   const cache = caches.open(CACHE_NAME);
   const cached = cache.then(c => c.match(request)).catch(() => undefined);
+  if(url.origin===self.location.origin){event.respondWith(cached.then(hit=>hit||fetch(request).catch(()=>Response.error())));return;}
   const network = fetch(request).then(response => ({response, copy: response.ok ? response.clone() : null}));
   event.waitUntil(network.then(({copy}) => copy ? cache.then(c => c.put(request, copy)) : undefined).catch(() => {}));
   event.respondWith(cached.then(hit => hit || network.then(({response}) => response).catch(() => Response.error())));
