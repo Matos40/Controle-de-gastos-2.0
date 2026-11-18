@@ -8,7 +8,7 @@ let auth,active=null,generation=0,started=false,stopAccount=()=>{},stopRole=()=>
 let aiGrant=false;
 Object.defineProperty(window,'raytechCanUseInvoiceAI',{value:()=>aiGrant&&!!active&&auth?.currentUid()===active&&!window.raytechSessionRevoked&&navigator.onLine!==false});
 const notifyAI=()=>window.dispatchEvent(new Event('raytech-ai-entitlement-changed'));
-const lock=()=>{aiGrant=false;active=null;notifyAI();window.raytechSessionRevoked=true;window.productionCleanWorkspaceReady=false;panel.hidden=true;panel.inert=true;root.hidden=false;stopAccount();stopRole();stopAdmin();};
+const lock=()=>{document.querySelector('.v345-profile')?.removeAttribute('open');document.getElementById('v345Identity').textContent='';document.getElementById('v345Avatar').replaceChildren();aiGrant=false;active=null;notifyAI();window.raytechSessionRevoked=true;window.productionCleanWorkspaceReady=false;panel.hidden=true;panel.inert=true;root.hidden=false;stopAccount();stopRole();stopAdmin();};
 const view=mountSmartLoginView(root,{signIn:()=>auth.signIn(),signOut:()=>auth.signOut(),onRetry:()=>location.reload()});
 const scripts=["./js/state.js","./js/services/storageService.js","./js/services/geminiService.js","./js/services/excelService.js","./js/ui/renderSummary.js","./js/ui/renderExpenses.js","./js/ui/renderCards.js","./js/ui/renderAnalytics.js","./js/ui/renderHistory.js","./js/app.js","./js/onboarding.js","./js/ui/categoryPicker.js"];
 async function loadScripts(){for(const path of scripts)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=path;s.onload=resolve;s.onerror=reject;document.body.appendChild(s);});}
@@ -33,18 +33,24 @@ async function observe(user){
  const entitlement=cloudEntitlement({plan:accountPlan,role,access,verified:!offlineStartup});window.raytechCloudEntitlement=entitlement;
  aiGrant=!offlineStartup&&(accountPlan==='premium'||['owner','admin'].includes(role));
  active=uid;window.raytechSessionRevoked=false;window.raytechStorage=scopedStorage(raw,identity,who=>active===who&&auth.currentUid()===who);
+ const avatar=document.getElementById('v345Avatar'),label=(user.displayName||user.email||'Minha conta').trim()||'Minha conta';
+ const paintProfile=()=>{document.getElementById('v345Identity').textContent=label+' · '+(offlineStartup?'Offline':role==='owner'?'Owner':role==='admin'?'Admin':accountPlan==='premium'?'Premium':'Free');};
+ paintProfile();avatar.textContent=label.split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+ if(!offlineStartup&&user.photoURL){try{const url=new URL(user.photoURL);if(url.protocol==='https:'&&/(^|\.)googleusercontent\.com$/.test(url.hostname)&&!url.username&&!url.password){const img=document.createElement('img');img.alt='';img.referrerPolicy='no-referrer';img.onload=()=>{if(active===uid&&auth.currentUid()===uid)avatar.replaceChildren(img);};img.src=url.href;}}catch{}}
  started=true;await loadScripts();if(token!==generation||active!==uid)return;
  await import('./preview.mjs');await import('./cloudPanel.mjs');
  if(token!==generation||active!==uid)return;
- if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}else if(a.plan!==accountPlan){aiGrant=a.plan==='premium'||['owner','admin'].includes(role);notifyAI();window.raytechCloudEntitlement=cloudEntitlement({plan:a.plan,role,access});window.dispatchEvent(new Event('raytech-plan-changed'));accountPlan=a.plan;}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
+ if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}else if(a.plan!==accountPlan){aiGrant=a.plan==='premium'||['owner','admin'].includes(role);notifyAI();window.raytechCloudEntitlement=cloudEntitlement({plan:a.plan,role,access});window.dispatchEvent(new Event('raytech-plan-changed'));accountPlan=a.plan;paintProfile();}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
  const logout=document.getElementById('productionCloudLogout');
  const signOut=async event=>{event?.stopImmediatePropagation();try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();try{await auth.signOut();location.reload();}catch{view.paint({phase:'workspace-blocked',message:'Não foi possível encerrar a sessão. Tente novamente.'});}};
  logout?.addEventListener('click',signOut,{capture:true});
- // An upper logout control exists only for a verified administrative role.
+ const profile=document.querySelector('.v345-profile');
+ document.getElementById('v345Logout').addEventListener('click',signOut);
+ document.addEventListener('click',event=>{if(!profile.contains(event.target))profile.open=false;});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&profile.open){profile.open=false;profile.querySelector('summary').focus();}});
  if(!offlineStartup&&['owner','admin'].includes(role)){
-   const exit=document.createElement('button');exit.type='button';exit.id='smartOfficialLogout';exit.className='admin-action';exit.textContent='Sair da conta';exit.addEventListener('click',signOut);panel.prepend(exit);
    stopAdmin=mountAdmin({api:auth.admin(uid),role,uid});
-   const removeAdmin=()=>{exit.remove();stopAdmin();aiGrant=accountPlan==='premium';notifyAI();};
+   const removeAdmin=()=>{stopAdmin();role=null;paintProfile();aiGrant=accountPlan==='premium';notifyAI();};
    stopRole=auth.watchRole(uid,next=>{if(next!==role){removeAdmin();try{revokeOfflineGrant(raw,uid);}catch{}lock();location.reload();}},removeAdmin);
  }
  window.dispatchEvent(new Event('raytech-account-start'));document.dispatchEvent(new Event('raytech-account-start'));

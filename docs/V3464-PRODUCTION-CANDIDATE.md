@@ -1,0 +1,1 @@
+Production base dd5cd95088973dfac834438743127848e42babcc. Port homologated V34.5.1 profile and Smart Admin visual presentation from d9dc47628e2dfa9c9b8d6017eaed41c29ed92176; preserve production auth and financial logic, exact plan/block API fields, audit and actual Gemini. No simulated usage or limits, no backend deploy. New cache name and version. Candidate only.

@@ -1,0 +1,47 @@
+name: V34.6.4 production candidate only
+on:
+  push:
+    branches: [release-candidate/v34.6.4-production]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    if: github.repository == 'Matos40/Controle-de-gastos-2.0' && github.ref == 'refs/heads/release-candidate/v34.6.4-production'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate exact official icons
+        run: node validation/v3463/generate-icons.mjs
+      - name: Preserve core and original assets
+        run: |
+          git diff --exit-code dd5cd95088973dfac834438743127848e42babcc -- js/productionV2 ':!js/productionV2/smartLoginOfficialBootstrap.mjs' ':!js/productionV2/smartAdminView.mjs' js/experimentalSync js/services js/state.js js/ui/renderSummary.js js/ui/renderExpenses.js js/ui/renderCards.js js/ui/renderAnalytics.js js/ui/renderHistory.js raytech-icon-192.png raytech-icon-512.png raytech-app-192.png raytech-app-512.png manifest.json
+          node --check sw.js
+          find js -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -n1 node --check
+      - name: Existing financial and identity regressions
+        run: node --test tests/*.test.cjs validation/smart-login-official/*.test.mjs validation/v3463/identity.test.mjs
+      - name: Install isolated browser tooling
+        working-directory: validation/production-browser
+        run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: Existing browser tests (mock authentication and sync)
+        working-directory: validation/production-browser
+        run: node --test browser-v334.test.mjs
+      - name: Package exact production static candidate (no deployment)
+        run: |
+          mkdir -p candidate
+          cp -r index.html manifest.json sw.js favicon.ico raytech-icon-*.png raytech-app-*.png css js assets candidate/
+          (cd candidate && find . -type f -print0 | sort -z | xargs -0 sha256sum > ../candidate-sha256.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raytech-v3464-production-candidate
+          path: |
+            candidate/
+            candidate-sha256.txt
+          if-no-files-found: error
