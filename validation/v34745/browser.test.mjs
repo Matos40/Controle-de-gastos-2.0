@@ -34,7 +34,7 @@ test('four authorized account profiles, compact version, logout and update notic
    return route.fulfill({status:200,headers,json});
  });
  await page.locator('#headerToolsToggleBtn').click();
- assert.equal(await page.locator('#premiumInvoiceIndicator').evaluate(node=>node.classList.contains('fa-crown')),role==='premium');
+ assert.equal(await page.locator('#premiumInvoiceIndicator').evaluate(node=>node.classList.contains('fa-crown')),role!=='free');
  await page.locator('#premiumInvoiceButton').click();
  if(role==='premium'){
    await page.locator('#ocrModal').waitFor({state:'visible'});
@@ -48,6 +48,10 @@ test('four authorized account profiles, compact version, logout and update notic
    await review.getByRole('button',{name:'Importar selecionados'}).click();
    await page.waitForFunction(()=>getCurrentMonthData().cardExpenses.some(item=>item.title==='Synthetic invoice'));
    assert.equal(mocked,2);
+ }else if(privileged){
+   await page.locator('#ocrModal').waitFor({state:'visible'});
+   await page.evaluate(()=>closeOcrModal());
+   assert.equal(mocked,0);
  }else{
    await page.locator('#premiumAiNotice').waitFor({state:'visible'});
    assert.equal(await page.locator('#ocrModal').isVisible(),false);

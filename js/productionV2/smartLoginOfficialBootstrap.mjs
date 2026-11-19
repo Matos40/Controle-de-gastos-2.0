@@ -36,7 +36,7 @@ async function observe(user){
  if(!offlineStartup){try{cacheOfflineGrant(raw,identity);}catch{console.warn('[V33.4] local offline grant unavailable');}}
  if(offlineStartup){window.addEventListener('online',()=>{if(active===uid){generation++;lock();location.reload();}},{once:true,capture:true});if(navigator.onLine){location.reload();return;}}
  const entitlement=cloudEntitlement({plan:accountPlan,role,access,verified:!offlineStartup});window.raytechCloudEntitlement=entitlement;
- aiGrant=!offlineStartup&&(accountPlan==='premium');
+ aiGrant=!offlineStartup&&(accountPlan==='premium'||['owner','admin'].includes(role));
  active=uid;window.raytechSessionRevoked=false;window.raytechStorage=scopedStorage(raw,identity,who=>active===who&&auth.currentUid()===who);
  const avatar=document.getElementById('v345Avatar'),label=(user.displayName||user.email||'Minha conta').trim()||'Minha conta';
  cloudProfile.hidden=cloudLogout.disabled=false;cloudProfile.classList.add('flex');
@@ -51,7 +51,7 @@ async function observe(user){
  started=true;await loadScripts();if(token!==generation||active!==uid)return;
  await import('./preview.mjs');await import('./cloudPanel.mjs');
  if(token!==generation||active!==uid)return;
- if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}else if(a.plan!==accountPlan){aiGrant=a.plan==='premium';notifyAI();window.raytechCloudEntitlement=cloudEntitlement({plan:a.plan,role,access});window.dispatchEvent(new Event('raytech-plan-changed'));accountPlan=a.plan;paintProfile();}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
+ if(!offlineStartup)stopAccount=auth.watchAccount(uid,a=>{if(!a||a.blocked===true){try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'workspace-blocked',message:'Conta bloqueada. Entre em contato com o suporte.'});}else if(a.plan!==accountPlan){aiGrant=a.plan==='premium'||['owner','admin'].includes(role);notifyAI();window.raytechCloudEntitlement=cloudEntitlement({plan:a.plan,role,access});window.dispatchEvent(new Event('raytech-plan-changed'));accountPlan=a.plan;paintProfile();}},()=>{try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();view.paint({phase:'error'});});
  const logout=document.getElementById('productionCloudLogout');
  const signOut=async event=>{event?.stopImmediatePropagation();try{revokeOfflineGrant(raw,uid);}catch{}generation++;lock();try{await auth.signOut();location.reload();}catch{view.paint({phase:'workspace-blocked',message:'Não foi possível encerrar a sessão. Tente novamente.'});}};
  logout?.addEventListener('click',signOut,{capture:true});
