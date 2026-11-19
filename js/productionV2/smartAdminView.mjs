@@ -1,5 +1,7 @@
 import {accountLabel, filterAccounts} from './smartAdminIdentity.mjs';
 
+const keys=['minute','day','month'];
+const names={minute:'Minuto',day:'Dia',month:'Mês'};
 const plans = {owner: 'Owner', admin: 'Admin', premium: 'Premium', free: 'Free'};
 function el(tag, text = '', cls = '') {
   const node = document.createElement(tag);
@@ -23,6 +25,50 @@ function selector(label, options) {
   }
   return node;
 }
+function renderConsumption(account) {
+  if (!account.usage) {
+    const unavailable=el('div','','v345-usage');
+    unavailable.append(el('p',account.usageUnavailable?'Consumo indisponível · leitor desativado no Spark online':'Sem cota de leitor'));
+    if(account.limits)for(const key of keys)unavailable.append(el('p',names[key]+' UTC · limite configurado: '+account.limits[key]));
+    return unavailable;
+  }
+  if(!account.limits)return el('p','Sem cota de leitor');
+  const node = el('div', '', 'v345-usage');
+  node.setAttribute('aria-label', 'Consumo do leitor simulado');
+  if(account.readerEnabled===false)node.append(el('p','Leitor indisponível · histórico de consumo'));
+  if(account.outcome){const x=account.outcome.month;node.append(el('p','Reservadas: '+x.reserved+' · Concluídas: '+x.completed+' · Falhas: '+x.failed+' · Pendentes: '+x.pending));}
+  for (const key of keys) {
+    const count = account.usage[key];
+    const cap = account.limits[key];
+    const label = el('label', names[key] + ' UTC · ' + count + '/' + cap);
+    const meter = document.createElement('progress');
+    meter.setAttribute('aria-label', names[key] + ' UTC');
+    meter.max = cap;
+    meter.value = count;
+    label.append(meter);
+    node.append(label);
+  }
+  return node;
+}
+function safeDate(v){try{const d=v instanceof Date?v:v?.toDate?.();return d instanceof Date&&Number.isFinite(d.getTime())?d.toLocaleString('pt-BR'):'—';}catch{return '—';}}
+function accountAvatar(account) {
+  const initials = accountLabel(account).trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+  const avatar = el('span', initials, 'v345-admin-avatar');
+  avatar.setAttribute('aria-hidden', 'true');
+  if (account.photo) {
+    try {
+      const url = new URL(account.photo);
+      if (url.protocol === 'https:' && /(^|\.)googleusercontent\.com$/.test(url.hostname) && !url.username && !url.password) {
+        const img = el('img');
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        img.onload = () => avatar.replaceChildren(img);
+        img.src = url.href;
+      }
+    } catch {}
+  }
+  return avatar;
+}
 export function mountAdmin({api, role, uid}) {
   const host = document.getElementById('smartAdminHost');
   const open = document.getElementById('smartAdminOpen');
@@ -39,34 +85,85 @@ export function mountAdmin({api, role, uid}) {
   };
 
   function edit(account, status, epoch) {
-    const dialog = el('dialog', '', 'v345-dialog');
+    const dialog = el('dialog', '', 'v345-dialog admin-detail-dialog');
     const title = el('h2', accountLabel(account));
     title.id = 'v345EditTitle';
     dialog.setAttribute('aria-labelledby', title.id);
     const locked = account.protected || account.uid === uid || ['owner','admin'].includes(account.role);
-    const details = el('dl','','v3467-details');
-    const date=v=>v?.toDate?.().toLocaleString('pt-BR')||'—';
-    for(const [label,value] of [['E-mail',account.email||'—'],['UID',account.uid],['Função',plans[account.role]||'Usuário'],['Plano',plans[account.plan]||'—'],['Situação',account.blocked?'Bloqueada':'Ativa'],['Cadastro',date(account.createdAt)],['Último acesso',date(account.lastAccess)]]){details.append(el('dt',label),el('dd',value));}
-    const usage=el('section','','v3467-ai');usage.append(el('h3','Smart AI Usage'),el('p','Consumo e cotas ainda não disponíveis. Integração prevista na V34.7.'));
+    const header = el('header', '', 'admin-detail-header');
+    const identity = el('div');
+    const badges = el('div', '', 'admin-detail-badges');
+    const planBadge = el('span', plans[account.plan] || '—', 'v3467-plan');
+    planBadge.dataset.value = account.plan;
+    const stateBadge = el('span', account.blocked ? 'Bloqueada' : 'Ativa', 'v3467-state');
+    stateBadge.dataset.blocked = String(account.blocked);
+    badges.append(el('span', plans[account.role] || 'Usuário'), planBadge, stateBadge);
+    identity.append(title, badges);
+    const dismiss = button('×', () => dialog.close());
+    dismiss.setAttribute('aria-label', 'Fechar');
+    header.append(accountAvatar(account), identity, dismiss);
+
+    const details = el('dl', '', 'v3467-details');
+    const uidValue = el('dd', '', 'admin-detail-uid');
+    const uidText = el('code', account.uid);
+    const copyStatus = el('span', '', 'admin-detail-copy-status');
+    copyStatus.setAttribute('role', 'status');
+    const copy = button('Copiar', async () => {
+      try {
+        await navigator.clipboard.writeText(account.uid);
+        copyStatus.textContent = 'UID copiado.';
+      } catch {
+        uidValue.classList.add('admin-detail-uid-expanded');
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(uidText);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        copyStatus.textContent = 'Não foi possível copiar. O UID está selecionado para cópia manual.';
+      }
+    });
+    copy.setAttribute('aria-label', 'Copiar UID');
+    uidValue.append(uidText, copy, copyStatus);
+    details.append(el('dt', 'E-mail'), el('dd', account.email || '—'), el('dt', 'UID'), uidValue);
+    for (const [label, value] of [['Cadastro', account.createdAt], ['Último acesso', account.lastAccess]]) {
+      details.append(el('dt', label), el('dd', safeDate(value)));
+    }
+    const usage=el('section','','v3467-ai');usage.append(el('h3','Smart AI Usage'),renderConsumption(account));
+    const information = el('div', '', 'admin-detail-information');
+    information.append(details, usage);
     const form = el('form', '', 'v345-edit');
+    const columns = el('div', '', 'admin-detail-columns');
+    columns.append(information);
     const plan = selector('Plano', [['free', 'Free'], ['premium', 'Premium']]);
     plan.value = account.plan;
     const blocked = selector('Situação', [['false', 'Ativa'], ['true', 'Bloqueada']]);
     blocked.value = String(account.blocked);
 
+    const limits = Object.fromEntries(keys.map(key => {
+      const input = el('input');
+      input.type = 'number';
+      input.min = 1;
+      input.max = 10000;
+      input.required = true;
+      input.value = account.limits?.[key] ?? {minute: 3, day: 20, month: 100}[key];
+      const label = el('label', names[key] + ' UTC');
+      label.append(input);
+      return [key, {input, label}];
+    }));
     const message = el('p');
     message.setAttribute('role', 'status');
     const cancel = button('Cancelar', () => dialog.close());
     const save = button('Salvar alterações');
     save.type = 'submit';
-    form.append(plan, blocked, message, cancel, save);
     form.onsubmit = async event => {
       event.preventDefault();
       if (locked || save.disabled || !alive || epoch!==serial) return;
+      const values=Object.fromEntries(keys.map(key=>[key,limits[key].input.valueAsNumber]));
+      if(!keys.every(key=>Number.isInteger(values[key])&&values[key]>=1&&values[key]<=10000)||values.minute>values.day||values.day>values.month){message.textContent='Cotas inválidas: minuto ≤ dia ≤ mês.';return;}
       save.disabled = true;
       cancel.disabled = true;
       try {
-        await api.change(account.uid, {plan: plan.value, blocked: blocked.value === 'true'});
+        await api.change(account.uid, {plan: plan.value, blocked: blocked.value === 'true',limits:values});
         if (epoch === serial) {
           dialog.close();
           await load('Alterações salvas.');
@@ -76,9 +173,28 @@ export function mountAdmin({api, role, uid}) {
       } finally { save.disabled = false; cancel.disabled = false; }
     };
     dialog.addEventListener('close', () => dialog.remove(), {once: true});
-    dialog.append(title, details, usage);
-    if(locked) dialog.append(el('p','Conta protegida','v345-protected'),button('Fechar',()=>dialog.close()));
-    else {const pl=el('label','Plano');pl.append(plan);const st=el('label','Situação');st.append(blocked);form.replaceChildren(pl,st,message,cancel,save);dialog.append(form);}
+    dialog.append(header);
+    if (locked) {
+      columns.append(el('p', 'Conta protegida', 'v345-protected'));
+      dialog.append(columns);
+    } else {
+      const settings = el('div', '', 'admin-detail-settings');
+      const planLabel = el('label', 'Plano');
+      planLabel.append(plan);
+      const stateLabel = el('label', 'Situação');
+      stateLabel.append(blocked);
+      const quotas = el('fieldset', '', 'admin-detail-quotas');
+      quotas.append(el('legend', 'Limites de IA'));
+      const quotaFields = el('div', '', 'admin-detail-quota-fields');
+      quotaFields.append(...keys.map(key => limits[key].label));
+      quotas.append(quotaFields);
+      settings.append(planLabel, stateLabel, quotas);
+      columns.append(settings);
+      const actions = el('footer', '', 'admin-detail-actions');
+      actions.append(cancel, save);
+      form.append(columns, message, actions);
+      dialog.append(form);
+    }
     status.after(dialog);
     dialog.showModal();
   }
@@ -101,7 +217,8 @@ export function mountAdmin({api, role, uid}) {
     exit.focus();
     try {
       if (!await api.role()) throw Error('ADMIN_DENIED');
-      const [accounts, audit] = await Promise.all([api.list(), api.audit()]);
+      const [accounts,auditResult,metrics]=await Promise.all([api.list(),api.audit().then(value=>({value}),()=>({unavailable:true})),api.monitor().catch(()=>({unavailable:true}))]);
+      const audit=auditResult.value??[];
       if (epoch !== serial) return;
       status.textContent = (typeof message === 'string' ? message + ' ' : '') + accounts.length + ' contas nesta amostra, até 100.';
       const stats = el('div', '', 'admin-stats');
@@ -128,7 +245,10 @@ export function mountAdmin({api, role, uid}) {
       const roleFilter=selector('Função',[['','Todas as funções'],['admins','Administradores']]);
       tools.append(search, plan, state, roleFilter);
       search.value=filters.search;plan.value=filters.plan;state.value=filters.state;roleFilter.value=filters.admins?'admins':'';
-      const monitor=el('details','','v3467-ai v3467-monitor');monitor.append(el('summary','Smart AI Monitor'),el('p','Contadores reais, cotas e custos indisponíveis até a integração segura da V34.7.'));
+      const monitor=el('details','','v3467-ai v3467-monitor');monitor.append(el('summary','Smart AI Monitor'));
+      const consumption=el('section','','admin-stats');consumption.id='v3473Monitor';
+      if(metrics?.unavailable||!metrics?.outcomes?.month||!metrics?.global?.used||!metrics?.global?.limits)consumption.append(el('p','Consumo e orçamento indisponíveis.'));
+      else{const month=metrics.outcomes.month;for(const [label,value] of [['Reservadas',month.reserved],['Concluídas',month.completed],['Falhas',month.failed],['Pendentes',month.pending]]){const card=el('div','','admin-stat');card.append(el('small',label+' · mês UTC'),el('strong',String(value)));consumption.append(card);}monitor.append(el('p','Orçamento global simulado · mês: R$ '+(metrics.global.used.month/1000000).toFixed(2)+' / R$ '+(metrics.global.limits.month/1000000).toFixed(2)));}monitor.append(consumption);
       const rows = el('div');
       const render = () => {
         rows.replaceChildren();
@@ -140,19 +260,18 @@ export function mountAdmin({api, role, uid}) {
           row.dataset.plan = account.role || account.plan;
           
           const identity = el('div', '', 'v345-admin-identity');
-          const initials = accountLabel(account).trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
-          const avatar = el('span', initials, 'v345-admin-avatar');
-          avatar.setAttribute('aria-hidden', 'true');
+          const avatar = accountAvatar(account);
           const name = el('div', '', 'v345-admin-name');
           name.append(el('strong', accountLabel(account)));name.title=accountLabel(account);
-          if(account.photo){try{const url=new URL(account.photo);if(url.protocol==='https:'&&/(^|\.)googleusercontent\.com$/.test(url.hostname)&&!url.username&&!url.password){const img=el('img');img.alt='';img.referrerPolicy='no-referrer';img.loading='lazy';img.onload=()=>avatar.replaceChildren(img);img.src=url.href;}}catch{}}
           identity.append(avatar, name);
           const email=el('span',account.email||'—','v3467-email');email.title=account.email||'';
+          const roleTag=el('span',plans[account.role]||'Usuário','admin-row-role');
+          roleTag.dataset.role=account.role||'';
           const planTag=el('span',plans[account.plan]||'—','v3467-plan');planTag.dataset.value=account.plan;
           const stateTag=el('span',account.blocked?'Bloqueada':'Ativa','v3467-state');stateTag.dataset.blocked=String(account.blocked);
-          const usage=el('span','—','v3467-usage');usage.title='Consumo de IA indisponível';
+          const usage=el('span',account.usage&&account.limits?account.usage.month+'/'+account.limits.month:'—','v3467-usage');usage.title=account.usage&&account.limits?'Consumo mensal UTC':'Consumo de IA indisponível';
           const detailButton=button('Exibir detalhes',()=>edit(account,status,epoch));detailButton.setAttribute('aria-label','Exibir detalhes de '+accountLabel(account));
-          row.append(identity,email,planTag,stateTag,usage,detailButton);
+          row.append(identity,email,roleTag,planTag,stateTag,usage,detailButton);
           rows.append(row);
         }
         if (!rows.childElementCount) rows.append(el('p', 'Nenhuma conta encontrada.'));
@@ -163,19 +282,27 @@ export function mountAdmin({api, role, uid}) {
       rows.className = 'v345-admin-rows';
       const auditPanel = el('section', '', 'v345-audit');
       auditPanel.append(el('h3', 'Auditoria · últimos 100 registros'));
-      const columns=el('div','','v3467-columns');for(const label of ['Usuário','E-mail','Plano','Situação','Uso IA','Ação'])columns.append(el('span',label));
+      const columns=el('div','','v3467-columns');for(const label of ['Usuário','E-mail','Função','Plano','Situação','Uso IA','Ação'])columns.append(el('span',label));
       host.append(stats, tools, monitor, columns, rows, auditPanel);
       const labels = new Map(accounts.map(a => [a.uid, accountLabel(a)]));
       for (const event of audit) {
+        if(!event||typeof event.target!=='string'||typeof event.actor!=='string'||!['free','premium'].includes(event.beforePlan)||!['free','premium'].includes(event.afterPlan)||typeof event.afterBlocked!=='boolean'){auditPanel.append(el('p','Registro de auditoria inválido.'));continue;}
         const item = el('details');
         item.append(el('summary', (labels.get(event.target) || 'Conta') + ' · ' + event.beforePlan + ' → ' +
           event.afterPlan + ' · ' + (event.afterBlocked ? 'Bloqueada' : 'Ativa')),
-          el('small', 'Operador ' + (labels.get(event.actor)||'Conta não identificada') + ' · ' + (event.at?.toDate?.().toLocaleString('pt-BR')||'—')));
+          el('small', 'Operador ' + (labels.get(event.actor)||'Conta não identificada') + ' · ' + safeDate(event.at)));
         auditPanel.append(item);
       }
-      if (!audit.length) auditPanel.append(el('p', 'Nenhuma alteração registrada.', 'v345-audit-empty'));
-    } catch {
-      if (epoch === serial) status.textContent = 'Acesso administrativo não autorizado ou conexão indisponível.';
+      if(auditResult.unavailable)auditPanel.append(el('p','Auditoria temporariamente indisponível. Reabra o painel para tentar novamente.'));
+      else if (!audit.length) auditPanel.append(el('p', 'Nenhuma alteração registrada.', 'v345-audit-empty'));
+    } catch (error) {
+      if (epoch === serial) {
+        const code=String(error?.code??error?.message??'');
+        const denied=['ADMIN_DENIED','ACCESS_DENIED','permission-denied','UNAUTHENTICATED','SESSION_CHANGED'].includes(code);
+        const transport=['unavailable','deadline-exceeded','AI_UNAVAILABLE','ADMIN_UNAVAILABLE','UNAVAILABLE'].includes(code);
+        status.textContent=denied?'Acesso administrativo não autorizado.':transport?'Serviço administrativo temporariamente indisponível.':'Não foi possível carregar o painel administrativo. Reabra para tentar novamente.';
+        console.warn('[Smart Admin] '+(denied?'AUTHORIZATION':transport?'SERVICE_UNAVAILABLE':'PANEL_LOAD_FAILED'));
+      }
     }
   }
 

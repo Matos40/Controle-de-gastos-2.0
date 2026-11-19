@@ -18,9 +18,13 @@
   <link id="faviconLink" rel="icon" type="image/png" href="./raytech-app-192.png">
   <link id="appleTouchIconLink" rel="apple-touch-icon" href="./raytech-app-192.png">
   <!-- Link dinâmico para o Web App Manifest -->
-  <link id="pwaManifestLink" rel="manifest" href="./manifest.json">
+  <link rel="manifest" href="./manifest.json">
+<script type="module" src="./js/pwa/register.mjs"></script>
+<script type="module" src="./js/pwa/visual.mjs"></script>
+<script type="module" src="./js/ui/drawer-viewport.mjs"></script>
+<link rel="stylesheet" href="./css/pwa-visual.css">
 
-  <style>[hidden]{display:none!important}.hidden{display:none}#pinLockOverlay.hidden,#pwaInstallModal.hidden,#pinSetupModal.hidden,#confirmModal.hidden,#editExpenseModal.hidden,#editCardModal.hidden,#incomeModal.hidden,#apiKeyModal.hidden,#ocrModal.hidden,#premiumAiNotice.hidden,#cleanWorkspaceGate.hidden,#headerToolsDrawer.hidden,#offlineBanner.hidden,#tabContentGeneral.hidden,#tabContentCard.hidden,#tabContentAnalytics.hidden,#tabContentHistory.hidden,#unlockPinError.hidden,#directInstallSection.hidden,#removePinBtn.hidden,#ocrPreviewContainer.hidden,#ocrPdfPreview.hidden,#ocrPdfPrivacy.hidden,#ocrLoading.hidden,#ocrErrorBox.hidden,#emptyState.hidden,#cardEmptyState.hidden,#historyEmptyState.hidden{display:none!important}html{background:#020617;color:#e2e8f0}body{margin:0}</style>
+  
 <link rel="stylesheet" href="./vendor/tailwind.css">
 <link rel="stylesheet" href="./vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="./vendor/orbitron/latin-800.css">
@@ -33,13 +37,12 @@
 <script src="./vendor/xlsx.full.min.js"></script>
 <script src="./vendor/chart.umd.js"></script>
 <link rel="stylesheet" href="./css/styles.css">
-<link rel="stylesheet" href="./css/pwa-visual.css">
-<script type="module" src="./js/pwa/register.mjs"></script>
-<script type="module" src="./js/pwa/visual.mjs"></script>
-<script type="module" src="./js/ui/drawer-viewport.mjs"></script>
-<link rel="stylesheet" href="./css/smart-login.css"><style>#smartAccountApp[hidden]{display:none!important}#smartLogin[hidden]{display:none!important}</style><style>#smartAdminOpen[hidden],#smartAdminHost[hidden]{display:none!important}#smartAdminHost{position:fixed;inset:12px;z-index:99999;overflow:auto;padding:24px;background:#06182e;color:#e1f5ff;border:1px solid #38bdf8;border-radius:20px;box-shadow:0 0 32px #0ea5e955}#smartAdminHost h2{font-size:24px;color:#38bdf8}.admin-action{background:#0b2942;color:#7dd3fc;border:1px solid #2388bd;border-radius:8px;padding:8px;margin:5px}.admin-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid #245879;padding:9px;overflow-wrap:anywhere}</style><style>.admin-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:12px;margin:16px 0}.admin-stat{background:#0b2942;border:1px solid #245879;border-radius:12px;padding:16px;display:grid}.admin-stat strong{font-size:28px;color:#38bdf8}.admin-tools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.admin-tools input,.admin-tools select{background:#0b2942;color:#e1f5ff;border:1px solid #245879;border-radius:8px;padding:10px;min-width:0}.admin-tools input{flex:1;min-width:150px}.admin-info{display:grid;gap:4px;flex:1;min-width:160px}.admin-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover}.admin-info small{color:#9ac2d8}#smartAdminHost details{margin:8px 0;color:#9ac2d8}#smartAdminHost h3{margin-top:24px;color:#38bdf8}@media(max-width:480px){#smartAdminHost{padding:14px}.admin-row{align-items:flex-start}.admin-tools>*{width:100%}}</style><link rel="stylesheet" href="./css/smart-interface.css"></head>
-<body class="bg-slate-950 text-slate-100 min-h-screen antialiased flex flex-col selection:bg-emerald-500 selection:text-slate-950 pb-20 sm:pb-0"><main class="smart-login" id="smartLogin"><svg class="smart-login__chart smart-login__chart--left" viewBox="0 0 150 100" aria-hidden="true"><g fill="currentColor"><rect x="10" y="78" width="15" height="15"/><rect x="35" y="60" width="15" height="33"/><rect x="60" y="47" width="15" height="46"/><rect x="85" y="28" width="15" height="65"/><rect x="110" y="10" width="15" height="83"/></g></svg><svg class="smart-login__chart smart-login__chart--right" viewBox="0 0 150 100" aria-hidden="true"><path d="M10 88L40 59 65 70 97 36 120 50 142 10" fill="none" stroke="currentColor" stroke-width="3"/></svg><section class="smart-login__card" aria-labelledby="loginTitle"><img class="smart-login__logo" src="./raytech-icon-512.png" alt=""><h1 id="loginTitle">Raytech CG</h1><p class="smart-login__tag">Sua vida financeira começa aqui</p><div class="smart-login__line"></div><p class="smart-login__plan"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i><strong>Plano Free</strong> · Simples, seguro e pessoal.</p><button type="button" data-login-enter hidden><svg width="23" height="23" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.7-.4-4H24v7.6h11a9.4 9.4 0 0 1-4.1 6.1v5h6.6c3.9-3.6 6.1-8.8 6.1-14.7Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.8l-6.6-5a12 12 0 0 1-17.9-6.3H6.2V33A20 20 0 0 0 24 44Z"/><path fill="#FBBC05" d="M13 27.9a12 12 0 0 1 0-7.8V15H6.2a20 20 0 0 0 0 18Z"/><path fill="#EA4335" d="M24 12c3 0 5.6 1.1 7.7 3l5.8-5.8A19.9 19.9 0 0 0 6.2 15l6.8 5.1A11.7 11.7 0 0 1 24 12Z"/></svg>Entrar com Google</button><button type="button" data-login-exit hidden><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Sair</button><button type="button" data-login-retry hidden>Tentar novamente</button><p class="smart-login__status" role="status" aria-live="polite" data-login-status>Verificando sessão…</p><p class="smart-login__protected"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Seus dados protegidos</p><small>PRIVACIDADE　 |　 SEGURANÇA　 |　 CONTROLE FINANCEIRO</small></section></main>
-<div id="smartAccountApp" hidden inert><div class="v345-account" hidden><span class="v345-environment">Raytech CG · Administração</span><details class="v345-profile"><summary aria-label="Perfil e opções da conta"><span id="v345Avatar" aria-hidden="true"></span><strong id="v345Identity"></strong><span aria-hidden="true">⌄</span></summary><div class="v345-profile-menu"><button id="smartAdminOpen" hidden type="button" class="admin-action">Painel administrativo</button><button id="v345Logout" type="button" class="admin-action">Sair da conta</button></div></details></div><section id="smartAdminHost" hidden aria-label="Painel administrativo"></section>
+<link rel="stylesheet" href="./css/v345.css">
+<link rel="stylesheet" href="./css/smart-login.css?v=neon3"><style>#smartAccountApp[hidden]{display:none!important}#smartLogin[hidden]{display:none!important}</style><style>#smartAdminOpen[hidden],#smartAdminHost[hidden]{display:none!important}#smartAdminHost{position:fixed;inset:12px;z-index:99999;overflow:auto;padding:24px;background:#06182e;color:#e1f5ff;border:1px solid #38bdf8;border-radius:20px;box-shadow:0 0 32px #0ea5e955}#smartAdminHost h2{font-size:24px;color:#38bdf8}.admin-action{background:#0b2942;color:#7dd3fc;border:1px solid #2388bd;border-radius:8px;padding:8px;margin:5px}.admin-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid #245879;padding:9px;overflow-wrap:anywhere}</style><style>.admin-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:12px;margin:16px 0}.admin-stat{background:#0b2942;border:1px solid #245879;border-radius:12px;padding:16px;display:grid}.admin-stat strong{font-size:28px;color:#38bdf8}.admin-tools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.admin-tools input,.admin-tools select{background:#0b2942;color:#e1f5ff;border:1px solid #245879;border-radius:8px;padding:10px;min-width:0}.admin-tools input{flex:1;min-width:150px}.admin-info{display:grid;gap:4px;flex:1;min-width:160px}.admin-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover}.admin-info small{color:#9ac2d8}#smartAdminHost details{margin:8px 0;color:#9ac2d8}#smartAdminHost h3{margin-top:24px;color:#38bdf8}@media(max-width:480px){#smartAdminHost{padding:14px}.admin-row{align-items:flex-start}.admin-tools>*{width:100%}}</style></head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased flex flex-col selection:bg-emerald-500 selection:text-slate-950 pb-20 sm:pb-0"><main class="smart-login" id="smartLogin"><svg class="smart-login__chart smart-login__chart--left" viewBox="0 0 150 100" aria-hidden="true"><g fill="currentColor"><rect x="10" y="78" width="15" height="15"/><rect x="35" y="60" width="15" height="33"/><rect x="60" y="47" width="15" height="46"/><rect x="85" y="28" width="15" height="65"/><rect x="110" y="10" width="15" height="83"/></g></svg><svg class="smart-login__chart smart-login__chart--right" viewBox="0 0 150 100" aria-hidden="true"><path d="M10 88L40 59 65 70 97 36 120 50 142 10" fill="none" stroke="currentColor" stroke-width="3"/></svg><section class="smart-login__card" aria-labelledby="loginTitle"><img class="smart-login__logo" src="./raytech-icon-512.png" alt=""><h1 id="loginTitle">Raytech CG</h1><p class="smart-login__tag">Sua vida financeira começa aqui</p><div class="smart-login__line"></div><p class="smart-login__plan"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i><strong>Plano Free</strong> · Simples, seguro e pessoal.</p>
+
+<button type="button" data-login-enter hidden><svg width="23" height="23" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.7-.4-4H24v7.6h11a9.4 9.4 0 0 1-4.1 6.1v5h6.6c3.9-3.6 6.1-8.8 6.1-14.7Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.8l-6.6-5a12 12 0 0 1-17.9-6.3H6.2V33A20 20 0 0 0 24 44Z"/><path fill="#FBBC05" d="M13 27.9a12 12 0 0 1 0-7.8V15H6.2a20 20 0 0 0 0 18Z"/><path fill="#EA4335" d="M24 12c3 0 5.6 1.1 7.7 3l5.8-5.8A19.9 19.9 0 0 0 6.2 15l6.8 5.1A11.7 11.7 0 0 1 24 12Z"/></svg>Entrar com Google</button><button type="button" data-login-exit hidden><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Sair</button><button type="button" data-login-retry hidden>Tentar novamente</button><div data-pwa-splash class="pwa-splash" aria-hidden="true"><span></span></div><p class="smart-login__status" role="status" aria-live="polite" data-login-status>Verificando sessão…</p><p class="smart-login__protected"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Seus dados protegidos</p><small>PRIVACIDADE　 |　 SEGURANÇA　 |　 CONTROLE FINANCEIRO</small></section></main>
+<div id="smartAccountApp" hidden inert><section id="smartAdminHost" hidden aria-label="Painel administrativo"></section>
 
   <!-- Barra de Status Offline (Exibida automaticamente quando sem internet) -->
   <div id="offlineBanner" class="hidden bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-xs font-semibold py-2 px-4 text-center items-center justify-center gap-2 z-50">
@@ -448,6 +451,16 @@
   <div id="cleanWorkspaceGate" class="hidden fixed inset-0 z-[110] bg-slate-950 p-8 flex flex-col items-center justify-center gap-4" role="alert"><p id="cleanWorkspaceGateStatus" class="text-center">Preparando banco V2 separado...</p><form id="mainRecoveryForm" hidden class="hidden flex flex-col gap-3 max-w-md"><label for="mainRecoveryFile">Backup JSON do V2 principal</label><input id="mainRecoveryFile" type="file" accept=".json,application/json" required><input id="mainRecoveryPin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN do aplicativo" autocomplete="off"><label><input id="mainRecoveryConfirm" type="checkbox" required> Confirmo a recuperação do banco principal e a preservação da cópia anterior.</label><button id="mainRecoverySubmit" type="submit" class="bg-emerald-700 rounded p-2">Restaurar banco principal</button></form><a href="./?workspace=legacy" class="text-emerald-300 underline">Abrir banco legado</a><a href="./?workspace=v2-main" class="text-emerald-300 underline">Abrir banco V2 principal</a></div>
   <div id="cleanWorkspaceBanner" class="hidden bg-emerald-950 text-emerald-200 px-4 py-2 text-center text-xs font-bold">BANCO V2 SEPARADO · local · nuvem desativada | Seu histórico legado está preservado</div>
   <header class="raytech-header-shell border-b border-slate-800/80 bg-slate-900/75 backdrop-blur-md sticky top-0 z-40">
+<div class="v345-account" hidden>
+  <span class="v345-environment">V34.7.4.5 · Administração</span>
+  <details class="v345-profile">
+    <summary aria-label="Perfil e opções da conta"><span id="v345Avatar" aria-hidden="true"></span><strong id="v345Identity"></strong><span class="v345-chevron" aria-hidden="true">⌄</span></summary>
+    <div class="v345-profile-menu">
+      <button id="smartAdminOpen" hidden type="button" class="admin-action">Smart Admin</button>
+      <button id="v345Logout" type="button" class="admin-action">Sair</button>
+    </div>
+  </details>
+</div>
     <div class="raytech-header-anchor max-w-6xl mx-auto px-3.5 sm:px-6 py-3">
       
       <!-- Barra Principal Enxuta -->
@@ -462,9 +475,9 @@
               <h1 class="text-sm sm:text-lg font-bold tracking-tight text-white truncate">
                 Raytech CG
               </h1>
-              <span id="pwaInstalledBadge" class="hidden text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+              <span id="pwaInstalledBadge" class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                 App
-              </span><span id="raytechHeaderVersion" class="v3468-version" aria-label="Versão do aplicativo"></span>
+              </span><span id="raytechHeaderVersion" class="v3468-version" aria-label="Versão do aplicativo">v34.7.4.5</span>
             </div>
             <p class="text-[11px] text-slate-400 hidden sm:block">Salário, contas fixas, cartão e modo offline</p>
           </div>
@@ -512,10 +525,10 @@
 
       <!-- Painel Expansível de Ferramentas Organizado por Categorias (Oculto por padrão) -->
       <div id="headerToolsDrawer" tabindex="0" role="region" aria-label="Opções do aplicativo" class="hidden">
+        <div class="raytech-drawer-heading"><h2>Opções</h2><button type="button" id="mobileDrawerClose" aria-label="Fechar opções">×</button></div>
         <!-- Input oculto para o arquivo Excel -->
         <input type="file" id="excelImportInput" accept=".xlsx, .xls, .xlsm" class="sr-only" onchange="handleExcelImport(event)">
 
-        <div class="raytech-drawer-heading"><h2>Opções</h2><button type="button" id="mobileDrawerClose" aria-label="Fechar opções">×</button></div>
         <div class="raytech-options-grid">
           
           <!-- Categoria 1: Ações do Mês & IA -->
@@ -564,7 +577,7 @@
             <div id="productionCloudProfile" hidden class="items-center gap-3">
                 <span id="productionCloudInitial" class="rounded-full bg-slate-800 w-10 h-10 flex items-center justify-center shrink-0">G</span>
                 <img id="productionCloudPhoto" alt="" referrerpolicy="no-referrer" hidden class="rounded-full w-10 h-10 object-cover shrink-0">
-                <div class="min-w-0 flex-1"><p id="productionCloudName" class="text-sm font-semibold truncate"></p><p class="text-xs text-slate-400">Conta Google</p><p id="productionCloudPremiumGreeting" hidden class="mt-1 text-xs font-bold text-amber-400">Parabéns, você é PREMIUM</p></div>
+                <div class="min-w-0 flex-1"><p id="productionCloudName" class="text-sm font-semibold truncate"></p><p class="text-xs text-slate-400">Conta Google · <span id="productionCloudPlanLabel"></span></p><p id="productionCloudPremiumGreeting" hidden class="mt-1 text-xs font-bold text-amber-400">Parabéns, você é PREMIUM</p></div>
                 <button type="button" disabled id="productionCloudLogout" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40" title="Sair da conta" aria-label="Sair da conta"><i class="fa-solid fa-right-from-bracket"></i></button>
               </div>
             <section id="productionCloudState" class="space-y-1">
@@ -573,12 +586,12 @@
               
             </section>
             <div id="productionCloudTransferActions" hidden class="grid-cols-2 gap-1.5">
-              <button type="button" disabled id="productionCloudSeed" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Vincular e sincronizar</button>
+              <button type="button" disabled id="productionCloudSeed" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Enviar dados deste dispositivo</button>
               <button type="button" disabled id="productionCloudAdopt" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Receber da nuvem</button>
 
 
             </div>
-            <p hidden id="productionCloudStatus" role="status" class="text-xs text-slate-400">Login disponível para validação após carregamento.</p>
+            <button type="button" disabled id="productionCloudInspect" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Revisar vínculo com Firestore</button><p hidden id="productionCloudStatus" role="status" class="text-xs text-slate-400">Login disponível para validação após carregamento.</p>
 
             <button type="button" id="productionCloudSyncNow" hidden disabled class="w-full p-2 rounded-lg bg-blue-700 text-white text-xs disabled:opacity-40">Sincronizar agora</button>
             <button type="button" id="productionCloudRetry" hidden class="w-full p-2 rounded-lg border border-slate-700 text-xs">Tentar novamente</button>
@@ -595,17 +608,18 @@
             <p id="productionCloudNotice" role="status" class="text-xs text-amber-300" hidden></p>
             <div id="productionCloudSetup" hidden class="space-y-2 rounded-lg border border-amber-500/30 p-2">
               <p class="text-xs text-amber-300">Revise os dados antes de vincular este dispositivo.</p>
-              <pre id="productionCloudPlan" class="text-xs whitespace-pre-wrap break-all"></pre>
+              <div id="productionCloudPlan" class="text-xs space-y-1" aria-live="polite"></div>
               <button type="button" disabled id="productionCloudBackup" class="p-2 rounded-lg bg-slate-900 text-xs disabled:opacity-40">Exportar backup local</button>
+              <button type="button" hidden id="productionCloudRemoteBackup" class="p-2 rounded-lg bg-slate-900 text-xs">Exportar backup da nuvem</button>
               <label class="block text-xs"><input id="productionCloudConsent" type="checkbox"> Confirmo a operação apresentada</label>
-              <label class="block text-xs"><input id="productionCloudBackupSaved" type="checkbox"> Guardei o backup exportado</label>
+              <label class="block text-xs"><input id="productionCloudBackupSaved" type="checkbox"> Guardei o backup local e, se houver, o da nuvem</label>
             </div>
             <details hidden id="productionCloudAdvanced" class="border-t border-slate-800 pt-2 space-y-2">
               <summary class="text-xs font-semibold text-slate-300 cursor-pointer">Manutenção e recuperação</summary>
               <div class="space-y-2">
               <details><summary class="text-xs font-semibold">Controles de conexão</summary><div class="grid grid-cols-2 gap-2 py-2"><button type="button" disabled id="productionCloudConnect" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Conectar nuvem</button>
 <button type="button" disabled id="productionCloudLogin" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Entrar com Google</button>
-<button type="button" disabled id="productionCloudInspect" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Verificar conta</button>
+
 <button type="button" disabled id="productionCloudRefresh" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs disabled:opacity-40">Sincronizar agora</button>
 <button type="button" disabled id="productionCloudPause" class="p-2 rounded-lg bg-slate-900 text-xs disabled:opacity-40">Pausar</button>
 <button type="button" disabled id="productionCloudResume" class="p-2 rounded-lg bg-slate-900 text-xs disabled:opacity-40">Retomar explicitamente</button></div></details>
@@ -721,7 +735,7 @@
                 <span class="text-[10px] font-semibold leading-tight">Senha PIN</span>
               </button>
 
-              <button type="button" id="v3468Logout" hidden class="pwa-tile"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span>Sair da conta</span></button><button type="button" id="smartPwaOpen" class="pwa-tile"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span>Instalar App</span></button>
+              <button type="button" id="smartPwaOpen" class="pwa-tile"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span>Instalar App</span></button>
             </div>
           </div>
 
@@ -730,19 +744,29 @@
 
     </div>
   </header>
-
-  <dialog id="smartPwaDialog" class="pwa-dialog" aria-labelledby="smartPwaTitle">
-  <div class="pwa-heading"><img src="./raytech-icon-192.png" alt="" width="48" height="48"><div><h2 id="smartPwaTitle">Instalar Raytech CG</h2><p>Seu controle financeiro sempre à mão.</p></div><button type="button" id="smartPwaClose" class="pwa-close" aria-label="Fechar opções do aplicativo">×</button></div>
-  <p class="v3468-install-version">Versão instalada: <span id="raytechInstallVersion"></span></p><p id="smartPwaStatus" role="status" aria-live="polite"></p>
+<dialog id="smartPwaDialog" class="pwa-dialog" aria-labelledby="smartPwaTitle">
+  <div class="pwa-heading"><img src="./raytech-icon-192.png" alt="" width="48" height="48"><div><h2 id="smartPwaTitle">Instalar Raytech CG</h2><p class="v3468-install-version" id="raytechInstallVersion">V34.7.4.5</p><p>Seu controle financeiro sempre à mão.</p></div><button type="button" id="smartPwaClose" class="pwa-close" aria-label="Fechar opções do aplicativo">×</button></div>
+  <p id="smartPwaStatus" role="status" aria-live="polite"></p>
   <ul class="pwa-benefits"><li>Aplicativo no computador e celular</li><li>Registre despesas offline após preparação online</li><li>Sincronização ao recuperar a conexão e autorização</li></ul>
-  <p class="pwa-note">A abertura offline depende de sessão autorizada e dos recursos já preparados neste dispositivo.</p>
+  <p class="pwa-note">A abertura offline exige o mesmo UID autenticado e verificação online válida nas últimas 24 horas.</p>
   <button type="button" id="smartPwaInstall" class="pwa-primary" hidden>Instalar aplicativo</button>
   <details id="smartPwaHelp"><summary>Como instalar</summary><p>Windows: Chrome ou Edge, menu de instalação do aplicativo. Android: menu do navegador, Instalar aplicativo ou Adicionar à tela inicial. iPhone/iPad: Safari, Compartilhar, Adicionar à Tela de Início.</p></details>
   <section class="pwa-update"><h3>Smart Update</h3><p id="smartPwaUpdateText">Verifique se há uma nova versão.</p><button type="button" id="smartPwaCheck" class="pwa-secondary">Verificar atualização</button><p id="smartPwaFeedback" role="status"></p></section>
 </dialog>
 <section id="smartPwaNotice" hidden class="pwa-notice" aria-label="Atualização disponível"><div><strong>Nova versão preparada</strong><p>Conclua suas operações e feche todas as janelas para atualizar.</p></div><button type="button" id="smartPwaNoticeOpen" class="pwa-secondary">Detalhes</button><button type="button" id="smartPwaNoticeLater" class="pwa-close" aria-label="Dispensar aviso">×</button></section>
 
-  <!-- Modal Chave da API Gemini -->
+  
+<dialog id="premiumAiNotice" aria-labelledby="premiumAiTitle" class="raytech-premium-dialog">
+    <section class="w-full max-w-sm bg-slate-900 border border-amber-500/40 rounded-2xl p-6 text-center space-y-4">
+      <i class="fa-solid fa-crown text-amber-400 text-3xl" aria-hidden="true"></i>
+      <h2 id="premiumAiTitle" class="text-lg font-bold text-amber-400">Recurso exclusivo Premium</h2>
+      <p class="text-sm text-slate-300">Extraia os gastos de imagens e PDFs com IA e configure sua chave Gemini no plano Premium.</p>
+      <p id="premiumAiOfflineNote" class="hidden text-xs text-slate-400">Conecte-se à internet para verificar sua permissão.</p>
+      <p class="text-xs text-slate-400">A ativação do Premium é realizada pela administração do aplicativo.</p>
+      <button type="button" id="premiumAiNoticeClose" onclick="closePremiumAiNotice()" class="w-full p-3 rounded-xl bg-amber-900/50 border border-amber-500/40 text-amber-200 font-bold">Entendi</button>
+    </section>
+  </dialog>
+<!-- Modal Chave da API Gemini -->
   <div id="apiKeyModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-amber-500/30 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
       <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
@@ -793,16 +817,7 @@
     </div>
   </div>
 
-  <div id="premiumAiNotice" role="dialog" aria-modal="true" aria-labelledby="premiumAiTitle" class="hidden fixed inset-0 z-[110] bg-slate-950/90 flex items-center justify-center p-4">
-    <section class="w-full max-w-sm bg-slate-900 border border-amber-500/40 rounded-2xl p-6 text-center space-y-4">
-      <i class="fa-solid fa-crown text-amber-400 text-3xl" aria-hidden="true"></i>
-      <h2 id="premiumAiTitle" class="text-lg font-bold text-amber-400">Recurso exclusivo Premium</h2>
-      <p class="text-sm text-slate-300">Extraia os gastos de imagens e PDFs com IA e configure sua chave Gemini no plano Premium.</p>
-      <p id="premiumAiOfflineNote" class="hidden text-xs text-slate-400">Conecte-se à internet para verificar sua permissão.</p>
-      <p class="text-xs text-slate-400">A ativação do Premium é realizada pela administração do aplicativo.</p>
-      <button type="button" id="premiumAiNoticeClose" onclick="closePremiumAiNotice()" class="w-full p-3 rounded-xl bg-amber-900/50 border border-amber-500/40 text-amber-200 font-bold">Entendi</button>
-    </section>
-  </div>
+  
 
   <!-- Modal IA Leitor de Fatura por Print -->
   <div id="ocrModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
@@ -894,8 +909,11 @@
             <!-- Indicador do Saldo Anterior Herdado -->
             <span id="previousBalanceHeaderBadge" class="hidden items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg border shadow-sm"></span>
           </div>
-          <h2 class="text-lg sm:text-2xl font-bold text-white tracking-tight">Qual é a sua renda mensal<span class="v3468-question">?</span></h2>
-          <p id="incomeBaseHelp" class="raytech-income-base-help text-xs sm:text-sm text-slate-400 leading-relaxed">
+          <div class="raytech-income-heading">
+            <h2 class="text-lg sm:text-2xl font-bold text-white tracking-tight">Qual é a sua renda mensal</h2>
+            <button type="button" id="incomeBaseHelpToggle" class="raytech-income-help-toggle" aria-label="Ajuda sobre renda base" aria-controls="incomeBaseHelp" aria-expanded="false">?</button>
+          </div>
+          <p id="incomeBaseHelp" hidden class="text-xs sm:text-sm text-slate-400 leading-relaxed">
             Insira sua renda líquida mensal. Recebeu um Pix, bônus ou freela?<br>
             Use o botão ao lado para somar à renda.
           </p>
