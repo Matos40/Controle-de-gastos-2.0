@@ -4,12 +4,12 @@ let invoiceGeneration = 0, invoiceBusy = false, invoiceAbort = null;
 const PDF_LIMIT = 10 * 1024 * 1024;
 let cancelInvoiceReview = null;
 function canUseInvoiceAI(){return globalThis.raytechCanUseInvoiceAI?.()===true;}
-function closePremiumAiNotice(){document.getElementById('premiumAiNotice')?.classList.add('hidden');}
+function closePremiumAiNotice(){document.getElementById('premiumAiNotice')?.close();}
 function requireInvoiceAI(notify=true){
   if(canUseInvoiceAI())return true;
   if(notify&&!window.raytechSessionRevoked&&!document.getElementById('smartAccountApp')?.hidden){
     document.getElementById('premiumAiOfflineNote')?.classList.toggle('hidden',navigator.onLine!==false);
-    document.getElementById('premiumAiNotice')?.classList.remove('hidden');
+    const offer=document.getElementById('premiumAiNotice');if(offer&&!offer.open)offer.showModal();
     document.getElementById('premiumAiNoticeClose')?.focus();
   }
   return false;
@@ -17,7 +17,7 @@ function requireInvoiceAI(notify=true){
 function refreshInvoiceAIPermission(){
   const allowed=canUseInvoiceAI();
   const scan=document.getElementById('premiumInvoiceIndicator'),key=document.getElementById('premiumApiKeyIndicator');
-  if(scan)scan.className=allowed?'fa-solid fa-chevron-right text-[10px] opacity-75':'fa-solid fa-lock text-amber-400';
+  if(scan)scan.className=allowed?'fa-solid fa-crown text-amber-400':'fa-solid fa-lock text-amber-400';
   if(key)key.className=allowed?'fa-solid fa-key text-amber-400 text-sm':'fa-solid fa-lock text-amber-400 text-sm';
   for(const id of ['premiumInvoiceButton','premiumApiKeyButton']){
     const button=document.getElementById(id);if(button)button.title=allowed?'':'Recurso exclusivo Premium';

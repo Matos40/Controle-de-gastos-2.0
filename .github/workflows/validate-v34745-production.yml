@@ -1,0 +1,34 @@
+name: V34.7.4.5 production candidate
+on:
+  push:
+    branches: [release-candidate/v34.7.4.5-production]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    if: github.repository == 'Matos40/Controle-de-gastos-2.0' && github.ref == 'refs/heads/release-candidate/v34.7.4.5-production'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Verify visual references and package static files
+        run: node validation/v34745/pack.mjs
+      - name: Install test browser
+        run: |
+          npm install --prefix validation/v34745 --no-audit --no-fund playwright@1.56.1
+          validation/v34745/node_modules/.bin/playwright install --only-shell chromium
+      - name: Validate four profiles with isolated Firebase and Gemini fixtures
+        env:
+          RAYTECH_PROD_CANDIDATE: ${{ github.workspace }}/release-output/candidate
+        run: node --test validation/v34745/browser.test.mjs
+      - uses: actions/upload-artifact@v5
+        with:
+          name: raytech-v34745-production-candidate
+          path: release-output/
+          if-no-files-found: error
